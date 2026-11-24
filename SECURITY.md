@@ -27,6 +27,12 @@ Include steps to reproduce and the affected version. You will get a reply within
   fields.
 - Security alerts are shown in the admin and emailed; account-security alerts can't be turned off.
 - Profile pictures are re-encoded to WebP, which removes metadata.
+- Error pages never show internal details outside debug mode. Unexpected errors show only a short
+  reference. The stored stack trace has no argument values, and the admin Error log needs the
+  Settings permission.
+- Maintenance mode: switching it needs a one-time code and alerts every administrator. The preview
+  link is a random token, and the cookie it sets is an HMAC that stops working when the link is
+  replaced.
 - Strict Content-Security-Policy on the admin; frame, base-uri, object and form-action limits on the site
 - HTML from the editor is sanitised; uploads are type-checked and PHP execution is blocked in `uploads/`
 - Uploaded images are re-encoded (metadata/GPS removed); PDFs are verified by file signature

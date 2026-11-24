@@ -28,7 +28,7 @@ $path = request_path();
       <?php foreach (admin_nav() as $item): ?>
         <?php if ($item[0] === '_'): ?><p class="adm-nav-heading"><?= e($item[1]) ?></p><?php continue; endif ?>
         <?php if (!can($item[3])) continue;
-          $active = $item[1] === 'admin' ? $path === '/admin' : str_starts_with($path . '/', '/' . $item[1] . '/') || ($item[1] === 'admin/settings/general' && str_starts_with($path, '/admin/settings') && !str_ends_with($path, 'integrations')); ?>
+          $active = $item[1] === 'admin' ? $path === '/admin' : str_starts_with($path . '/', '/' . $item[1] . '/') || ($item[1] === 'admin/settings/general' && str_starts_with($path, '/admin/settings') && !preg_match('~/(integrations|maintenance)$~', $path)); ?>
         <a href="<?= e(url($item[1])) ?>" class="adm-nav-link<?= $active ? ' is-active' : '' ?>"<?= $active ? ' aria-current="page"' : '' ?>>
           <?= icon($item[2], 'h-[18px] w-[18px]') ?><span class="flex-1"><?= e($item[0]) ?></span>
           <?php if (!empty($item[4])): ?><span class="adm-nav-badge"><?= (int) $item[4] ?></span><?php endif ?>
@@ -76,6 +76,14 @@ $path = request_path();
       ?>
       <?php if ($needs2fa): ?>
       <div class="adm-flash adm-flash-info" role="status"><?= icon('shield-alert', 'h-5 w-5 shrink-0') ?><span>Protect your administrator account: add a <strong>passkey</strong> or an <strong>authenticator app</strong> so a stolen password is not enough to sign in.</span><a class="adm-btn adm-btn-light adm-btn-sm ml-auto shrink-0" href="<?= e(url('admin/profile#passkeys')) ?>">Set up now</a></div>
+      <?php endif ?>
+      <?php $mState = maintenance_state(); if ($mState['active'] && $path !== '/admin/settings/maintenance'): ?>
+      <div class="adm-maint-banner" role="status">
+        <?= icon('construction', 'h-5 w-5 shrink-0') ?>
+        <span class="min-w-0 flex-1"><strong>Maintenance mode is on.</strong> Visitors see the maintenance page<?= $mState['until'] ? ($mState['until'] > time() ? ' until about ' . e(maintenance_time($mState['until'])) : ' (the expected end time has passed)') : '' ?><?= $mState['source'] === 'scheduled' ? ' — scheduled window' : '' ?>.</span>
+        <a class="adm-btn adm-btn-light adm-btn-sm shrink-0" href="<?= e(url('?maintenance_preview=1')) ?>" target="_blank" rel="noopener"><?= icon('eye', 'h-4 w-4') ?> Preview</a>
+        <?php if (can('settings')): ?><form method="post" action="<?= e(url('admin/maintenance')) ?>" class="shrink-0"><?= csrf_field() ?><input type="hidden" name="action" value="off"><input type="hidden" name="return" value="<?= e(ltrim($path, '/')) ?>"><button class="adm-btn adm-btn-primary adm-btn-sm"><?= icon('power', 'h-4 w-4') ?> Go live now</button></form><?php endif ?>
+      </div>
       <?php endif ?>
       <?php if ($cronStale): ?>
       <div class="adm-flash adm-flash-error" role="status"><?= icon('clock', 'h-5 w-5 shrink-0') ?><span>Scheduled tasks have not run in over a day, so backups and follow-up emails are not happening.</span><a class="adm-btn adm-btn-light adm-btn-sm ml-auto shrink-0" href="<?= e(url('admin/backups')) ?>">Fix</a></div>

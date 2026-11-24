@@ -140,6 +140,21 @@ function settings_tabs(): array
             'backup_keep' => ['type' => 'number', 'label' => 'Keep the newest', 'default' => 14, 'help' => 'Number of daily backups to keep.'],
             'backup_uploads' => ['type' => 'checkbox', 'label' => 'Uploads', 'text' => 'Also zip uploaded images and documents (uses more disk space)', 'default' => false, 'wide' => true],
         ]],
+        'maintenance' => ['Maintenance mode', 'construction', [
+            'h_m' => ['type' => 'heading', 'label' => 'Maintenance mode', 'help' => 'Visitors see a branded “we’ll be back” page with HTTP 503, which tells search engines to come back later without losing rankings. Signed-in team members, allowed IP addresses and anyone with the preview link still see the normal site. The admin keeps working.'],
+            'maintenance_enabled' => ['type' => 'checkbox', 'label' => 'Status', 'text' => 'Show the maintenance page to visitors now', 'wide' => true],
+            'maintenance_until' => ['type' => 'datetime', 'label' => 'Expected back (optional)', 'help' => 'Shown as a live countdown, and sent to search engines as the retry time.'],
+            'h_sched' => ['type' => 'heading', 'label' => 'Schedule a maintenance window (optional)', 'help' => 'The site switches to maintenance by itself at the start time and back to normal at the end time. Leave empty to switch by hand.'],
+            'maintenance_start' => ['type' => 'datetime', 'label' => 'Starts'],
+            'maintenance_end' => ['type' => 'datetime', 'label' => 'Ends'],
+            'h_page' => ['type' => 'heading', 'label' => 'Page content'],
+            'maintenance_title' => ['type' => 'text', 'label' => 'Headline', 'default' => 'We’ll be back shortly', 'wide' => true],
+            'maintenance_message' => ['type' => 'textarea', 'label' => 'Message', 'rows' => 3, 'default' => 'We’re carrying out planned improvements to our website. Thank you for your patience — everything will be back online very soon.'],
+            'maintenance_show_contact' => ['type' => 'checkbox', 'label' => 'Contact box', 'text' => 'Show phone, email and WhatsApp so customers can still reach you', 'default' => true, 'wide' => true],
+            'maintenance_contact_note' => ['type' => 'text', 'label' => 'Contact box text', 'default' => 'Urgent breakdown or spare-part request? Our team is still available.', 'wide' => true],
+            'h_access' => ['type' => 'heading', 'label' => 'Who can still see the site', 'help' => 'Signed-in team members always can. Add office or developer IP addresses, or ranges such as 203.0.113.0/24.'],
+            'maintenance_allow_ips' => ['type' => 'lines', 'label' => 'Allowed IP addresses (one per line)', 'wide' => true],
+        ]],
         'system' => ['System', 'server', []],
     ];
 }
@@ -154,6 +169,8 @@ function admin_settings(string $tab): void
     // Security, email (SMTP password) and integration keys: confirm identity before even showing them
     $sensitiveTab = in_array($tab, ['security', 'email', 'integrations'], true);
     if ($sensitiveTab) require_stepup('settings');
+    // Taking the site offline (or back online) is confirmed with a one-time code
+    if ($tab === 'maintenance' && is_post()) require_stepup('maintenance');
 
     if (is_post() && $schema) {
         csrf_check();
@@ -167,6 +184,17 @@ function admin_settings(string $tab): void
                 if ($k === 'meta_pixel_id') $values[$k] = preg_replace('~\D~', '', $values[$k]);
                 if ($values[$k] !== '' && !preg_match($re, $values[$k])) $errors[$k] = 'This ID format looks wrong.';
             }
+        }
+        if ($tab === 'maintenance') {
+            $start = $values['maintenance_start'] ? strtotime($values['maintenance_start']) : null;
+            $end = $values['maintenance_end'] ? strtotime($values['maintenance_end']) : null;
+            if ($end && !$start) $errors['maintenance_start'] = 'Set a start time for the window, or clear the end time.';
+            if ($start && $end && $end <= $start) $errors['maintenance_end'] = 'The end must be after the start.';
+            if ($end && $end <= time() && !isset($errors['maintenance_end'])) $errors['maintenance_end'] = 'This time has already passed.';
+            foreach ($values['maintenance_allow_ips'] as $rule) {
+                if (!ip_rule_valid($rule)) { $errors['maintenance_allow_ips'] = '“' . $rule . '” is not a valid IP address or range.'; break; }
+            }
+            $wasActive = maintenance_active();
         }
         if ($tab === 'seo' && !empty($values['site_url'])) $values['site_url'] = rtrim($values['site_url'], '/');
         if ($tab === 'security') {
@@ -192,6 +220,12 @@ function admin_settings(string $tab): void
                 if (json_encode(setting($k)) !== json_encode($v)) $changed[] = (string) ($schema[$k]['label'] ?? $k);
             }
             foreach ($values as $k => $v) setting_set($k, $v);
+            if ($tab === 'maintenance') {
+                setting_set('maintenance_changed_at', now());
+                $isActive = maintenance_state(true)['active'];
+                if ($isActive !== $wasActive) maintenance_notify($isActive);
+                $changed = $isActive !== $wasActive ? [] : $changed; // the on/off alert already covers it
+            }
             if ($changed) {
                 notify_admins('settings_changed', 'Settings changed: ' . $label,
                     actor_name() . ' changed ' . count($changed) . ' setting(s) in ' . $label . ': ' . implode(', ', array_slice($changed, 0, 12)) . (count($changed) > 12 ? '…' : '') . '. Secret values are never included in alerts.',

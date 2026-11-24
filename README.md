@@ -261,6 +261,41 @@ Replace the stock photos with your own photography before launch.
   - codes are shown on screen
   - Never enable debug mode on a live site.
 
+## Error pages, error log and maintenance mode
+
+- **Error pages.** Every error has its own branded page with a clear next step. There is a site
+  version, an admin version and a JSON version for scripts. Search engines are told not to index them.
+  - **404:** suggests the closest pages, products, articles and projects ("Were you looking for…").
+    The broken address is recorded under Redirects & 404s.
+  - **419 (form expired):** explains that nothing was sent and offers *Go back and try again*, or *Sign
+    in again* on the admin sign-in page.
+  - **413:** an upload that is too large says so, instead of failing as an expired form.
+  - **405 / 429:** an `Allow` header for 405, and the wait time for 429.
+  - **403 (admin):** shows the user's role and which administrator to ask for access.
+  - **500:** shows a reference such as `E-7K2M9QXA` that the visitor can quote to support.
+- **When everything else fails.** If the database is unreachable, visitors get a self-contained 503
+  page with `Retry-After`. Fatal PHP errors (out of memory, timeouts) also get a proper page.
+- **Error log** (Admin → Insights → Error log):
+  - Every unexpected error is stored with its reference, request, user, browser and a stack trace.
+    Argument values are never stored, so passwords and personal data stay out of the log.
+  - Identical errors are grouped and counted.
+  - Search by the reference a customer quotes, mark errors resolved (they reopen if they happen
+    again), or use *Trigger a test error* to check the whole chain.
+  - Administrators get one alert per error type per hour (category *Site errors & maintenance*).
+  - Entries are kept for 60 days.
+- **Maintenance mode** (Settings → Maintenance mode, or *Go live now* in the admin banner).
+  - **What visitors see.** A branded page with your message, a live countdown to the expected time,
+    and phone/email/WhatsApp for urgent requests. The page reloads by itself when the site is back.
+  - **For search engines,** it answers `503` with `Retry-After`, so rankings are kept.
+  - **Who still sees the site:** signed-in team members (with a notice bar), allowed IP addresses or
+    ranges, and anyone who opens the **secret preview link**. Replace the link to cancel that access.
+  - **Schedule a window:** it turns itself on at the start time and off at the end.
+  - **What keeps working:** the admin, scheduled tasks and robots.txt. Form submissions get a clear
+    "try again later" message.
+  - **Safety:** switching it on or off asks for a one-time code, and every administrator is alerted.
+  - **From the server or a deploy script:**
+    `php app/cli.php maintenance --on --until="+30 minutes" [--message="…"]`, then `--off`.
+
 ## Leads (CRM-lite)
 
 Contact and quote forms save to the database (with attachments stored privately in
@@ -317,6 +352,7 @@ php app/cli.php cron [--force]          # scheduled tasks — add to the server'
 php app/cli.php backup [--uploads]      # back up now
 php app/cli.php restore <file> --yes    # restore a backup (replaces the database)
 php app/cli.php otp --on|--off          # toggle email two-step sign-in
+php app/cli.php maintenance --on|--off [--until="+2 hours"] [--message="…"]   # no flag = status
 php app/cli.php import-posts [--refresh]
 php app/cli.php create-admin --email=… --pass=… [--name=…]
 php app/cli.php reset-password --email=… --pass=…
@@ -336,12 +372,16 @@ npm test        # end-to-end suite against http://localhost:8000 (BASE_URL, ADMI
   - passkeys, using a software authenticator: registration, sign-in, replay, wrong-site and cloned-key
     rejection
   - the authenticator app, including recovery codes
+  - step-up codes, notifications, trusted devices and "keep me signed in"
+  - error pages (404 suggestions, 405, 419, JSON errors, a 500 with its reference in the error log)
+  - maintenance mode: 503 and Retry-After, the team and preview-link bypass, the IP allow-list, the
+    schedule, and the code needed to switch it
 
   Everything a test creates is removed afterwards.
 - **CI.** `.github/workflows/ci.yml` runs on every push and PR:
   - PHP 8.1 and 8.4 against MariaDB
   - syntax checks, an asset build, a fresh install and the full suite
-  - it fails on any PHP warning
+  - it fails on any PHP warning (only the suite's one deliberate test error is ignored)
 - **Deploy.** `.github/workflows/deploy.yml` deploys after CI passes on `main`.
   - Add `DEPLOY_SSH_*` secrets (rsync + migrations) or `DEPLOY_FTP_*` secrets (FTPS); the workflow file
     lists them.

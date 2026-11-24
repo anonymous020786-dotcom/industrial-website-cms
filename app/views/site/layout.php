@@ -58,6 +58,7 @@ $tagline = company('tagline', 'Precision Engineering | Reliable Hydraulic & Cran
 </head>
 <body class="bg-white font-sans text-charcoal antialiased<?= setting('tawk_property_id') && setting('tawk_widget_id') ? ' has-chat' : '' ?>" data-theme-default="<?= e($themeDefault) ?>" data-base="<?= e(base_path()) ?>" data-consent-required="<?= consent_required() ? '1' : '0' ?>">
 <a href="#main" class="skip-link">Skip to content</a>
+<?php if (maintenance_active()): ?><div class="maint-notice" role="status"><?= icon('construction', 'h-4 w-4') ?> <span>Maintenance mode is on — visitors see the <a href="<?= e(url('?maintenance_preview=1')) ?>">maintenance page</a>.</span></div><?php endif ?>
 
 <div class="announce bg-navy text-[13px] text-white/75">
   <div class="mx-auto flex max-w-site items-center justify-between gap-4 px-4 py-2 sm:px-6 lg:px-8">

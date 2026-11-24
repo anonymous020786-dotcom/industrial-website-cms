@@ -16,7 +16,7 @@ $GLOBALS['__config'] = is_file($configFile) ? require $configFile : [];
 date_default_timezone_set($GLOBALS['__config']['timezone'] ?? 'UTC');
 mb_internal_encoding('UTF-8');
 
-foreach (['helpers', 'db', 'settings', 'html', 'auth', 'devices', 'notify', 'stepup', 'totp', 'webauthn', 'fields', 'templates', 'content', 'mailer', 'leads', 'integrations', 'components', 'images', 'redirects', 'backup', 'cron', 'router'] as $lib) {
+foreach (['helpers', 'db', 'settings', 'html', 'auth', 'devices', 'notify', 'stepup', 'totp', 'webauthn', 'fields', 'templates', 'content', 'mailer', 'leads', 'integrations', 'components', 'images', 'redirects', 'backup', 'cron', 'errors', 'maintenance', 'router'] as $lib) {
     require APP_DIR . "/lib/{$lib}.php";
 }
 
@@ -28,19 +28,7 @@ ini_set('log_errors', '1');
 ini_set('error_log', STORAGE_DIR . '/logs/php-error.log');
 error_reporting(E_ALL);
 
-set_exception_handler(function (Throwable $e) use ($debug) {
-    error_log((string) $e);
-    if (PHP_SAPI === 'cli') {
-        fwrite(STDERR, $e->getMessage() . "\n" . $e->getTraceAsString() . "\n");
-        exit(1);
-    }
-    if (!headers_sent()) http_response_code(500);
-    if ($debug) {
-        echo '<pre style="padding:2rem;white-space:pre-wrap">' . e((string) $e) . '</pre>';
-    } else {
-        echo '<!doctype html><meta charset="utf-8"><title>Server error</title><div style="font-family:sans-serif;padding:3rem"><h1>Something went wrong</h1><p>Please try again later.</p></div>';
-    }
-});
+errors_register($debug); // app/lib/errors.php: branded error pages, error log, fatal-error fallback
 
 function is_installed(): bool
 {

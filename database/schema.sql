@@ -417,3 +417,25 @@ CREATE TABLE IF NOT EXISTS known_devices (
   UNIQUE KEY uq_known_device (user_id, device_hash),
   CONSTRAINT fk_known_devices_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Unexpected errors (500s) with the reference shown to the visitor — Admin → Error log
+CREATE TABLE IF NOT EXISTS app_errors (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  ref         VARCHAR(16) NOT NULL,
+  fingerprint CHAR(40) NOT NULL,
+  status      SMALLINT UNSIGNED NOT NULL DEFAULT 500,
+  method      VARCHAR(10) NULL,
+  path        VARCHAR(500) NULL,
+  class       VARCHAR(120) NULL,
+  message     TEXT NULL,
+  location    VARCHAR(300) NULL,
+  trace       MEDIUMTEXT NULL,
+  user_id     INT UNSIGNED NULL,
+  ip          VARCHAR(45) NULL,
+  user_agent  VARCHAR(255) NULL,
+  resolved_at DATETIME NULL,
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_app_errors_ref (ref),
+  KEY idx_app_errors_fp (fingerprint, created_at),
+  KEY idx_app_errors_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

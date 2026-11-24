@@ -621,3 +621,13 @@ html.headings-editorial .section-title { font-size: clamp(2.1rem, 3.9vw, 3.3rem)
 .turnstile-slot { display: flex; flex-direction: column; gap: .35rem; }
 .turnstile-slot .cf-turnstile { min-height: 65px; }
 .turnstile-note { font-size: .75rem; color: var(--text-muted); }
+
+/* ---------- Maintenance page & team notice ---------- */
+.maint-pulse { animation: maint-pulse 1.6s ease-in-out infinite; }
+@keyframes maint-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .35; transform: scale(.7); } }
+.maint-bar span { display: block; height: 100%; width: 35%; border-radius: 9999px; background: #F28C28; animation: maint-bar 2.4s ease-in-out infinite; }
+@keyframes maint-bar { 0% { transform: translateX(-100%); } 100% { transform: translateX(300%); } }
+@media (prefers-reduced-motion: reduce) { .maint-pulse, .maint-bar span { animation: none; } .maint-bar span { width: 100%; opacity: .5; } }
+.maint-notice { display: flex; align-items: center; justify-content: center; gap: .5rem; padding: .5rem 1rem; background: #F28C28; color: #101D32;
+  font-size: .8125rem; font-weight: 600; text-align: center; }
+.maint-notice a { text-decoration: underline; }

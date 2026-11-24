@@ -6,6 +6,7 @@
  *                                              (--refresh also updates posts that are still drafts)
  *   php app/cli.php migrate                    Create any new tables after an upgrade
  *   php app/cli.php otp --on|--off             Turn email one-time-passcode login on/off (lock-out recovery)
+ *   php app/cli.php maintenance --on|--off     Maintenance mode [--until="+2 hours"] [--message="…"]; no flag = status
  *   php app/cli.php stock-ids                  List Unsplash photo ids used in the database (for npm run images)
  *   php app/cli.php cron [--force]             Run scheduled tasks (add to the server's cron every 5-15 min)
  *   php app/cli.php backup [--uploads]         Create a backup now
@@ -78,6 +79,28 @@ switch ($cmd) {
         if (in_array('--off', $argv, true)) { setting_set('admin_otp_enabled', false); echo "Email OTP login disabled.\n"; }
         elseif (in_array('--on', $argv, true)) { setting_set('admin_otp_enabled', true); echo "Email OTP login enabled — make sure email delivery works.\n"; }
         else echo 'Email OTP login is ' . (setting('admin_otp_enabled') ? 'ON' : 'OFF') . ". Use --on or --off.\n";
+        break;
+    case 'maintenance':
+        $was = maintenance_active();
+        if (in_array('--on', $argv, true)) {
+            $until = null;
+            if (!empty($opt['until'])) {
+                $ts = strtotime($opt['until']);
+                if (!$ts || $ts <= time()) { fwrite(STDERR, "--until must be a future time, e.g. --until=\"+2 hours\" or --until=\"2026-12-01 14:00\"
+"); exit(1); }
+                $until = date('Y-m-d H:i:s', $ts);
+            }
+            if (isset($opt['message'])) setting_set('maintenance_message', $opt['message']);
+            maintenance_switch(true, $until);
+        } elseif (in_array('--off', $argv, true)) {
+            maintenance_switch(false);
+        }
+        $s = maintenance_state(true);
+        if ($s['active'] !== $was) maintenance_notify($s['active'], 'A server command');
+        echo 'Maintenance mode is ' . ($s['active'] ? 'ON' . ($s['source'] === 'scheduled' ? ' (scheduled window)' : '') . ($s['until'] ? ', expected back ' . maintenance_time($s['until']) : '') : 'OFF' . ($s['starts'] ? ' (scheduled to start ' . maintenance_time($s['starts']) . ')' : '')) . ".
+";
+        if (!in_array('--on', $argv, true) && !in_array('--off', $argv, true)) echo "Use --on [--until=\"+2 hours\"] [--message=\"…\"] or --off.
+";
         break;
     case 'import-posts':
         echo seed_posts(null, in_array('--refresh', $argv, true)) . " imported.\n";

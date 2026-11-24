@@ -16,6 +16,7 @@ $labels = [
     'totp_enabled' => 'Authenticator app enabled', 'totp_disabled' => 'Authenticator app turned off', 'totp_failed' => 'Wrong authenticator code',
     'recovery_code_used' => 'Recovery code used', 'recovery_codes_regenerated' => 'New recovery codes', 'backup_downloaded' => 'Backup downloaded',
     'login_remembered' => 'Signed in (kept signed in)', 'device_trusted' => 'Device trusted for codes', 'device_untrusted' => 'Stopped trusting a device', 'device_removed' => 'Device removed', 'signout_everywhere' => 'Signed out of all other devices', 'remember_token_mismatch' => 'Blocked an invalid sign-in token',
+    'maintenance_on' => 'Turned on maintenance mode', 'maintenance_off' => 'Turned off maintenance mode',
     'stepup_ok' => 'Confirmed a sensitive action', 'stepup_required' => 'Confirmation requested', 'stepup_failed' => 'Wrong confirmation code',
     'avatar_changed' => 'Profile picture changed', 'leads_exported' => 'Leads exported', 'backup_created' => 'Backup created', 'backup_deleted' => 'Backup deleted', 'stepup_code_sent' => 'Confirmation code sent',
 ];

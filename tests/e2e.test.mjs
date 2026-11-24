@@ -565,6 +565,144 @@ test('forms: password show/hide on admin screens; Turnstile sits directly above 
 });
 
 /* ------------------------------------------------------------------ */
+test('error pages: helpful 404 with suggestions, JSON errors, 405, expired form, 500 with a reference in the error log', async () => {
+  const c = new Client();
+  const nf = await c.get('e2e-hydraulic-cylinder');
+  assert.equal(nf.status, 404);
+  assert.match(nf.text, /Page not found/i);
+  assert.match(nf.text, /Were you looking for/);
+  assert.match(nf.text, /href="[^"]*products\/hydraulic-cylinders"/, 'suggests the closest product');
+  assert.match(nf.text, /noindex/);
+
+  const js = await c.get('e2e-missing', { Accept: 'application/json' });
+  assert.equal(js.status, 404);
+  assert.match(js.type, /json/);
+  assert.equal(JSON.parse(js.text).status, 404);
+
+  const na = await c.post('', { a: '1' });
+  assert.equal(na.status, 405);
+  assert.match(na.res.headers.get('allow') || '', /GET/);
+
+  // An expired admin form (bad CSRF token) explains itself and offers to sign in again
+  const exp = await c.post('admin/login', { _token: 'stale', login: 'x', password: 'y' });
+  assert.equal(exp.status, 419);
+  assert.match(exp.text, /session expired/i);
+  assert.match(exp.text, /Sign in again/);
+
+  // A real crash: branded page with a reference that finds the stored error
+  sql("DELETE FROM app_errors WHERE message LIKE 'Test error triggered%'");
+  const boom = await admin.post('admin/errors/test', { _token: csrf });
+  assert.equal(boom.status, 500);
+  const ref = (boom.text.match(/E-[2-9A-HJ-NP-Z]{8}/) || [])[0];
+  assert.ok(ref, 'error reference shown');
+  assert.doesNotMatch(boom.text, /Try again/, 'no "try again" link for a form submission');
+  const row = sql('SELECT id, status, trace FROM app_errors WHERE ref = ?', [ref])[0];
+  assert.ok(row && Number(row.status) === 500, 'stored in the error log');
+  assert.match(row.trace, /admin_errors_test\(\)/);
+  assert.ok(sql("SELECT id FROM notifications WHERE event = 'server_error' AND created_at >= NOW() - INTERVAL 1 MINUTE").length >= 1, 'admins alerted');
+
+  const find = await admin.get('admin/errors?ref=' + ref.slice(2).toLowerCase());
+  assert.equal(find.status, 302);
+  assert.match(find.location, new RegExp(`admin/errors/${row.id}$`));
+  const detail = await admin.get(`admin/errors/${row.id}`);
+  assert.match(detail.text, new RegExp(ref));
+  const list = await admin.get('admin/errors');
+  assert.match(list.text, /Test error triggered/);
+  const fp = sql('SELECT fingerprint FROM app_errors WHERE id = ?', [row.id])[0].fingerprint;
+  await admin.post('admin/errors/resolve', { _token: csrf, fingerprint: fp });
+  assert.doesNotMatch((await admin.get('admin/errors')).text, /Test error triggered/, 'resolved errors leave the open list');
+  sql("DELETE FROM app_errors WHERE message LIKE 'Test error triggered%'");
+  sql("DELETE FROM notifications WHERE event = 'server_error'");
+});
+
+test('maintenance mode: 503 page for visitors, team and preview link see the site, IP allow-list, schedule, needs a code', async () => {
+  const visitor = new Client();
+  const resetMaint = () => { for (const k of ['maintenance_start', 'maintenance_end', 'maintenance_until']) setSetting(k, null); setSetting('maintenance_enabled', false); setSetting('maintenance_allow_ips', []); };
+  resetMaint();
+  try {
+    assert.equal((await visitor.get('')).status, 200);
+
+    // Switching it on is a critical action: a fresh session must confirm with a one-time code first
+    const fresh = new Client();
+    await fresh.login(ADMIN, PASSWORD);
+    const fp = await fresh.get('admin/settings/maintenance');
+    const first = await fresh.post('admin/maintenance', { _token: token(fp.text), action: 'on', hours: '2', return: 'admin/settings/maintenance' });
+    assert.match(first.location, /admin\/confirm$/, 'asks for a code');
+    assert.equal(getSetting('maintenance_enabled'), false, 'nothing changed yet');
+    const resumed = await fresh.stepUp();
+    assert.match(resumed.text, /data-autosubmit/, 'the switch is re-submitted after the code');
+    const action = resumed.text.match(/<form[^>]+action="([^"]+)"/)[1].replace(/^\/+/, '');
+    const fields = Object.fromEntries([...resumed.text.matchAll(/<input type="hidden" name="([^"]+)" value="([^"]*)"/g)].map((m) => [m[1], m[2].replace(/&amp;/g, '&')]));
+    await fresh.post(action, fields);
+    assert.equal(getSetting('maintenance_enabled'), true);
+    assert.ok(getSetting('maintenance_until'), 'expected-back time saved');
+
+    const page = await visitor.get('products');
+    assert.equal(page.status, 503);
+    assert.ok(Number(page.res.headers.get('retry-after')) > 3600, 'Retry-After until the expected time');
+    assert.match(page.text, /We’ll be back shortly/);
+    assert.match(page.text, /data-until="\d+"/, 'countdown');
+    assert.equal((await visitor.get('robots.txt')).status, 200, 'robots.txt still served');
+    assert.equal((await visitor.get('admin/login')).status, 200, 'admin sign-in still works');
+    const lead = await visitor.postJSON('lead', { name: 'e2e' }, '');
+    assert.equal(lead.status, 503);
+    assert.match(lead.json.message, /maintenance/);
+
+    // Signed-in team members see the real site, with a notice
+    const own = await admin.get('products');
+    assert.equal(own.status, 200);
+    assert.match(own.text, /Maintenance mode is on/);
+    assert.match((await admin.get('admin')).text, /Go live now/, 'banner in the admin');
+    assert.equal((await admin.get('?maintenance_preview=1')).status, 503, 'team preview shows the real maintenance page');
+
+    // Secret preview link: sets a cookie, then the site works for that browser only
+    const tokenValue = getSetting('maintenance_bypass_token');
+    const guest = new Client();
+    const go = await guest.get('?maintenance_access=' + tokenValue);
+    assert.equal(go.status, 302);
+    assert.equal((await guest.get('products')).status, 200);
+    assert.equal((await new Client().get('?maintenance_access=wrong')).status, 503);
+    // A new link cancels the old one
+    await admin.stepUp();
+    const sp = await admin.get('admin/settings/maintenance');
+    await admin.post('admin/maintenance/link', { _token: token(sp.text) });
+    assert.equal((await guest.get('products')).status, 503, 'old preview access revoked');
+
+    // IP allow-list (the test client connects from localhost)
+    setSetting('maintenance_allow_ips', ['127.0.0.1', '::1']);
+    assert.equal((await visitor.get('products')).status, 200);
+    setSetting('maintenance_allow_ips', ['203.0.113.0/24']);
+    assert.equal((await visitor.get('products')).status, 503);
+
+    // Off again from the admin banner
+    const dash = await admin.get('admin');
+    await admin.post('admin/maintenance', { _token: token(dash.text), action: 'off', return: 'admin' });
+    assert.equal((await visitor.get('products')).status, 200);
+    assert.ok(sql("SELECT id FROM notifications WHERE event IN ('maintenance_on','maintenance_off') AND created_at >= NOW() - INTERVAL 5 MINUTE").length >= 2, 'admins told when it went off- and online');
+
+    // Scheduled window: on inside the window, off after it
+    const sqlNow = sql("SELECT DATE_FORMAT(NOW(), '%Y-%m-%d %H:%i:%s') n")[0].n;
+    const shift = (sec) => sql(`SELECT DATE_FORMAT(? + INTERVAL ${Number(sec)} SECOND, '%Y-%m-%d %H:%i:%s') t`, [sqlNow])[0].t;
+    setSetting('maintenance_start', shift(-60));
+    setSetting('maintenance_end', shift(3600));
+    assert.equal((await visitor.get('products')).status, 503, 'inside the window');
+    setSetting('maintenance_end', shift(-1));
+    assert.equal((await visitor.get('products')).status, 200, 'window over');
+
+    // Settings validation
+    await admin.stepUp();
+    const st = await admin.get('admin/settings/maintenance');
+    const bad = await admin.post('admin/settings/maintenance', { _token: token(st.text), maintenance_title: 'x', maintenance_allow_ips: 'not-an-ip', maintenance_start: '2030-01-02T10:00', maintenance_end: '2030-01-01T10:00' });
+    assert.equal(bad.status, 200);
+    assert.match(bad.text, /not a valid IP address/);
+    assert.match(bad.text, /end must be after the start/);
+  } finally {
+    resetMaint();
+    sql("DELETE FROM notifications WHERE event IN ('maintenance_on','maintenance_off')");
+  }
+});
+
+/* ------------------------------------------------------------------ */
 test('keep me signed in: survives a browser restart, rotates, is device-bound, detects stolen tokens, ends on sign-out', async () => {
   setSetting('remember_enabled', true);
   setSetting('remember_days', 30);

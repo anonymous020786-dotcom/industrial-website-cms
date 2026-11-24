@@ -5,6 +5,8 @@ declare(strict_types=1);
 function admin_nav(): array
 {
     $newLeads = can('leads') ? (int) db_val("SELECT COUNT(*) FROM leads WHERE status = 'new'") : 0;
+    $openErrors = 0;
+    if (can('settings')) { try { $openErrors = (int) db_val('SELECT COUNT(DISTINCT fingerprint) FROM app_errors WHERE resolved_at IS NULL AND created_at >= NOW() - INTERVAL 7 DAY'); } catch (Throwable) {} }
     return [
         ['Dashboard', 'admin', 'layout-dashboard', 'dashboard'],
         ['Leads', 'admin/leads', 'inbox', 'leads', $newLeads],
@@ -22,9 +24,11 @@ function admin_nav(): array
         ['_', 'Insights'],
         ['Reports', 'admin/reports', 'chart-column', 'leads'],
         ['Redirects & 404s', 'admin/redirects', 'route', 'settings'],
+        ['Error log', 'admin/errors', 'bug', 'settings', $openErrors],
         ['_', 'Configuration'],
         ['Settings', 'admin/settings/general', 'settings', 'settings'],
         ['Integrations', 'admin/settings/integrations', 'plug', 'settings'],
+        ['Maintenance mode', 'admin/settings/maintenance', 'construction', 'settings'],
         ['Backups & automation', 'admin/backups', 'database-backup', 'settings'],
         ['Users', 'admin/r/users', 'users', 'users'],
     ];

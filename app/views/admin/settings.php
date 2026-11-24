@@ -40,6 +40,52 @@
       </ul>
     </div>
     <?php endif ?>
+    <?php if ($tab === 'maintenance'):
+        $ms = maintenance_state();
+        $link = maintenance_preview_url();
+        $changedAt = (string) setting('maintenance_changed_at', '');
+    ?>
+    <div class="adm-card mb-6 overflow-hidden">
+      <div class="flex flex-wrap items-center gap-4 p-6 <?= $ms['active'] ? 'bg-amber-50' : '' ?>">
+        <span class="grid h-12 w-12 shrink-0 place-items-center rounded-full <?= $ms['active'] ? 'bg-amber-100 text-amber-800' : 'bg-emerald-50 text-emerald-700' ?>"><?= icon($ms['active'] ? 'construction' : 'circle-check', 'h-6 w-6') ?></span>
+        <div class="min-w-0 flex-1">
+          <p class="text-lg font-bold text-navy" data-maint-status><?= $ms['active'] ? 'Maintenance mode is ON' : 'Website is live' ?></p>
+          <p class="text-sm text-charcoal/75">
+            <?php if ($ms['active']): ?>
+              Visitors see the maintenance page (HTTP 503)<?= $ms['source'] === 'scheduled' ? ' because of the scheduled window' : '' ?><?= $ms['until'] ? ($ms['until'] > time() ? ' · expected back ' . e(maintenance_time($ms['until'])) : ' · the expected end time has passed') : '' ?>.
+            <?php elseif ($ms['starts']): ?>
+              Scheduled maintenance starts <?= e(maintenance_time($ms['starts'])) ?>.
+            <?php else: ?>
+              Visitors see the normal website.
+            <?php endif ?>
+            <?php if ($changedAt): ?><span class="text-charcoal/60">Last changed <?= e(time_ago($changedAt)) ?>.</span><?php endif ?>
+          </p>
+        </div>
+        <form method="post" action="<?= e(url('admin/maintenance')) ?>" class="flex flex-wrap items-center gap-2">
+          <?= csrf_field() ?><input type="hidden" name="return" value="admin/settings/maintenance">
+          <?php if ($ms['active']): ?>
+            <button class="adm-btn adm-btn-primary" name="action" value="off"><?= icon('power', 'h-4 w-4') ?> Go live now</button>
+          <?php else: ?>
+            <label class="sr-only" for="maint-hours">Expected duration</label>
+            <select id="maint-hours" name="hours" class="adm-input !w-auto"><option value="0">No end time</option><option value="1">About 1 hour</option><option value="2">About 2 hours</option><option value="4">About 4 hours</option><option value="24">About 1 day</option></select>
+            <button class="adm-btn adm-btn-danger" name="action" value="on" data-confirm="Take the website offline for visitors now? Signed-in team members will still see it."><?= icon('construction', 'h-4 w-4') ?> Turn on now</button>
+          <?php endif ?>
+        </form>
+      </div>
+      <div class="grid gap-4 border-t border-black/5 p-6 lg:grid-cols-[1fr_auto]">
+        <div class="min-w-0">
+          <p class="text-sm font-semibold text-navy">Secret preview link</p>
+          <p class="text-sm text-charcoal/75">Share with a client or developer who needs to see the real site during maintenance (no account needed). Works for 7 days per browser; replace it to cancel access.</p>
+          <div class="mt-2 flex gap-2"><input class="adm-input font-mono text-xs" value="<?= e($link) ?>" readonly aria-label="Secret preview link"><button type="button" class="adm-btn adm-btn-light shrink-0" data-copy="<?= e($link) ?>">Copy</button></div>
+        </div>
+        <div class="flex flex-wrap items-end gap-2">
+          <a class="adm-btn adm-btn-light" href="<?= e(url('?maintenance_preview=1')) ?>" target="_blank" rel="noopener"><?= icon('eye', 'h-4 w-4') ?> Preview the page</a>
+          <form method="post" action="<?= e(url('admin/maintenance/link')) ?>"><?= csrf_field() ?><button class="adm-btn adm-btn-light" data-confirm="Create a new link? Anyone using the current link loses access."><?= icon('rotate-ccw', 'h-4 w-4') ?> New link</button></form>
+        </div>
+      </div>
+      <p class="border-t border-black/5 px-6 py-3 text-xs text-charcoal/65">Your IP address: <code><?= e(client_ip()) ?></code> · From the server: <code>php app/cli.php maintenance --on --until="+2 hours"</code> / <code>--off</code></p>
+    </div>
+    <?php endif ?>
     <?php if ($tab === 'system'): ?>
       <div class="adm-card divide-y divide-black/5">
         <?php

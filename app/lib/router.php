@@ -69,6 +69,12 @@ function routes(): array
         ['POST', '/admin/backups/download', 'admin_backup_download', 'admin_tools'],
         ['POST', '/admin/backups/delete', 'admin_backup_delete', 'admin_tools'],
         ['POST', '/admin/cron/run', 'admin_cron_run', 'admin_tools'],
+        ['POST', '/admin/maintenance', 'admin_maintenance_switch', 'admin_system'],
+        ['POST', '/admin/maintenance/link', 'admin_maintenance_link', 'admin_system'],
+        ['GET', '/admin/errors', 'admin_errors', 'admin_system'],
+        ['POST', '/admin/errors/resolve', 'admin_errors_resolve', 'admin_system'],
+        ['POST', '/admin/errors/test', 'admin_errors_test', 'admin_system'],
+        ['GET', '/admin/errors/{id}', 'admin_error_show', 'admin_system'],
         ['GET|POST', '/admin/forgot', 'admin_forgot', 'admin'],
         ['GET|POST', '/admin/reset', 'admin_reset', 'admin'],
         ['GET', '/admin/dev-mail', 'admin_dev_mail', 'admin_settings'],
@@ -142,30 +148,29 @@ function app_run(): void
 
     if (!is_installed() && $path !== '/install') redirect('install');
 
+    // Maintenance mode: visitors get the maintenance page (admins and allowed IPs pass through)
+    if (is_installed()) maintenance_gate($path, $method);
+
     try {
+        $allowed = [];
         foreach (routes() as [$methods, $pattern, $handler, $file]) {
             $regex = '~^' . preg_replace('~\{(\w+)\}~', '(?P<$1>[^/]+)', $pattern) . '$~';
             if (!preg_match($regex, $path, $m)) continue;
-            if (!in_array($method, explode('|', $methods), true)) continue;
+            if (!in_array($method, explode('|', $methods), true)) { array_push($allowed, ...explode('|', $methods)); continue; }
             require_once APP_DIR . '/handlers/' . $file . '.php';
             $params = array_filter($m, 'is_string', ARRAY_FILTER_USE_KEY);
             send_security_headers(str_starts_with($path, '/admin'));
             $handler(...array_values($params));
             return;
         }
+        if ($allowed) abort(405, '', ['allow' => array_values(array_unique(array_merge($allowed, in_array('GET', $allowed, true) ? ['HEAD'] : [])))]);
         abort(404);
     } catch (HttpException $e) {
         // Before showing a public 404: apply a matching redirect, otherwise record the broken address
         if ($e->status === 404 && $method === 'GET' && !str_starts_with($path, '/admin')) {
             try { redirect_try($path); not_found_log($path); } catch (Throwable $t) { error_log('redirects: ' . $t->getMessage()); }
         }
-        http_response_code($e->status);
-        if (str_starts_with($path, '/admin') && $e->status !== 404) {
-            require_once APP_DIR . '/handlers/admin.php';
-            echo admin_layout('Error', '<div class="adm-card p-10 text-center"><p class="text-5xl font-bold text-navy">' . $e->status . '</p><p class="mt-3 text-charcoal/70">' . e($e->getMessage()) . '</p><a class="adm-btn adm-btn-primary mt-6" href="' . e(url('admin')) . '">Back to dashboard</a></div>');
-            return;
-        }
-        require_once APP_DIR . '/handlers/site.php';
-        site_error($e->status, $e->getMessage());
+        send_security_headers(str_starts_with($path, '/admin'));
+        error_respond($e->status, $e->getMessage(), $e->options);
     }
 }

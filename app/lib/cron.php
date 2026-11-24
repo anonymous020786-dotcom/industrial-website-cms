@@ -54,6 +54,7 @@ function cron_cleanup(bool $force): string
     $n += db_query('DELETE FROM login_otps WHERE expires_at < NOW() - INTERVAL 1 DAY')->rowCount();
     $n += db_query('DELETE FROM events WHERE created_at < NOW() - INTERVAL 730 DAY')->rowCount();
     $n += db_query('DELETE FROM auth_events WHERE created_at < NOW() - INTERVAL 180 DAY')->rowCount();
+    $n += db_query('DELETE FROM app_errors WHERE created_at < NOW() - INTERVAL 60 DAY')->rowCount();
     return "{$n} old rows removed";
 }
 

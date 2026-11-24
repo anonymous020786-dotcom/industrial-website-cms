@@ -82,7 +82,10 @@ jobs:
 
       - name: Fail on PHP warnings during the run
         run: |
-          if [ -s app/storage/logs/php-error.log ]; then cat app/storage/logs/php-error.log; exit 1; fi
+          # The e2e suite triggers one deliberate error ("… (this is expected).") to test the error log; ignore only that entry
+          touch app/storage/logs/php-error.log
+          awk '/^\[/{skip = /this is expected/} !skip' app/storage/logs/php-error.log > unexpected-errors.log
+          if [ -s unexpected-errors.log ]; then cat unexpected-errors.log; exit 1; fi
 
       - name: Logs on failure
         if: failure()

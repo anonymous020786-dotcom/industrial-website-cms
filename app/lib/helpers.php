@@ -140,14 +140,15 @@ function json_response(mixed $data, int $code = 200): never
     exit;
 }
 
-function abort(int $code, string $message = ''): never
+/** Stop with an HTTP error page. $options: retry_after (seconds), allow (methods). */
+function abort(int $code, string $message = '', array $options = []): never
 {
-    throw new HttpException($code, $message);
+    throw new HttpException($code, $message, $options);
 }
 
 final class HttpException extends RuntimeException
 {
-    public function __construct(public readonly int $status, string $message = '')
+    public function __construct(public readonly int $status, string $message = '', public readonly array $options = [])
     {
         parent::__construct($message ?: ($status === 404 ? 'Not found' : 'Error'), $status);
     }
@@ -250,9 +251,23 @@ function csrf_field(): string
     return '<input type="hidden" name="_token" value="' . e(csrf_token()) . '">';
 }
 
+/** "8M" → 8388608 */
+function ini_bytes(string $v): int
+{
+    $v = trim($v);
+    if ($v === '') return PHP_INT_MAX;
+    $n = (int) $v;
+    return match (strtolower(substr($v, -1))) { 'g' => $n * 1073741824, 'm' => $n * 1048576, 'k' => $n * 1024, default => $n } ?: PHP_INT_MAX;
+}
+
 function csrf_check(): void
 {
     session_boot();
+    // PHP silently drops a body larger than post_max_size, which would look like a missing token
+    $len = (int) ($_SERVER['CONTENT_LENGTH'] ?? 0);
+    if ($len > 0 && !$_POST && !$_FILES && $len > ini_bytes((string) ini_get('post_max_size'))) {
+        abort(413, 'The upload was ' . round($len / 1048576, 1) . ' MB, but the server accepts at most ' . ini_get('post_max_size') . 'B per request. Please use a smaller file.');
+    }
     $token = $_POST['_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
     if (!is_string($token) || empty($_SESSION['_csrf']) || !hash_equals($_SESSION['_csrf'], $token)) {
         abort(419, 'Your session expired. Please go back, refresh the page and try again.');

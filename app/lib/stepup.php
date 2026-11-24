@@ -24,6 +24,7 @@ const STEPUP_ACTIONS = [
     'settings' => 'Change security, email or integration settings',
     'destroy' => 'Permanently delete content',
     'lead_delete' => 'Delete a lead',
+    'maintenance' => 'Turn maintenance mode on or off',
 ];
 
 function stepup_valid(): bool

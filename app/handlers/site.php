@@ -154,15 +154,9 @@ function site_product(string $slug): void
     site_render($meta, view('site/product', ['p' => $p, 'cat' => $cat]));
 }
 
-function site_error(int $status, string $message = ''): void
+function site_error(int $status, string $message = ''): never
 {
-    $meta = ['title' => $status === 404 ? 'Page Not Found' : 'Error', 'description' => '', 'noindex' => true, 'crumbs' => []];
-    try {
-        site_render($meta, view('site/error', ['status' => $status, 'message' => $message]), $status);
-    } catch (Throwable $t) {
-        error_log((string) $t);
-        echo '<h1>' . $status . '</h1>';
-    }
+    error_respond($status, $message); // app/lib/errors.php
 }
 
 /* ------------------------------------------------------------------ */
