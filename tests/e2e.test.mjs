@@ -30,6 +30,8 @@ test.before(async () => {
   assert.match(to, /\/admin$/, `login should land on the dashboard, got "${to}"`);
   csrf = token((await admin.get('admin')).text);
   assert.ok(csrf, 'CSRF token on dashboard');
+  assert.ok(DEBUG, 'The suite needs debug mode (step-up codes are shown on screen only in debug)');
+  await admin.stepUp(); // critical actions in the tests below run inside this 10-minute confirmation
 });
 
 test.after(async () => {
@@ -426,4 +428,137 @@ test('authenticator app: setup with QR secret, code required at sign-in, recover
   await admin.post('admin/2fa/disable', { _token: csrf, password: PASSWORD });
   assert.equal(sql('SELECT totp_enabled_at FROM users WHERE id = ?', [adminId()])[0].totp_enabled_at, null);
   assert.match(await new Client().login(ADMIN, PASSWORD), /\/admin$/, 'password-only sign-in again after turning it off');
+});
+
+/* ------------------------------------------------------------------ */
+const hiddenFields = (html) => Object.fromEntries([...html.matchAll(/<input type="hidden" name="([^"]+)" value="([^"]*)">/g)].map((m) => [m[1].replace(/&amp;/g, '&'), m[2].replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#039;/g, "'")]));
+const backupFiles = () => readdirSync(join(ROOT, 'app/storage/backups')).filter((f) => /^backup-.*\.sql\.gz$/.test(f));
+
+test('step-up: critical actions need a fresh one-time code, then resume; passwords are never stored', async () => {
+  const c = new Client();
+  await c.login(ADMIN, PASSWORD);
+  let page = await c.get('admin/backups');
+  let r = await c.post('admin/backups/create', { _token: token(page.text) });
+  assert.equal(r.status, 302);
+  assert.match(r.location, /admin\/confirm$/, 'sent to confirmation instead of running');
+  const before = backupFiles().length;
+
+  sql("UPDATE login_otps o JOIN users u ON u.id = o.user_id SET o.created_at = o.created_at - INTERVAL 20 MINUTE WHERE u.email = ? OR u.username = ?", [ADMIN, ADMIN]);
+  page = await c.get('admin/confirm');
+  assert.match(page.text, /Code we emailed to/, 'code emailed automatically when email is the only method');
+  assert.match(page.text, /Create, download or delete a backup/);
+  r = await c.post('admin/confirm', { _token: token(page.text), method: 'email', code: '000000' });
+  assert.equal(r.status, 200);
+  assert.match(r.text, /Incorrect code/);
+  r = await c.stepUp();
+  assert.equal(r.status, 200);
+  assert.match(r.text, /data-autosubmit/, 'auto-resubmit page');
+  const action = (r.text.match(/<form method="post" action="([^"]+)"/) || [])[1];
+  r = await c.post(action, hiddenFields(r.text));
+  assert.equal(r.status, 302);
+  assert.equal(backupFiles().length, before + 1, 'the original action ran after confirmation');
+  assert.match((await c.get('admin/backups')).text, /adm-verified/, 'verified badge while the window is open');
+
+  // JSON endpoints answer 428 with the confirmation URL
+  const d = new Client();
+  await d.login(ADMIN, PASSWORD);
+  const j = await d.postJSON('admin/passkeys/options', { password: PASSWORD }, token((await d.get('admin/profile')).text));
+  assert.equal(j.status, 428);
+  assert.match(j.json.stepup, /admin\/confirm/);
+
+  // A form containing a password is not stored: after confirming, the user submits it again
+  const e = new Client();
+  await e.login(ADMIN, PASSWORD);
+  const prof = await e.get('admin/profile');
+  r = await e.post('admin/profile', { _token: token(prof.text), action: 'password', current_password: PASSWORD, new_password: 'Another1Pass2', confirm_password: 'Another1Pass2' },
+    { Referer: `${BASE}/admin/profile` }); // browsers send this for same-site forms
+  assert.match(r.location, /admin\/confirm$/);
+  r = await e.stepUp();
+  assert.equal(r.status, 302);
+  assert.match(r.location, /admin\/profile/);
+  assert.match((await e.get('admin/profile')).text, /passwords are never stored/);
+  assert.equal(sql('SELECT COUNT(*) n FROM users WHERE id = ? AND password_changed_at > NOW() - INTERVAL 1 MINUTE', [adminId()])[0].n, 0, 'password not changed without resubmitting');
+
+  for (const f of backupFiles().sort().slice(before)) php(['-r', `@unlink('app/storage/backups/${f}');`]);
+});
+
+test('notifications: new-device sign-in alert, bell count, admin alert for security settings, mark as read', async () => {
+  const uid = adminId();
+  sql('UPDATE notifications SET read_at = NOW() WHERE user_id = ?', [uid]);
+  const count = (ev) => Number(sql('SELECT COUNT(*) n FROM notifications WHERE user_id = ? AND event = ?', [uid, ev])[0].n);
+  const before = count('login_new_device');
+  await new Client().login(ADMIN, PASSWORD); // a browser this account has never used
+  assert.equal(count('login_new_device'), before + 1, 'new-device alert recorded');
+  assert.match((await admin.get('admin')).text, /adm-bell-count">\d/, 'bell shows unread count');
+
+  const cur = { admin_otp_enabled: '0', otp_trust_days: String(getSetting('otp_trust_days') ?? 30), turnstile_login: getSetting('turnstile_login') === false ? '0' : '1', require_strong_2fa: '1' };
+  const idle = Number(getSetting('admin_idle_minutes') || 240);
+  const page = await admin.get('admin/settings/security');
+  assert.equal(page.status, 200);
+  await admin.post('admin/settings/security', { _token: csrf, ...cur, admin_idle_minutes: String(idle + 1) });
+  const n = sql("SELECT severity, body FROM notifications WHERE user_id = ? AND event = 'settings_changed' ORDER BY id DESC LIMIT 1", [uid])[0];
+  assert.equal(n.severity, 'warning');
+  assert.match(n.body, /Sign out after inactivity/);
+  await admin.post('admin/settings/security', { _token: csrf, ...cur, admin_idle_minutes: String(idle) });
+
+  const list = await admin.get('admin/notifications');
+  assert.match(list.text, /New sign-in to your account/);
+  await admin.post('admin/notifications/read', { _token: csrf });
+  assert.equal(Number(sql('SELECT COUNT(*) n FROM notifications WHERE user_id = ? AND read_at IS NULL', [uid])[0].n), 0);
+  assert.doesNotMatch((await admin.get('admin')).text, /adm-bell-count/);
+  if (DEBUG) {
+    const dir = join(ROOT, 'app/storage/mail');
+    const recent = readdirSync(dir).filter((f) => f.endsWith('.html')).sort().slice(-15).map((f) => readFileSync(join(dir, f), 'utf8'));
+    assert.ok(recent.some((h) => /New sign-in to your account/.test(h)), 'new-device alert emailed');
+  }
+});
+
+test('profile picture: cropped to a 256 px WebP without metadata, shown in the header, removable', async () => {
+  const uid = adminId();
+  const jpg = await sharp({ create: { width: 900, height: 600, channels: 3, background: '#174A78' } }).jpeg().withMetadata({ exif: { IFD0: { Artist: 'secret-gps-test' } } }).toBuffer();
+  let fd = new FormData();
+  fd.append('_token', csrf);
+  fd.append('avatar', new Blob([jpg], { type: 'image/jpeg' }), 'me.jpg');
+  let r = await admin.req('admin/avatar', { method: 'POST', body: fd });
+  assert.equal(r.status, 302);
+  const path = sql('SELECT avatar FROM users WHERE id = ?', [uid])[0].avatar;
+  assert.match(path, /^uploads\/avatars\/\d+-[a-f0-9]+\.webp$/);
+  const file = await new Client().req(path);
+  const meta = await sharp(Buffer.from(await file.arrayBuffer())).metadata();
+  assert.deepEqual([meta.format, meta.width, meta.height, meta.exif], ['webp', 256, 256, undefined]);
+  assert.match((await admin.get('admin')).text, new RegExp(path.replace(/\./g, '\.')));
+
+  fd = new FormData();
+  fd.append('_token', csrf);
+  fd.append('avatar', new Blob(['<?php echo 1; ?>'], { type: 'image/jpeg' }), 'evil.jpg');
+  await admin.req('admin/avatar', { method: 'POST', body: fd });
+  assert.equal(sql('SELECT avatar FROM users WHERE id = ?', [uid])[0].avatar, path, 'non-image rejected');
+
+  await admin.post('admin/avatar/remove', { _token: csrf });
+  assert.equal(sql('SELECT avatar FROM users WHERE id = ?', [uid])[0].avatar, null);
+  assert.equal((await new Client().get(path)).status, 404, 'file deleted');
+});
+
+test('forms: password show/hide on admin screens; Turnstile sits directly above the submit button', async () => {
+  const c = new Client();
+  assert.match((await c.get('admin/login')).text, /js\/pwtoggle\.js/);
+  assert.match((await admin.get('admin/profile')).text, /js\/pwtoggle\.js/);
+  const on = Boolean(getSetting('turnstile_site_key')) && Boolean(getSetting('turnstile_secret'));
+  const pages = {
+    contact: ['name="fullName"', 'Send Message'],
+    quote: ['name="fullName"', 'Submit Quote Request'],
+    'admin/login': ['name="password"', 'Sign in <'],
+    'admin/forgot': ['name="login"', 'Send reset code'],
+  };
+  for (const [p, [field, submit]] of Object.entries(pages)) {
+    const h = (await c.get(p)).text;
+    if (!on) {
+      assert.doesNotMatch(h, /class="cf-turnstile"/, `${p}: no widget when Turnstile is off`);
+      continue;
+    }
+    const iField = h.indexOf(field);
+    const iTs = h.indexOf('class="cf-turnstile"');
+    const iBtn = h.indexOf(submit);
+    assert.ok(iField > -1 && iTs > iField && iBtn > iTs, `${p}: widget after the fields and before the submit button`);
+  }
 });

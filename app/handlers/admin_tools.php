@@ -220,10 +220,12 @@ function admin_backup_create(): void
 {
     $user = require_login('settings');
     csrf_check();
+    require_stepup('backup');
     try {
         $b = backup_create(!empty($_POST['uploads']));
         backup_prune(max(1, (int) setting('backup_keep', 14)));
         auth_log('backup_created', (int) $user['id'], $user['email']);
+        notify_admins('backup_created', 'Manual backup created', actor_name() . " created a backup ({$b['file']}).", ['severity' => 'info', 'email' => false, 'link' => 'admin/backups', 'include_actor' => true]);
         flash('success', "Backup created: {$b['file']} — {$b['tables']} tables, {$b['rows']} rows, " . round($b['size'] / 1024) . ' KB' . ($b['uploads'] ? " + {$b['uploads']}" : '') . '.');
     } catch (Throwable $e) {
         error_log((string) $e);
@@ -237,6 +239,7 @@ function admin_backup_download(): void
 {
     $user = require_login('settings');
     csrf_check();
+    require_stepup('backup');
     $row = db_one('SELECT * FROM users WHERE id = ?', [(int) $user['id']]);
     require_once __DIR__ . '/admin_settings.php';
     $ok = profile_password_ok($row, (string) ($_POST['password'] ?? ''));
@@ -244,6 +247,8 @@ function admin_backup_download(): void
     $path = backup_path((string) input('file', ''));
     if (!$path) abort(404);
     auth_log('backup_downloaded', (int) $user['id'], $user['email']);
+    notify_admins('backup_downloaded', 'A backup was downloaded', actor_name() . ' downloaded the backup ' . basename($path) . '. Backups contain every lead and user record.',
+        ['severity' => 'critical', 'link' => 'admin/backups', 'include_actor' => true]);
     while (ob_get_level()) ob_end_clean();
     header('Content-Type: ' . (str_ends_with($path, '.zip') ? 'application/zip' : 'application/gzip'));
     header('Content-Disposition: attachment; filename="' . basename($path) . '"');
@@ -257,8 +262,13 @@ function admin_backup_delete(): void
 {
     $user = require_login('settings');
     csrf_check();
+    require_stepup('backup');
     $path = backup_path((string) input('file', ''));
-    if ($path && @unlink($path)) { auth_log('backup_deleted', (int) $user['id'], $user['email']); flash('success', 'Backup deleted.'); }
+    if ($path && @unlink($path)) {
+        auth_log('backup_deleted', (int) $user['id'], $user['email']);
+        notify_admins('backup_deleted', 'A backup was deleted', actor_name() . ' deleted the backup ' . basename($path) . '.', ['severity' => 'warning', 'link' => 'admin/backups', 'include_actor' => true]);
+        flash('success', 'Backup deleted.');
+    }
     else flash('error', 'Backup not found.');
     redirect('admin/backups');
 }

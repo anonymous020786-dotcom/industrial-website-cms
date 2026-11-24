@@ -57,6 +57,23 @@ export class Client {
     return { status: res.status, json, text };
   }
 
+  /**
+   * Complete "confirm it's you" with the emailed code (shown on screen in debug mode only).
+   * Returns the response of the confirmation POST (a redirect, or the auto-resubmit page).
+   */
+  async stepUp(identity = process.env.ADMIN_LOGIN || 'admin@example.com') {
+    // Test-only: age earlier codes so the per-user resend limits don't block back-to-back confirmations
+    sql("UPDATE login_otps o JOIN users u ON u.id = o.user_id SET o.created_at = o.created_at - INTERVAL 20 MINUTE WHERE u.email = ? OR u.username = ?", [identity, identity]);
+    let page = await this.get('admin/confirm');
+    if (!/Debug mode — code/.test(page.text)) {
+      await this.post('admin/confirm', { _token: token(page.text), method: 'send' });
+      page = await this.get('admin/confirm');
+    }
+    const code = (page.text.match(/Debug mode — code: <code class="font-bold">(\d{6})<\/code>/) || [])[1];
+    if (!code) throw new Error('No step-up code on the page — tests need debug mode');
+    return this.post('admin/confirm', { _token: token(page.text), method: 'email', code });
+  }
+
   /** Sign in with password (+ dummy Turnstile token). Returns the redirect target. */
   async login(login, password) {
     const page = await this.get('admin/login');

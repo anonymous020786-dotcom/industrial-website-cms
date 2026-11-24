@@ -44,6 +44,7 @@ const codeTargets = [
   { in: 'resources/js/main.js', out: 'public/assets/js/main.js', loader: 'js' },
   { in: 'resources/js/admin.js', out: 'public/assets/js/admin.js', loader: 'js' },
   { in: 'resources/js/passkey.js', out: 'public/assets/js/passkey.js', loader: 'js' },
+  { in: 'resources/js/pwtoggle.js', out: 'public/assets/js/pwtoggle.js', loader: 'js' },
 ];
 const buildOpts = (t) => ({
   entryPoints: [join(root, t.in)], outfile: join(root, t.out), bundle: false, minify: true,

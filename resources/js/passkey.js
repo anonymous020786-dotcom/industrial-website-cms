@@ -22,6 +22,8 @@
     });
     let json = null;
     try { json = await res.json(); } catch { /* HTML error page */ }
+    // Sensitive action: confirm identity first, then come back here
+    if (res.status === 428 && json?.stepup) { window.location.href = json.stepup; throw Object.assign(new Error(''), { name: 'AbortError' }); }
     if (!res.ok || !json || json.error) throw new Error(json?.error || (res.status === 419 ? 'Your session expired. Refresh the page and try again.' : 'Request failed. Please try again.'));
     return json;
   }
@@ -110,6 +112,35 @@
       });
     }
   }
+
+  /* ---------------- Confirm a sensitive action with a passkey ---------------- */
+  const stepBtn = $('[data-stepup-passkey]');
+  if (stepBtn) {
+    const msg = $('[data-stepup-passkey-error]');
+    if (!supported) {
+      stepBtn.closest('[data-stepup-passkey-box]')?.setAttribute('hidden', '');
+    } else {
+      stepBtn.addEventListener('click', async () => {
+        msg.textContent = '';
+        stepBtn.disabled = true;
+        try {
+          const opts = await post('admin/confirm/passkey/options');
+          opts.challenge = b64urlToBuf(opts.challenge);
+          opts.allowCredentials = (opts.allowCredentials || []).map((c) => ({ ...c, id: b64urlToBuf(c.id) }));
+          const cred = await navigator.credentials.get({ publicKey: opts });
+          const res = await post('admin/confirm/passkey', { credential: credToJSON(cred) });
+          window.location.href = res.redirect;
+        } catch (err) {
+          msg.textContent = friendly(err) || 'Cancelled.';
+          stepBtn.disabled = false;
+        }
+      });
+    }
+  }
+
+  /* ---------------- Resume a confirmed action (re-submits the original form) ---------------- */
+  const resume = $('form[data-autosubmit]');
+  if (resume) setTimeout(() => (resume.requestSubmit ? resume.requestSubmit() : resume.submit()), 400);
 
   /* ---------------- QR code for authenticator apps ---------------- */
   const qrBox = $('[data-qr]');

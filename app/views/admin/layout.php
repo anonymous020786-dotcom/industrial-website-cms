@@ -49,11 +49,15 @@ $path = request_path();
         <h1 class="truncate text-lg font-bold text-navy"><?= e($title) ?></h1>
       </div>
       <div class="flex items-center gap-2"><?= $actions ?></div>
+      <?php $unreadN = notifications_unread((int) $user['id']); ?>
+      <a href="<?= e(url('admin/notifications')) ?>" class="adm-bell" aria-label="Notifications<?= $unreadN ? ' (' . $unreadN . ' unread)' : '' ?>" title="Notifications"><?= icon('bell', 'h-5 w-5') ?><?php if ($unreadN): ?><span class="adm-bell-count"><?= $unreadN > 99 ? '99+' : $unreadN ?></span><?php endif ?></a>
+      <?php if (stepup_valid()): ?><span class="adm-verified" title="Sensitive actions confirmed for <?= (int) ceil(stepup_remaining() / 60) ?> more minute(s)"><?= icon('shield-check', 'h-4 w-4') ?><span class="hidden md:inline">Verified</span></span><?php endif ?>
       <details class="adm-user">
-        <summary><span class="adm-avatar"><?= e(mb_strtoupper(mb_substr($user['name'], 0, 1))) ?></span><span class="hidden text-sm font-semibold text-navy sm:block"><?= e($user['name']) ?></span><?= icon('chevron-down', 'h-4 w-4 text-charcoal/50') ?></summary>
+        <summary><?= user_avatar_html($user) ?><span class="hidden text-sm font-semibold text-navy sm:block"><?= e($user['name']) ?></span><?= icon('chevron-down', 'h-4 w-4 text-charcoal/50') ?></summary>
         <div class="adm-user-menu">
           <p class="px-4 pb-2 pt-3 text-xs text-charcoal/55"><?= e($user['email']) ?><br><span class="font-semibold uppercase tracking-wider"><?= e($user['role']) ?></span></p>
           <a href="<?= e(url('admin/profile')) ?>" class="adm-menu-item"><?= icon('user-cog', 'h-4 w-4') ?> My profile</a>
+          <a href="<?= e(url('admin/notifications')) ?>" class="adm-menu-item"><?= icon('bell', 'h-4 w-4') ?> Notifications<?= $unreadN ? ' (' . $unreadN . ')' : '' ?></a>
           <form method="post" action="<?= e(url('admin/logout')) ?>"><?= csrf_field() ?><button class="adm-menu-item w-full text-left"><?= icon('log-out', 'h-4 w-4') ?> Sign out</button></form>
         </div>
       </details>
@@ -98,5 +102,6 @@ $path = request_path();
 <?php endif ?>
 <script src="<?= e(asset('vendor/quill/quill.js')) ?>" defer></script>
 <script src="<?= e(asset('js/admin.js')) ?>" defer></script>
+<script src="<?= e(asset('js/pwtoggle.js')) ?>" defer></script>
 </body>
 </html>

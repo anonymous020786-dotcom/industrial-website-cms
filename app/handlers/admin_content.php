@@ -95,8 +95,15 @@ function content_destroy(string $type, array $ids): int
     $ids = array_map('intval', array_column(db_all("SELECT id FROM `{$type}` WHERE deleted_at IS NOT NULL AND id IN ({$in})", $ids), 'id'));
     if (!$ids) return 0;
     $in = implode(',', array_fill(0, count($ids), '?'));
+    $titles = array_column(db_all("SELECT title FROM `{$type}` WHERE id IN ({$in})", $ids), 'title');
     db_query("DELETE FROM revisions WHERE entity = '" . CONTENT_TYPES[$type] . "' AND entity_id IN ({$in})", $ids);
-    return db_query("DELETE FROM `{$type}` WHERE id IN ({$in})", $ids)->rowCount();
+    $n = db_query("DELETE FROM `{$type}` WHERE id IN ({$in})", $ids)->rowCount();
+    if ($n && current_user()) {
+        notify_admins('content_deleted', $n . ' ' . ($type === 'posts' ? 'post' : 'page') . ($n === 1 ? '' : 's') . ' deleted permanently',
+            actor_name() . ' permanently deleted: ' . implode(', ', array_slice($titles, 0, 8)) . (count($titles) > 8 ? '…' : '') . '.',
+            ['severity' => 'info', 'category' => 'content', 'link' => 'admin/' . $type, 'include_actor' => true]);
+    }
+    return $n;
 }
 
 function content_purge_old_trash(string $type): void
@@ -118,6 +125,7 @@ function admin_content_destroy(string $type, string $id): void
 {
     require_login('content');
     csrf_check();
+    require_stepup('destroy');
     $n = content_destroy(content_table($type), [(int) $id]);
     flash($n ? 'success' : 'error', $n ? 'Permanently deleted.' : 'Only items in the Trash can be deleted permanently.');
     redirect("admin/{$type}?status=trash");
@@ -127,6 +135,7 @@ function admin_content_empty_trash(string $type): void
 {
     require_login('content');
     csrf_check();
+    require_stepup('destroy');
     $table = content_table($type);
     $ids = array_map('intval', array_column(db_all("SELECT id FROM `{$table}` WHERE deleted_at IS NOT NULL"), 'id'));
     $n = content_destroy($table, $ids);
@@ -312,6 +321,7 @@ function admin_posts_bulk(): void
             flash('success', content_restore('posts', $ids) . ' post(s) restored as drafts.');
             break;
         case 'destroy':
+            require_stepup('destroy');
             flash('success', content_destroy('posts', $ids) . ' post(s) permanently deleted.');
             break;
         case 'duplicate':
@@ -402,6 +412,7 @@ function admin_pages_bulk(): void
             flash('success', content_restore('pages', $ids) . ' page(s) restored as drafts.');
             break;
         case 'destroy':
+            require_stepup('destroy');
             flash('success', content_destroy('pages', $ids) . ' page(s) permanently deleted.');
             break;
         case 'index':
@@ -658,6 +669,7 @@ function admin_resource_list(string $res): void
 function admin_resource_edit(string $res, ?string $id = null): void
 {
     $r = resource_def($res);
+    if ($res === 'users') require_stepup('users');
     $row = $id ? db_one("SELECT * FROM `{$r['table']}` WHERE id = ?", [(int) $id]) : null;
     if ($id && !$row) abort(404);
     $schema = $r['fields'];
@@ -694,6 +706,7 @@ function admin_resource_edit(string $res, ?string $id = null): void
         if (!$errors) {
             if ($row) { db_update($r['table'], $v, (int) $row['id']); $rid = (int) $row['id']; }
             else $rid = db_insert($r['table'], $v);
+            if ($res === 'users') resource_user_notify($row, $v, $rid);
             // Keep old links working when a published item's URL changes
             $urlBase = ['products' => 'products/', 'projects' => 'projects/'][$res] ?? null;
             if ($row && $urlBase && isset($v['slug']) && $v['slug'] !== $row['slug'] && ($row['status'] ?? '') === 'published') {
@@ -710,6 +723,28 @@ function admin_resource_edit(string $res, ?string $id = null): void
     $view = isset($r['view']) && $row ? ($r['view'])($row) : null;
     $actions = $view ? '<a class="adm-btn adm-btn-light" target="_blank" href="' . e($view) . '">' . icon('eye', 'h-4 w-4') . ' View</a>' : '';
     admin_render(($row ? 'Edit ' : 'New ') . strtolower($r['singular']), 'resource/edit', compact('r', 'res', 'row', 'schema', 'values', 'errors'), ['actions' => $actions, 'crumbs' => [[$r['title'], "admin/r/{$res}"]]]);
+}
+
+/** Alert the affected user and all administrators about account changes made in Users. */
+function resource_user_notify(?array $before, array $v, int $uid): void
+{
+    $u = db_one('SELECT * FROM users WHERE id = ?', [$uid]);
+    if (!$u) return;
+    $who = actor_name();
+    if (!$before) {
+        notify_admins('user_created', 'New user account created', "{$who} created a {$u['role']} account for {$u['name']} ({$u['email']}).", ['severity' => 'warning', 'link' => 'admin/r/users', 'include_actor' => true]);
+        notify_user($u, 'account_created', 'An account was created for you', "{$who} created a {$u['role']} account for you on the " . company('name') . ' control panel. Sign in at ' . abs_url('admin/login') . ' and add a passkey or authenticator app in My profile.', ['severity' => 'info', 'category' => 'account']);
+        return;
+    }
+    $changes = [];
+    if ($before['role'] !== $u['role']) $changes[] = "role changed from {$before['role']} to {$u['role']}";
+    if ((int) $before['active'] !== (int) $u['active']) $changes[] = $u['active'] ? 'account re-enabled' : 'account disabled';
+    if (strtolower((string) $before['email']) !== strtolower((string) $u['email'])) $changes[] = "sign-in email changed from {$before['email']} to {$u['email']}";
+    if (!empty($v['password_hash'])) $changes[] = 'password set by an administrator';
+    if (!$changes) return;
+    $text = "{$who} changed the account of {$u['name']}: " . implode('; ', $changes) . '.';
+    notify_admins('user_changed', 'User account changed', $text, ['severity' => 'warning', 'link' => 'admin/r/users/' . $uid . '/edit', 'include_actor' => true]);
+    security_notice($u, 'Your account was changed by an administrator', $text, strtolower((string) $before['email']) !== strtolower((string) $u['email']) ? $before['email'] : null, 'account_changed_by_admin');
 }
 
 function resource_user_rules(array &$v, array &$errors, ?array $row): void
@@ -742,7 +777,10 @@ function admin_resource_delete(string $res, string $id): void
     $r = resource_def($res);
     csrf_check();
     if ($res === 'users') {
+        require_stepup('users');
         if ((int) $id === (int) current_user()['id']) { flash('error', 'You cannot delete your own account.'); redirect('admin/r/users'); }
+        $gone = db_one('SELECT name, email, role FROM users WHERE id = ?', [(int) $id]);
+        if ($gone) notify_admins('user_deleted', 'User account deleted', actor_name() . ' deleted the ' . $gone['role'] . ' account of ' . $gone['name'] . ' (' . $gone['email'] . ').', ['severity' => 'warning', 'link' => 'admin/r/users', 'include_actor' => true]);
     }
     if ($res === 'product_categories' && db_val('SELECT COUNT(*) FROM products WHERE category_id = ?', [(int) $id])) {
         flash('info', 'Products in this category are now uncategorised.');

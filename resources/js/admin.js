@@ -47,6 +47,9 @@
     act?.addEventListener('change', () => { if (sched) { sched.classList.toggle('hidden', act.value !== 'schedule'); sched.classList.toggle('flex', act.value === 'schedule'); } });
   });
 
+  /* ---------- Profile picture: upload as soon as a file is chosen ---------- */
+  $$('[data-avatar-input]').forEach((inp) => inp.addEventListener('change', () => { if (inp.files.length) inp.form.requestSubmit(); }));
+
   /* ---------- Reports: custom date range ---------- */
   $$('[data-range-select]').forEach((sel) => sel.addEventListener('change', () => {
     const box = $('[data-custom]', sel.form);

@@ -33,6 +33,17 @@ function routes(): array
         ['POST', '/admin/login/passkey/options', 'admin_login_passkey_options', 'admin_security'],
         ['POST', '/admin/login/passkey', 'admin_login_passkey', 'admin_security'],
 
+        // Step-up confirmation, notifications, profile picture
+        ['GET|POST', '/admin/confirm', 'admin_confirm', 'admin_account'],
+        ['POST', '/admin/confirm/passkey/options', 'admin_confirm_passkey_options', 'admin_account'],
+        ['POST', '/admin/confirm/passkey', 'admin_confirm_passkey', 'admin_account'],
+        ['GET', '/admin/confirm/resume', 'admin_confirm_resume', 'admin_account'],
+        ['GET', '/admin/notifications', 'admin_notifications', 'admin_account'],
+        ['POST', '/admin/notifications/read', 'admin_notifications_read', 'admin_account'],
+        ['POST', '/admin/notify-prefs', 'admin_notify_prefs', 'admin_account'],
+        ['POST', '/admin/avatar', 'admin_avatar_upload', 'admin_account'],
+        ['POST', '/admin/avatar/remove', 'admin_avatar_remove', 'admin_account'],
+
         // Passkeys & authenticator app (signed-in user)
         ['POST', '/admin/passkeys/options', 'admin_passkey_options', 'admin_security'],
         ['POST', '/admin/passkeys/register', 'admin_passkey_register', 'admin_security'],

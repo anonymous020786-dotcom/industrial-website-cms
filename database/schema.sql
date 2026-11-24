@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS users (
   password_changed_at DATETIME NULL,
   totp_secret   TEXT NULL,
   totp_enabled_at DATETIME NULL,
+  avatar        VARCHAR(500) NULL,
+  notify_prefs  TEXT NULL,
   password_hash VARCHAR(255) NOT NULL,
   role          ENUM('admin','editor','sales') NOT NULL DEFAULT 'editor',
   active        TINYINT(1) NOT NULL DEFAULT 1,
@@ -379,4 +381,35 @@ CREATE TABLE IF NOT EXISTS testimonials (
   status       ENUM('draft','published') NOT NULL DEFAULT 'draft',
   sort_order   INT NOT NULL DEFAULT 0,
   created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Security & activity notifications (in-app bell + email log)
+CREATE TABLE IF NOT EXISTS notifications (
+  id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id    INT UNSIGNED NOT NULL,
+  event      VARCHAR(50) NOT NULL,
+  severity   ENUM('info','warning','critical') NOT NULL DEFAULT 'info',
+  title      VARCHAR(190) NOT NULL,
+  body       TEXT NULL,
+  link       VARCHAR(300) NULL,
+  ip         VARCHAR(45) NULL,
+  user_agent VARCHAR(255) NULL,
+  emailed    TINYINT(1) NOT NULL DEFAULT 0,
+  read_at    DATETIME NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_notifications_user (user_id, read_at, id),
+  CONSTRAINT fk_notifications_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Browsers a user has signed in from (new-device sign-in alerts). Identified by a random cookie, stored hashed.
+CREATE TABLE IF NOT EXISTS known_devices (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id     INT UNSIGNED NOT NULL,
+  device_hash CHAR(64) NOT NULL,
+  label       VARCHAR(120) NULL,
+  ip          VARCHAR(45) NULL,
+  first_seen  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  last_seen   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_known_device (user_id, device_hash),
+  CONSTRAINT fk_known_devices_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

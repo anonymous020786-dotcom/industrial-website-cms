@@ -238,10 +238,15 @@ function form_hidden(string $form): string
     $h = '<input type="hidden" name="form" value="' . e($form) . '"><input type="hidden" name="_ft" value="' . e(form_token()) . '">'
         . '<input type="hidden" name="_page" value=""><input type="hidden" name="_landing" value=""><input type="hidden" name="_referrer" value="">'
         . '<div class="hp" aria-hidden="true"><label>Website <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>';
-    if (turnstile_enabled()) {
-        $h .= '<div class="cf-turnstile sm:col-span-2" data-sitekey="' . e(setting('turnstile_site_key')) . '" data-theme="light"></div>';
-    }
     return $h;
+}
+
+/** Cloudflare Turnstile widget — placed directly above a form's submit button. */
+function turnstile_widget(string $extraClass = ''): string
+{
+    if (!turnstile_enabled()) return '';
+    return '<div class="turnstile-slot ' . e($extraClass) . '"><div class="cf-turnstile" data-sitekey="' . e((string) setting('turnstile_site_key')) . '" data-theme="auto" data-size="flexible" data-response-field-name="cf-turnstile-response"></div>'
+        . '<p class="turnstile-note">Protected by Cloudflare Turnstile — no puzzles, privacy-friendly.</p></div>';
 }
 
 function form_success(string $id): string

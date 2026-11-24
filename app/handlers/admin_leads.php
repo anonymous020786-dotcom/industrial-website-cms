@@ -51,11 +51,14 @@ function admin_leads(): void
 
 function admin_leads_export(): void
 {
-    require_login('leads');
+    $me = require_login('leads');
+    require_stepup('export');
     [$where, $params] = lead_filters();
     $rows = db_all("SELECT l.*, u.name AS assignee FROM leads l LEFT JOIN users u ON u.id = l.assigned_to WHERE {$where} ORDER BY l.created_at DESC", $params);
     header('Content-Type: text/csv; charset=utf-8');
     header('Content-Disposition: attachment; filename="leads-' . date('Y-m-d') . '.csv"');
+    auth_log('leads_exported', (int) $me['id'], $me['email']);
+    notify_admins('leads_exported', 'Lead data exported', actor_name() . ' exported ' . count($rows) . ' lead(s) to CSV (names, emails and phone numbers).', ['severity' => 'warning', 'link' => 'admin/leads', 'include_actor' => true]);
     $out = fopen('php://output', 'w');
     fwrite($out, "\xEF\xBB\xBF"); // UTF-8 BOM for Excel
     $cols = ['id', 'created_at', 'type', 'status', 'priority', 'name', 'company', 'email', 'phone', 'product', 'quantity', 'required_by', 'part_number', 'items', 'message', 'value', 'tags', 'assignee', 'follow_up_at', 'source_page', 'referrer', 'utm_source', 'utm_medium', 'utm_campaign'];
@@ -176,6 +179,7 @@ function admin_lead_delete(string $id): void
 {
     $user = require_login('leads');
     csrf_check();
+    require_stepup('lead_delete');
     if ($user['role'] !== 'admin') abort(403, 'Only administrators can delete leads. Mark it as Spam or Lost instead.');
     $lead = lead_or_404((int) $id);
     lead_delete_files((int) $lead['id']);

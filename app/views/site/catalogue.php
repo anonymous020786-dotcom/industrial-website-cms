@@ -19,6 +19,7 @@ $f = fn($id, $label, $type = 'text', $req = true, $ac = '') => form_field(['id' 
         <?= $f('phone', 'Phone (optional)', 'tel', false, 'tel') ?>
         <?= consent_field() ?>
         <?php if (!empty($errors['consent'])): ?><p class="field-error sm:col-span-2"><?= e($errors['consent']) ?></p><?php endif ?>
+        <?= turnstile_widget('sm:col-span-2') ?>
         <div class="sm:col-span-2"><button type="submit" class="btn btn-primary btn-lg w-full justify-center sm:w-auto"><?= icon('file-down', 'h-5 w-5') ?> <?= $isSheet ? 'Download datasheet' : 'Download catalogue' ?></button></div>
       </form>
     </div>

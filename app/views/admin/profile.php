@@ -15,11 +15,29 @@ $labels = [
     'passkey_added' => 'Passkey added', 'passkey_removed' => 'Passkey removed', 'passkey_login' => 'Signed in with a passkey', 'passkey_failed' => 'Passkey check failed',
     'totp_enabled' => 'Authenticator app enabled', 'totp_disabled' => 'Authenticator app turned off', 'totp_failed' => 'Wrong authenticator code',
     'recovery_code_used' => 'Recovery code used', 'recovery_codes_regenerated' => 'New recovery codes', 'backup_downloaded' => 'Backup downloaded',
+    'stepup_ok' => 'Confirmed a sensitive action', 'stepup_required' => 'Confirmation requested', 'stepup_failed' => 'Wrong confirmation code',
+    'avatar_changed' => 'Profile picture changed', 'leads_exported' => 'Leads exported', 'backup_created' => 'Backup created', 'backup_deleted' => 'Backup deleted', 'stepup_code_sent' => 'Confirmation code sent',
 ];
 $transportLabel = fn(?string $t) => str_contains((string) $t, 'internal') ? 'This device (built-in)' : (str_contains((string) $t, 'hybrid') ? 'Phone' : ($t ? 'Security key' : 'Passkey'));
 ?>
 <div class="grid gap-6 xl:grid-cols-[1fr_20rem]">
 <div class="space-y-6">
+
+  <!-- Profile picture -->
+  <section class="adm-card flex flex-wrap items-center gap-5 p-6" id="picture" aria-labelledby="pic-title">
+    <?= user_avatar_html($user, 'adm-avatar-lg') ?>
+    <div class="min-w-0 flex-1">
+      <h2 class="adm-subheading" id="pic-title">Profile picture</h2>
+      <p class="mt-1 text-sm text-charcoal/75">Shown in the admin header and next to your name. JPG, PNG or WebP up to 5 MB — cropped to a square and cleaned of hidden data (EXIF/GPS).</p>
+      <div class="mt-3 flex flex-wrap items-center gap-3">
+        <form method="post" action="<?= e(url('admin/avatar')) ?>" enctype="multipart/form-data" class="flex flex-wrap items-center gap-2" data-avatar-form>
+          <?= csrf_field() ?>
+          <label class="adm-btn adm-btn-light cursor-pointer"><?= icon('upload', 'h-4 w-4') ?> <?= !empty($user['avatar']) ? 'Change picture' : 'Upload picture' ?><input type="file" name="avatar" accept="image/jpeg,image/png,image/webp" class="sr-only" data-avatar-input required></label>
+        </form>
+        <?php if (!empty($user['avatar'])): ?><form method="post" action="<?= e(url('admin/avatar/remove')) ?>"><?= csrf_field() ?><button class="adm-link text-sm" data-confirm="Remove your profile picture?">Remove</button></form><?php endif ?>
+      </div>
+    </div>
+  </section>
 
   <!-- Profile -->
   <form method="post" class="adm-card space-y-4 p-6" id="profile">
@@ -213,8 +231,25 @@ $transportLabel = fn(?string $t) => str_contains((string) $t, 'internal') ? 'Thi
   </section>
 </div>
 
+<!-- Notification preferences (full width under the security sections) -->
+<?php $prefs = notify_prefs($user); ?>
+<form method="post" action="<?= e(url('admin/notify-prefs')) ?>" class="adm-card space-y-4 p-6 xl:col-start-1" id="notifications">
+  <?= csrf_field() ?>
+  <div>
+    <h2 class="adm-subheading flex items-center gap-2"><?= icon('bell', 'h-5 w-5 text-steel') ?> Notifications</h2>
+    <p class="mt-1 text-sm text-charcoal/75">Every alert also appears under the bell in the header. Choose which ones are emailed to you.</p>
+  </div>
+  <ul class="space-y-3">
+    <li class="flex gap-3 rounded-lg border border-black/10 bg-mist/60 p-3"><input type="checkbox" checked disabled class="mt-1" aria-label="Account security alerts (always on)"><span><span class="block font-semibold text-navy">Account security — always on</span><span class="text-sm text-charcoal/75">Password, email, backup email, passkeys, authenticator app and recovery codes, plus changes an administrator makes to your account. Sent to your sign-in email and verified backup email.</span></span></li>
+    <?php foreach (NOTIFY_CATEGORIES as $k => [$label, $desc]): if ($k === 'admin' && $user['role'] !== 'admin') continue; ?>
+    <li><label class="flex cursor-pointer gap-3 rounded-lg border border-black/10 p-3 hover:bg-mist/60"><input type="checkbox" name="notify[<?= e($k) ?>]" value="1" class="mt-1"<?= $prefs[$k] ? ' checked' : '' ?>><span><span class="block font-semibold text-navy">Email me: <?= e($label) ?></span><span class="text-sm text-charcoal/75"><?= e($desc) ?></span></span></label></li>
+    <?php endforeach ?>
+  </ul>
+  <div class="flex justify-end"><button class="adm-btn adm-btn-primary"><?= icon('save', 'h-4 w-4') ?> Save preferences</button></div>
+</form>
+
 <!-- Recent activity -->
-<aside class="adm-card h-max p-6">
+<aside class="adm-card h-max p-6 xl:row-span-2 xl:row-start-1 xl:col-start-2" id="security-activity">
   <h2 class="adm-subheading flex items-center gap-2"><?= icon('history', 'h-5 w-5 text-steel') ?> Recent security activity</h2>
   <?php if (!$events): ?><p class="mt-3 text-sm text-charcoal/60">No activity yet.</p><?php else: ?>
   <ul class="mt-4 space-y-3 text-sm">

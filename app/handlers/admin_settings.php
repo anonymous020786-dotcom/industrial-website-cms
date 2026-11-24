@@ -148,6 +148,9 @@ function admin_settings(string $tab): void
     if (!isset($tabs[$tab])) abort(404);
     [$label, , $schema] = $tabs[$tab];
     $errors = [];
+    // Security, email (SMTP password) and integration keys: confirm identity before even showing them
+    $sensitiveTab = in_array($tab, ['security', 'email', 'integrations'], true);
+    if ($sensitiveTab) require_stepup('settings');
 
     if (is_post() && $schema) {
         csrf_check();
@@ -179,7 +182,17 @@ function admin_settings(string $tab): void
             }
         }
         if (!$errors) {
+            $changed = [];
+            foreach ($values as $k => $v) {
+                if (($schema[$k]['type'] ?? '') === 'heading') continue;
+                if (json_encode(setting($k)) !== json_encode($v)) $changed[] = (string) ($schema[$k]['label'] ?? $k);
+            }
             foreach ($values as $k => $v) setting_set($k, $v);
+            if ($changed) {
+                notify_admins('settings_changed', 'Settings changed: ' . $label,
+                    actor_name() . ' changed ' . count($changed) . ' setting(s) in ' . $label . ': ' . implode(', ', array_slice($changed, 0, 12)) . (count($changed) > 12 ? '…' : '') . '. Secret values are never included in alerts.',
+                    ['severity' => $sensitiveTab ? 'warning' : 'info', 'link' => 'admin/settings/' . $tab, 'email' => $sensitiveTab ? null : false, 'include_actor' => true]);
+            }
             flash('success', $label . ' saved.');
             redirect('admin/settings/' . $tab);
         }
@@ -260,6 +273,9 @@ function admin_profile(): void
         csrf_check();
         $action = (string) input('action');
         $old = $_POST;
+        // Critical account changes need a fresh one-time code / passkey, not just the password
+        $stepFor = ['password' => 'password', 'email_start' => 'email', 'backup_start' => 'backup_email', 'backup_remove' => 'backup_email'];
+        if (isset($stepFor[$action])) require_stepup($stepFor[$action]);
         switch ($action) {
             case 'profile':
                 $name = trim((string) input('name'));

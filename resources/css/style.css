@@ -616,3 +616,8 @@ html.headings-editorial .legal h2 {
 }
 html.headings-editorial .hero-title { line-height: 1.02; letter-spacing: -.02em; }
 html.headings-editorial .section-title { font-size: clamp(2.1rem, 3.9vw, 3.3rem); }
+
+/* ---------- Cloudflare Turnstile (sits just above the submit button) ---------- */
+.turnstile-slot { display: flex; flex-direction: column; gap: .35rem; }
+.turnstile-slot .cf-turnstile { min-height: 65px; }
+.turnstile-note { font-size: .75rem; color: var(--text-muted); }

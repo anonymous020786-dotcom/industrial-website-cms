@@ -283,14 +283,31 @@ function webauthn_login_options(): array
     ];
 }
 
-/** Verify an assertion. @return array the user row */
-function webauthn_login(array $cred): array
+/** Options for confirming a sensitive action with one of the signed-in user's own passkeys. */
+function webauthn_stepup_options(array $user): array
 {
-    $pending = webauthn_take_challenge('login');
-    if (!$pending) throw new RuntimeException('The sign-in request expired. Please try again.');
+    return [
+        'challenge' => webauthn_new_challenge('stepup', ['uid' => (int) $user['id']]),
+        'rpId' => webauthn_rp_id(),
+        'timeout' => WEBAUTHN_TIMEOUT,
+        'userVerification' => 'required',
+        'allowCredentials' => array_map(fn($c) => ['type' => 'public-key', 'id' => $c['credential_id'], 'transports' => array_values(array_filter(explode(',', (string) $c['transports'])))],
+            db_all('SELECT credential_id, transports FROM passkeys WHERE user_id = ?', [(int) $user['id']])),
+    ];
+}
+
+/**
+ * Verify an assertion. $purpose 'login' (any registered passkey) or 'stepup' (must belong to $mustUserId).
+ * @return array the user row
+ */
+function webauthn_login(array $cred, string $purpose = 'login', ?int $mustUserId = null): array
+{
+    $pending = webauthn_take_challenge($purpose);
+    if (!$pending) throw new RuntimeException('The request expired. Please try again.');
     $credId = (string) ($cred['rawId'] ?? $cred['id'] ?? '');
     $pk = db_one('SELECT * FROM passkeys WHERE credential_id = ?', [$credId]);
     if (!$pk) throw new RuntimeException('This passkey is not registered here. It may have been removed from your account.');
+    if ($mustUserId !== null && (int) $pk['user_id'] !== $mustUserId) throw new RuntimeException('That passkey belongs to a different account.');
     $user = db_one('SELECT * FROM users WHERE id = ?', [(int) $pk['user_id']]);
     if (!$user || !$user['active']) throw new RuntimeException('This account is disabled.');
     $handle = (string) ($cred['response']['userHandle'] ?? '');

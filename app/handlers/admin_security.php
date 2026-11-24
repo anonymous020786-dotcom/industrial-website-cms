@@ -22,6 +22,7 @@ function admin_passkey_options(): void
 {
     $user = require_login();
     csrf_check();
+    require_stepup('passkey_add');
     $row = db_one('SELECT * FROM users WHERE id = ?', [(int) $user['id']]);
     $ok = profile_password_ok($row, (string) (json_body()['password'] ?? ''));
     if ($ok !== true) json_error($ok);
@@ -61,6 +62,7 @@ function admin_passkey_delete(string $id): void
 {
     $user = require_login();
     csrf_check();
+    require_stepup('passkey_remove');
     $row = db_one('SELECT * FROM users WHERE id = ?', [(int) $user['id']]);
     $ok = profile_password_ok($row, (string) ($_POST['password'] ?? ''));
     if ($ok !== true) { flash('error', $ok); redirect('admin/profile#passkeys'); }
@@ -114,6 +116,7 @@ function admin_totp_setup(): void
 {
     $user = require_login();
     csrf_check();
+    require_stepup('totp');
     $row = db_one('SELECT * FROM users WHERE id = ?', [(int) $user['id']]);
     $ok = profile_password_ok($row, (string) ($_POST['password'] ?? ''));
     if ($ok !== true) { flash('error', $ok); redirect('admin/profile#two-factor'); }
@@ -144,6 +147,7 @@ function admin_totp_disable(): void
 {
     $user = require_login();
     csrf_check();
+    require_stepup('totp');
     $row = db_one('SELECT * FROM users WHERE id = ?', [(int) $user['id']]);
     $ok = profile_password_ok($row, (string) ($_POST['password'] ?? ''));
     if ($ok !== true) { flash('error', $ok); redirect('admin/profile#two-factor'); }
@@ -159,6 +163,7 @@ function admin_recovery_regenerate(): void
 {
     $user = require_login();
     csrf_check();
+    require_stepup('recovery');
     $row = db_one('SELECT * FROM users WHERE id = ?', [(int) $user['id']]);
     $ok = profile_password_ok($row, (string) ($_POST['password'] ?? ''));
     if ($ok !== true || !totp_enabled_for($row)) { flash('error', $ok === true ? 'Turn on the authenticator app first.' : $ok); redirect('admin/profile#two-factor'); }

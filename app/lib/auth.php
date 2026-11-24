@@ -32,6 +32,7 @@ const OTP_PURPOSES = [
     'reset' => ['Reset your password', 'to reset your password for the %s control panel'],
     'email_change' => ['Confirm your new email address', 'to confirm this address as the new sign-in email for the %s control panel'],
     'backup_email' => ['Confirm your backup email', 'to confirm this address as the backup email for your %s control panel account'],
+    'stepup' => ['Confirm it’s you', 'to confirm a sensitive action in the %s control panel'],
 ];
 
 function current_user(): ?array
@@ -41,7 +42,7 @@ function current_user(): ?array
     session_boot();
     $id = $_SESSION['uid'] ?? null;
     if (!$id) return $user = null;
-    $row = db_one('SELECT id, name, email, username, backup_email, backup_email_verified_at, role, active, password_changed_at FROM users WHERE id = ?', [(int) $id]);
+    $row = db_one('SELECT id, name, email, username, backup_email, backup_email_verified_at, role, active, password_changed_at, avatar, notify_prefs, totp_enabled_at FROM users WHERE id = ?', [(int) $id]);
     if (!$row || !$row['active'] || ($_SESSION['ver'] ?? '') !== session_fingerprint((int) $id)) {
         unset($_SESSION['uid']);
         return $user = null;
@@ -147,6 +148,11 @@ function verify_credentials(string $identifier, string $password): array|string
         db_insert('rate_limits', ['bucket' => $bucket]);
         db_insert('rate_limits', ['bucket' => $ipBucket]);
         auth_log('login_failed', $user['id'] ?? null, $identifier);
+        if ($user && $recent + 1 === 5) {
+            notify_user($user, 'login_locked', 'Sign-in locked after failed attempts',
+                'Someone entered a wrong password for your account 5 times, so sign-in is locked for 15 minutes. If this was not you, consider changing your password.',
+                ['severity' => 'warning', 'category' => 'signin']);
+        }
         return 'Invalid email/username or password.';
     }
     if (password_needs_rehash($user['password_hash'], PASSWORD_DEFAULT)) {
@@ -166,6 +172,7 @@ function complete_login(array $user, bool $trustDevice = false): void
     db_update('users', ['last_login_at' => now()], (int) $user['id']);
     if ($trustDevice) trust_device((int) $user['id']);
     auth_log('login_success', (int) $user['id'], $user['email']);
+    login_device_check($user);
 }
 
 /** Single-step login used when OTP is disabled. */
@@ -205,12 +212,10 @@ function set_password(array $user, string $newPassword, string $reason = 'change
 }
 
 /** Email a security notice to the primary (and verified backup) address. Never blocks the action. */
-function security_notice(array $user, string $title, string $text, ?string $extraTo = null): void
+function security_notice(array $user, string $title, string $text, ?string $extraTo = null, string $event = 'account_security'): void
 {
-    $to = array_filter([$user['email'], !empty($user['backup_email_verified_at']) ? $user['backup_email'] : null, $extraTo]);
-    $inner = '<p style="font-size:14px;line-height:1.6">Hello ' . e($user['name']) . ',</p><p style="font-size:14px;line-height:1.6">' . e($text) . '</p>'
-        . '<p style="font-size:13px;color:#6b7280">If this was not you, reset your password immediately at ' . e(abs_url('admin/forgot')) . ' and contact your administrator.</p>';
-    try { send_mail(array_values(array_unique($to)), $title, mail_layout($title, $inner)); } catch (Throwable $e) { error_log((string) $e); }
+    // Account-security alerts are always emailed (primary + verified backup) and logged in-app
+    notify_user($user, $event, $title, $text, ['severity' => 'critical', 'category' => 'account', 'extra_to' => $extraTo, 'link' => 'admin/profile']);
 }
 
 /* ------------------------------------------------------------------ */
@@ -364,4 +369,13 @@ function ensure_auth_tables(): void
     require_once APP_DIR . '/lib/seed.php';
     if ((int) setting('schema_version', 0) >= SCHEMA_VERSION) return;
     run_migrations();
+}
+
+/** Round avatar: the uploaded profile picture, or the first letter of the name. */
+function user_avatar_html(array $u, string $class = 'adm-avatar'): string
+{
+    if (!empty($u['avatar']) && is_file(PUBLIC_DIR . '/' . ltrim((string) $u['avatar'], '/'))) {
+        return '<span class="' . e($class) . ' overflow-hidden"><img src="' . e(url((string) $u['avatar'])) . '" alt="" class="h-full w-full object-cover" width="64" height="64"></span>';
+    }
+    return '<span class="' . e($class) . '" aria-hidden="true">' . e(mb_strtoupper(mb_substr((string) ($u['name'] ?? '?'), 0, 1))) . '</span>';
 }

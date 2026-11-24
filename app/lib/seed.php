@@ -202,7 +202,7 @@ function finish_install(): void
 /* Migrations for sites installed before newer columns existed.        */
 /* Portable across MySQL and MariaDB (checks information_schema).      */
 /* ------------------------------------------------------------------ */
-const SCHEMA_VERSION = 6;
+const SCHEMA_VERSION = 7;
 
 function column_exists(string $table, string $column): bool
 {
@@ -227,6 +227,8 @@ function run_migrations(): array
             'password_changed_at' => 'DATETIME NULL AFTER backup_email_verified_at',
             'totp_secret' => 'TEXT NULL AFTER password_changed_at',
             'totp_enabled_at' => 'DATETIME NULL AFTER totp_secret',
+            'avatar' => 'VARCHAR(500) NULL AFTER totp_enabled_at',
+            'notify_prefs' => 'TEXT NULL AFTER avatar',
         ],
         'leads' => ['items' => 'MEDIUMTEXT NULL AFTER message'],
         'products' => ['datasheet' => 'VARCHAR(500) NULL AFTER specs'],

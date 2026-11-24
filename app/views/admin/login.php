@@ -95,7 +95,7 @@ $devHint = fn($code) => $code ? '<div class="adm-flash adm-flash-info">' . icon(
       </div>
       <?= $alerts() ?>
       <div class="adm-field"><label class="adm-label" for="login">Email or username</label><input class="adm-input" id="login" name="login" value="<?= e($email) ?>" autocomplete="username" required autofocus></div>
-      <?php if (!empty($turnstile)): ?><div class="cf-turnstile" data-sitekey="<?= e(setting('turnstile_site_key')) ?>" data-theme="light"></div><?php endif ?>
+      <?php if (!empty($turnstile)): ?><?= turnstile_widget() ?><?php endif ?>
       <button class="adm-btn adm-btn-primary w-full justify-center py-3">Send reset code <?= icon('arrow-right', 'h-4 w-4') ?></button>
     </form>
     <p class="mt-4 text-center text-sm"><a class="text-white/70 hover:text-white" href="<?= e(url('admin/login')) ?>">← Back to sign in</a></p>
@@ -113,6 +113,7 @@ $devHint = fn($code) => $code ? '<div class="adm-flash adm-flash-info">' . icon(
       <div class="adm-field"><label class="adm-label" for="code">Reset code</label><input class="adm-input text-center font-mono text-2xl tracking-[0.5em]" id="code" name="code" inputmode="numeric" maxlength="7" autocomplete="one-time-code" required autofocus></div>
       <div class="adm-field"><label class="adm-label" for="password">New password</label><input class="adm-input" id="password" name="password" type="password" autocomplete="new-password" required><p class="adm-help">At least 10 characters with letters and numbers.</p></div>
       <div class="adm-field"><label class="adm-label" for="confirm">Confirm new password</label><input class="adm-input" id="confirm" name="confirm" type="password" autocomplete="new-password" required></div>
+      <?php if (!empty($turnstile)): ?><?= turnstile_widget() ?><?php endif ?>
       <button class="adm-btn adm-btn-primary w-full justify-center py-3">Reset password <?= icon('arrow-right', 'h-4 w-4') ?></button>
       <p class="text-xs text-charcoal/55">Resetting signs out every other session and trusted browser on this account.</p>
     </form>
@@ -128,7 +129,7 @@ $devHint = fn($code) => $code ? '<div class="adm-flash adm-flash-info">' . icon(
         <div class="flex items-center justify-between"><label class="adm-label" for="password">Password</label><a class="text-xs font-semibold text-steel hover:underline" href="<?= e(url('admin/forgot')) ?>">Forgot password?</a></div>
         <input class="adm-input" id="password" name="password" type="password" autocomplete="current-password" required>
       </div>
-      <?php if (!empty($turnstile)): ?><div class="cf-turnstile" data-sitekey="<?= e(setting('turnstile_site_key')) ?>" data-theme="light"></div><?php endif ?>
+      <?php if (!empty($turnstile)): ?><?= turnstile_widget() ?><?php endif ?>
       <button class="adm-btn adm-btn-primary w-full justify-center py-3">Sign in <?= icon('arrow-right', 'h-4 w-4') ?></button>
       <?php if (otp_enabled()): ?><p class="flex items-center gap-2 text-xs text-charcoal/60"><?= icon('shield-check', 'h-4 w-4 text-emerald-600') ?> Two-step verification is on — you will be asked for a code.</p><?php endif ?>
       <div class="space-y-3" data-passkey-box>
@@ -141,5 +142,6 @@ $devHint = fn($code) => $code ? '<div class="adm-flash adm-flash-info">' . icon(
     <p class="mt-6 text-center text-xs text-white/40"><a class="hover:text-white" href="<?= e(url('')) ?>">← Back to website</a></p>
   </main>
   <script src="<?= e(asset('js/passkey.js')) ?>" defer></script>
+  <script src="<?= e(asset('js/pwtoggle.js')) ?>" defer></script>
 </body>
 </html>

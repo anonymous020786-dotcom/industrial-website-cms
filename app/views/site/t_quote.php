@@ -55,7 +55,7 @@ $sent = !empty($_GET['sent']);
           <ul class="file-list" data-file-list></ul>
           <p class="field-error" id="err-attachments"></p>
         </fieldset>
-        <div class="grid gap-5 sm:grid-cols-2"><?= consent_field() ?></div>
+        <div class="grid gap-5 sm:grid-cols-2"><?= consent_field() ?><?= turnstile_widget('sm:col-span-2') ?></div>
         <div class="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <p class="text-xs text-charcoal/55">Fields marked <span class="req">*</span> are required.</p>
           <button type="submit" class="btn btn-primary btn-lg justify-center">Submit Quote Request <?= icon('send', 'btn-arrow h-4 w-4') ?></button>

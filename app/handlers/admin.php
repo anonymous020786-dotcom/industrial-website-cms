@@ -180,7 +180,9 @@ function admin_reset(): void
     $error = null;
     if (is_post()) {
         csrf_check();
-        $res = password_reset_complete((string) input('code', ''), (string) ($_POST['password'] ?? ''), (string) ($_POST['confirm'] ?? ''));
+        $res = login_turnstile_on() && !turnstile_verify((string) ($_POST['cf-turnstile-response'] ?? ''))
+            ? 'Security check failed. Please complete the verification and try again.'
+            : password_reset_complete((string) input('code', ''), (string) ($_POST['password'] ?? ''), (string) ($_POST['confirm'] ?? ''));
         if ($res === true) {
             flash('success', 'Your password has been reset. Please sign in with your new password.');
             redirect('admin/login');
@@ -188,7 +190,7 @@ function admin_reset(): void
         $error = $res;
     }
     header('Content-Type: text/html; charset=utf-8');
-    echo view('admin/login', ['error' => $error, 'step' => 'reset', 'devCode' => config('debug') ? ($_SESSION['otp_dev_code'] ?? null) : null]);
+    echo view('admin/login', ['error' => $error, 'step' => 'reset', 'turnstile' => login_turnstile_on(), 'devCode' => config('debug') ? ($_SESSION['otp_dev_code'] ?? null) : null]);
 }
 
 function admin_logout(): void

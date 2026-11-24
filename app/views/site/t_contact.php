@@ -30,6 +30,7 @@ $card = fn($i, $label, $body) => '<div class="contact-card" data-reveal><span cl
         <?= form_field(['id' => 'product', 'label' => 'Product / Service Required', 'type' => 'select', 'required' => true, 'full' => true, 'options' => enquiry_options()]) ?>
         <?= form_field(['id' => 'message', 'label' => 'Message', 'type' => 'textarea', 'required' => true, 'full' => true, 'placeholder' => 'How can we help?']) ?>
         <?= consent_field() ?>
+        <?= turnstile_widget('sm:col-span-2') ?>
         <div class="flex flex-col gap-4 sm:col-span-2 sm:flex-row sm:items-center sm:justify-between">
           <p class="text-xs text-charcoal/55">Fields marked <span class="req">*</span> are required.</p>
           <button type="submit" class="btn btn-primary btn-lg justify-center">Send Message <?= icon('send', 'btn-arrow h-4 w-4') ?></button>
