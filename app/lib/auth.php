@@ -169,7 +169,7 @@ function complete_login(array $user, bool $trustDevice = false): void
 }
 
 /** Single-step login used when OTP is disabled. */
-function attempt_login(string $identifier, string $password): string|true
+function attempt_login(string $identifier, string $password): string|bool
 {
     $res = verify_credentials($identifier, $password);
     if (is_string($res)) return $res;

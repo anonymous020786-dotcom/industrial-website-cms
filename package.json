@@ -16,7 +16,7 @@
     "lint:php": "node -e \"const {execSync}=require('child_process');const g=require('fs').readdirSync;function w(d){for(const f of g(d,{withFileTypes:true})){const p=d+'/'+f.name;if(f.isDirectory())w(p);else if(p.endsWith('.php')&&!p.includes('/data/'))execSync('php -l '+p,{stdio:'pipe'})}}w('app');w('public');console.log('PHP syntax OK')\"",
     "icons": "node scripts/build-icons.mjs",
     "images": "node scripts/stock-images.mjs",
-    "test": "node --test --test-concurrency=1 tests/"
+    "test": "node --test --test-concurrency=1 \"tests/**/*.test.mjs\""
   },
   "devDependencies": {
     "@fontsource/barlow": "5.1.0",
