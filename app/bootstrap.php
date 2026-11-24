@@ -16,7 +16,7 @@ $GLOBALS['__config'] = is_file($configFile) ? require $configFile : [];
 date_default_timezone_set($GLOBALS['__config']['timezone'] ?? 'UTC');
 mb_internal_encoding('UTF-8');
 
-foreach (['helpers', 'db', 'settings', 'html', 'auth', 'fields', 'templates', 'content', 'mailer', 'leads', 'integrations', 'components', 'router'] as $lib) {
+foreach (['helpers', 'db', 'settings', 'html', 'auth', 'totp', 'webauthn', 'fields', 'templates', 'content', 'mailer', 'leads', 'integrations', 'components', 'images', 'redirects', 'backup', 'cron', 'router'] as $lib) {
     require APP_DIR . "/lib/{$lib}.php";
 }
 

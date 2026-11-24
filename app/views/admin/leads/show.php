@@ -32,6 +32,10 @@ $row = fn($label, $val) => ($val === null || $val === '') ? '' : '<div class="py
         <?= $row('Required by', $lead['required_by'] ? e(format_date($lead['required_by'], 'j M Y')) : '') ?>
         <?= $row('Part / drawing no.', e($lead['part_number'])) ?>
       </dl>
+      <?php if ($items = json_decode((string) ($lead['items'] ?? ''), true) ?: []): ?>
+      <p class="mt-4 text-sm text-charcoal/60">Items requested (<?= count($items) ?>)</p>
+      <div class="mt-2 overflow-x-auto rounded border border-black/10"><?= lead_items_table($items, false) ?></div>
+      <?php endif ?>
       <?php if ($lead['message']): ?>
       <p class="mt-4 text-sm text-charcoal/55">Message</p>
       <div class="mt-2 whitespace-pre-wrap bg-mist p-4 text-sm leading-relaxed text-charcoal"><?= e($lead['message']) ?></div>

@@ -1,0 +1,91 @@
+# Lint, build and end-to-end test on every push and pull request.
+# Installs the site from scratch into a fresh MariaDB, starts PHP's built-in server and runs tests/.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: PHP ${{ matrix.php }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.1', '8.4']   # oldest supported + current
+    services:
+      db:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: industrial_cms
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      BASE_URL: http://localhost:8000
+      ADMIN_LOGIN: ci-admin@example.com
+      ADMIN_PASSWORD: CiAdminPass2026
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: pdo_mysql, mbstring, dom, fileinfo, openssl, gd, zip, exif
+          coverage: none
+          ini-values: opcache.enable_cli=0
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dev tools
+        run: npm ci --no-audit --no-fund
+
+      - name: PHP syntax check
+        run: find app public tests -name '*.php' -print0 | xargs -0 -n1 -P4 php -l > /dev/null
+
+      - name: JavaScript syntax check
+        run: for f in resources/js/*.js scripts/*.mjs tests/*.mjs tests/lib/*.mjs; do node --check "$f"; done
+
+      - name: Build assets
+        run: npm run assets
+
+      - name: Install the site (fresh database)
+        run: |
+          php app/cli.php install --db-host=127.0.0.1 --db-port=3306 --db-name=industrial_cms --db-user=root --db-pass=root \
+            --admin-email="$ADMIN_LOGIN" --admin-pass="$ADMIN_PASSWORD" --admin-name="CI Admin" --site-url="$BASE_URL" --debug=1
+          php app/cli.php migrate
+
+      - name: Start PHP server
+        run: |
+          php -S localhost:8000 -t public public/router.php > php-server.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf -o /dev/null "$BASE_URL/" && break; sleep 1; done
+          curl -sf -o /dev/null "$BASE_URL/" || (cat php-server.log; exit 1)
+
+      - name: End-to-end tests
+        run: npm test
+
+      - name: Fail on PHP warnings during the run
+        run: |
+          if [ -s app/storage/logs/php-error.log ]; then cat app/storage/logs/php-error.log; exit 1; fi
+
+      - name: Logs on failure
+        if: failure()
+        run: |
+          echo '--- php-server.log'; tail -n 100 php-server.log || true
+          echo '--- php-error.log'; tail -n 100 app/storage/logs/php-error.log || true

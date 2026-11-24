@@ -202,7 +202,7 @@ function finish_install(): void
 /* Migrations for sites installed before newer columns existed.        */
 /* Portable across MySQL and MariaDB (checks information_schema).      */
 /* ------------------------------------------------------------------ */
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 
 function column_exists(string $table, string $column): bool
 {
@@ -225,7 +225,12 @@ function run_migrations(): array
             'backup_email' => 'VARCHAR(190) NULL AFTER username',
             'backup_email_verified_at' => 'DATETIME NULL AFTER backup_email',
             'password_changed_at' => 'DATETIME NULL AFTER backup_email_verified_at',
+            'totp_secret' => 'TEXT NULL AFTER password_changed_at',
+            'totp_enabled_at' => 'DATETIME NULL AFTER totp_secret',
         ],
+        'leads' => ['items' => 'MEDIUMTEXT NULL AFTER message'],
+        'products' => ['datasheet' => 'VARCHAR(500) NULL AFTER specs'],
+        'media' => ['variants' => 'TEXT NULL AFTER alt'],
         'posts' => ['deleted_at' => 'DATETIME NULL AFTER views'],
         'pages' => ['deleted_at' => 'DATETIME NULL AFTER is_system'],
         'login_otps' => [
@@ -240,6 +245,11 @@ function run_migrations(): array
                 $changes[] = "{$table}.{$col}";
             }
         }
+    }
+    // leads.type: ENUM -> VARCHAR so new lead kinds (e.g. 'download') need no further migrations
+    if (db_val("SELECT DATA_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'leads' AND COLUMN_NAME = 'type'") === 'enum') {
+        db()->exec("ALTER TABLE `leads` MODIFY `type` VARCHAR(20) NOT NULL DEFAULT 'contact'");
+        $changes[] = 'leads.type varchar';
     }
     if (!index_exists('users', 'username') && !index_exists('users', 'uq_users_username')) {
         db()->exec('ALTER TABLE `users` ADD UNIQUE KEY `uq_users_username` (`username`)');

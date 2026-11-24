@@ -7,6 +7,9 @@
  *   php app/cli.php migrate                    Create any new tables after an upgrade
  *   php app/cli.php otp --on|--off             Turn email one-time-passcode login on/off (lock-out recovery)
  *   php app/cli.php stock-ids                  List Unsplash photo ids used in the database (for npm run images)
+ *   php app/cli.php cron [--force]             Run scheduled tasks (add to the server's cron every 5-15 min)
+ *   php app/cli.php backup [--uploads]         Create a backup now
+ *   php app/cli.php restore <file> --yes       Restore a .sql.gz backup (OVERWRITES the database)
  *   php app/cli.php create-admin --email=… --pass=… [--name=…]
  *   php app/cli.php reset-password --email=… --pass=…
  */
@@ -38,6 +41,22 @@ switch ($cmd) {
         setting_set('lead_notify_emails', strtolower($opt['admin-email']));
         finish_install();
         echo "Installed. Sign in at /admin with {$opt['admin-email']}\n";
+        break;
+    case 'cron':
+        foreach (cron_run(in_array('--force', $argv, true)) as $task => $result) echo str_pad($task, 14) . $result . PHP_EOL;
+        break;
+    case 'backup':
+        $b = backup_create(in_array('--uploads', $argv, true));
+        backup_prune(max(1, (int) setting('backup_keep', 14)));
+        echo "Created {$b['file']} ({$b['tables']} tables, {$b['rows']} rows, " . round($b['size'] / 1024) . ' KB)' . ($b['uploads'] ? " + {$b['uploads']}" : '') . PHP_EOL;
+        break;
+    case 'restore':
+        $file = $argv[2] ?? '';
+        $path = is_file($file) ? $file : (backup_path(basename($file)) ?? '');
+        if ($path === '' || !str_ends_with($path, '.sql.gz')) { fwrite(STDERR, "Usage: php app/cli.php restore <backup-….sql.gz> --yes\n"); exit(1); }
+        if (!in_array('--yes', $argv, true)) { fwrite(STDERR, "This REPLACES every table in the database with the backup. Re-run with --yes to continue.\n"); exit(1); }
+        $n = backup_restore($path);
+        echo "Restored {$n} statements from " . basename($path) . PHP_EOL;
         break;
     case 'stock-ids':
         $ids = [];

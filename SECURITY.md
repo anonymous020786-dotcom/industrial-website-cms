@@ -10,11 +10,17 @@ Include steps to reproduce and the affected version. You will get a reply within
 
 - CSRF tokens on every admin form; signed time tokens, honeypot and rate limits on public forms
 - Optional Cloudflare Turnstile on login, password reset, contact and quote forms
+- Passkeys (WebAuthn): user verification required, origin and RP-ID checked, single-use challenges,
+  signature-counter clone detection; public keys only are stored
+- Authenticator-app codes (TOTP, RFC 6238): secrets encrypted with AES-256-GCM, replay protection,
+  rate limiting, ten hashed single-use recovery codes
 - Passwords hashed with `password_hash()`; login rate limiting and an audit log
 - Optional email one-time-code (OTP) sign-in with trusted devices; password reset and email changes
   verified by single-use codes; security notices emailed on sensitive changes
 - Strict Content-Security-Policy on the admin; frame, base-uri, object and form-action limits on the site
 - HTML from the editor is sanitised; uploads are type-checked and PHP execution is blocked in `uploads/`
+- Uploaded images are re-encoded (metadata/GPS removed); PDFs are verified by file signature
+- Backups are stored outside the web root and downloads require re-entering the password
 - `app/`, `database/` and dotfiles are not web-accessible
 
 ## Before going live

@@ -29,7 +29,7 @@ function render_field(string $name, array $def, mixed $value, ?string $error = n
     $id = 'f_' . preg_replace('~[^a-z0-9_]+~i', '_', $name);
     $label = $def['label'] ?? ucfirst(str_replace('_', ' ', $key));
     $req = !empty($def['required']);
-    $wide = !empty($def['wide']) || in_array($type, ['html', 'list', 'textarea', 'lines', 'code', 'image', 'heading'], true) && empty($def['half']);
+    $wide = !empty($def['wide']) || in_array($type, ['html', 'list', 'textarea', 'lines', 'code', 'image', 'document', 'heading'], true) && empty($def['half']);
     $help = isset($def['help']) ? '<p class="adm-help">' . $def['help'] . '</p>' : '';
     $err = $error ? '<p class="adm-error">' . e($error) . '</p>' : '';
     $ph = isset($def['placeholder']) ? ' placeholder="' . e($def['placeholder']) . '"' : '';
@@ -57,6 +57,12 @@ function render_field(string $name, array $def, mixed $value, ?string $error = n
             . '<div class="flex-1 space-y-2"><input id="' . $id . '" type="text" name="' . e($name) . '" value="' . e($value) . '" class="adm-input" placeholder="https://… or uploads/…" data-image-input>'
             . '<div class="flex flex-wrap gap-2"><button type="button" class="adm-btn adm-btn-light adm-btn-sm" data-media-pick>' . icon('images', 'h-4 w-4') . ' Library</button>'
             . '<label class="adm-btn adm-btn-light adm-btn-sm cursor-pointer">' . icon('upload', 'h-4 w-4') . ' Upload<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="sr-only" data-media-upload></label>'
+            . '<button type="button" class="adm-btn adm-btn-light adm-btn-sm" data-image-clear>' . icon('x', 'h-4 w-4') . ' Clear</button></div></div></div>',
+        'document' => '<div class="adm-image" data-image-field data-kind="pdf">'
+            . '<div class="adm-image-preview" data-preview>' . ($value ? '<a href="' . e(media_url((string) $value)) . '" target="_blank" class="text-center text-[11px] font-bold text-red-700">' . icon('file-text', 'mx-auto h-6 w-6') . 'PDF</a>' : icon('file-text', 'h-6 w-6 opacity-40')) . '</div>'
+            . '<div class="flex-1 space-y-2"><input id="' . $id . '" type="text" name="' . e($name) . '" value="' . e($value) . '" class="adm-input" placeholder="uploads/docs/… .pdf or https://…" data-image-input>'
+            . '<div class="flex flex-wrap gap-2"><button type="button" class="adm-btn adm-btn-light adm-btn-sm" data-media-pick>' . icon('files', 'h-4 w-4') . ' Library</button>'
+            . '<label class="adm-btn adm-btn-light adm-btn-sm cursor-pointer">' . icon('upload', 'h-4 w-4') . ' Upload PDF<input type="file" accept="application/pdf" class="sr-only" data-media-upload></label>'
             . '<button type="button" class="adm-btn adm-btn-light adm-btn-sm" data-image-clear>' . icon('x', 'h-4 w-4') . ' Clear</button></div></div></div>',
         'icon' => '<div class="flex items-center gap-3"><span class="adm-icon-preview" data-icon-preview>' . icon((string) ($value ?: 'circle'), 'h-5 w-5') . '</span><input id="' . $id . '" type="text" name="' . e($name) . '" value="' . e($value) . '" class="adm-input" list="lucide-icons" data-icon-input placeholder="e.g. wrench"></div>',
         'list' => render_list_field($name, $def, is_array($value) ? $value : []),
@@ -149,6 +155,7 @@ function parse_field_value(array $def, mixed $raw): array
             return [$s, null];
         case 'url':
         case 'image':
+        case 'document':
             if ($s !== '' && preg_match('~^[a-z][a-z0-9+.-]*:~i', $s) && !preg_match('~^https?://~i', $s)) return [$s, 'Enter an http(s) URL or a site path.'];
             return [$s, null];
         case 'slug':

@@ -15,7 +15,8 @@
     "build": "npm run posts && npm run icons && npm run images && npm run assets",
     "lint:php": "node -e \"const {execSync}=require('child_process');const g=require('fs').readdirSync;function w(d){for(const f of g(d,{withFileTypes:true})){const p=d+'/'+f.name;if(f.isDirectory())w(p);else if(p.endsWith('.php')&&!p.includes('/data/'))execSync('php -l '+p,{stdio:'pipe'})}}w('app');w('public');console.log('PHP syntax OK')\"",
     "icons": "node scripts/build-icons.mjs",
-    "images": "node scripts/stock-images.mjs"
+    "images": "node scripts/stock-images.mjs",
+    "test": "node --test --test-concurrency=1 tests/"
   },
   "devDependencies": {
     "@fontsource/barlow": "5.1.0",
@@ -23,6 +24,7 @@
     "esbuild": "0.24.0",
     "lucide": "0.460.0",
     "marked": "15.0.0",
+    "qrcode-generator": "^1.4.4",
     "quill": "2.0.3",
     "sharp": "0.33.5",
     "tailwindcss": "3.4.16"

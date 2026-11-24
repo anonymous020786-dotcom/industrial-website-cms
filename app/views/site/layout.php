@@ -113,6 +113,7 @@ $tagline = company('tagline', 'Precision Engineering | Reliable Hydraulic & Cran
       </ul>
     </nav>
     <div class="flex items-center gap-3">
+      <a href="<?= e(url('quote')) ?>#items" class="rfq-link" data-rfq-link hidden aria-label="Quote list"><?= icon('clipboard-list', 'h-[18px] w-[18px]') ?><span class="rfq-count" data-rfq-count>0</span></a>
       <?php if (setting('theme_toggle', true)): ?>
       <button id="theme-toggle" type="button" class="theme-toggle" aria-label="Switch to dark theme" title="Switch theme"><?= icon('moon', 'icon-moon h-[18px] w-[18px]') ?><?= icon('sun', 'icon-sun h-[18px] w-[18px]') ?></button>
       <?php endif ?>

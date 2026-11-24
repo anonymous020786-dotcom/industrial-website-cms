@@ -87,6 +87,37 @@ function post_card(array $p, int $i = 0, bool $large = false): string
         . '</div></a></article>';
 }
 
+function project_card(array $p, int $i = 0): string
+{
+    $meta = array_filter([$p['industry'] ?? null, $p['location'] ?? null, !empty($p['completed_at']) ? date('Y', strtotime((string) $p['completed_at'])) : null]);
+    return '<article class="post-card group" data-reveal' . reveal_delay($i) . '>'
+        . '<a href="' . e(url('projects/' . $p['slug'])) . '" class="flex h-full flex-col">'
+        . '<div class="img-frame aspect-[16/10]" data-fallback-label="' . e($p['industry'] ?? 'Project') . '">'
+        . img_tag($p['image'], (string) ($p['image_alt'] ?: $p['title']), ['widths' => [480, 800, 1200], 'sizes' => '(min-width:1024px) 33vw, (min-width:640px) 50vw, 100vw'])
+        . '</div><div class="flex flex-1 flex-col p-6">'
+        . ($meta ? '<span class="text-xs font-bold uppercase tracking-[0.18em] text-steel">' . e(implode(' · ', $meta)) . '</span>' : '')
+        . '<h3 class="mt-3 font-display text-2xl font-semibold uppercase leading-tight tracking-wide text-navy group-hover:text-steel">' . e($p['title']) . '</h3>'
+        . '<p class="mt-3 flex-1 text-[15px] leading-relaxed text-charcoal/70">' . e(str_limit((string) $p['summary'], 170)) . '</p>'
+        . '<span class="link-arrow mt-5 text-steel group-hover:text-navy">Read the case study ' . icon('arrow-right', 'h-4 w-4') . '</span>'
+        . '</div></a></article>';
+}
+
+/** Published projects, newest first. */
+function projects_published(?int $industryId = null, int $limit = 0): array
+{
+    $sql = "SELECT p.*, i.name AS industry, i.slug AS industry_slug FROM projects p LEFT JOIN industries i ON i.id = p.industry_id WHERE p.status = 'published'"
+        . ($industryId ? ' AND p.industry_id = ' . (int) $industryId : '') . ' ORDER BY p.sort_order, p.completed_at DESC, p.id DESC' . ($limit ? ' LIMIT ' . $limit : '');
+    try { return db_all($sql); } catch (Throwable) { return []; }
+}
+
+/** Certificates that are published and not expired (shown on the Quality page). */
+function certificates_valid(): array
+{
+    try {
+        return db_all("SELECT * FROM certificates WHERE status = 'published' AND (expires_at IS NULL OR expires_at >= CURDATE()) ORDER BY sort_order, name");
+    } catch (Throwable) { return []; }
+}
+
 function stats_band(): string
 {
     $stats = setting('stats', []);
@@ -154,10 +185,11 @@ function form_field(array $o): string
     $control = match ($type) {
         'select' => '<select id="' . $id . '" name="' . $id . '"' . $req . $desc . '><option value="">Select an option</option>' . ($o['options'] ?? '') . '</select>',
         'textarea' => '<textarea id="' . $id . '" name="' . $id . '" rows="' . (int) ($o['rows'] ?? 5) . '"' . $req . $ph . $desc . '></textarea>',
-        default => '<input id="' . $id . '" name="' . $id . '" type="' . e($type) . '"' . $req . $ac . $ph . $desc . (($type === 'number') ? ' min="1"' : '') . '>',
+        default => '<input id="' . $id . '" name="' . $id . '" type="' . e($type) . '"' . $req . $ac . $ph . $desc . (($type === 'number') ? ' min="1"' : '') . (isset($o['value']) && $o['value'] !== '' ? ' value="' . e((string) $o['value']) . '"' : '') . '>',
     };
-    return '<div class="field' . (!empty($o['full']) ? ' sm:col-span-2' : '') . '"><label for="' . $id . '">' . e($o['label']) . (!empty($o['required']) ? ' <span class="req" aria-hidden="true">*</span>' : '') . '</label>'
-        . $control . '<p class="field-error" id="err-' . $id . '"></p></div>';
+    if (!empty($o['error'])) $o['error_html'] = e((string) $o['error']);
+    return '<div class="field' . (!empty($o['full']) ? ' sm:col-span-2' : '') . (!empty($o['error']) ? ' has-error' : '') . '"><label for="' . $id . '">' . e($o['label']) . (!empty($o['required']) ? ' <span class="req" aria-hidden="true">*</span>' : '') . '</label>'
+        . $control . '<p class="field-error" id="err-' . $id . '">' . ($o['error_html'] ?? '') . '</p></div>';
 }
 
 function consent_field(): string

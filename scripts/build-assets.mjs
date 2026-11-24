@@ -21,6 +21,7 @@ for (const w of [500, 600, 700]) copy(`@fontsource/barlow-condensed/files/barlow
 // Quill
 copy('quill/dist/quill.js', 'public/assets/vendor/quill/quill.js');
 copy('quill/dist/quill.snow.css', 'public/assets/vendor/quill/quill.snow.css');
+copy('qrcode-generator/qrcode.js', 'public/assets/vendor/qrcode/qrcode.js'); // QR codes for authenticator-app setup
 
 // Lucide → PHP array of inner SVG markup
 const { icons } = require('lucide');
@@ -41,6 +42,7 @@ const codeTargets = [
   { in: 'resources/css/admin.css', out: 'public/assets/css/admin.css', loader: 'css' },
   { in: 'resources/js/main.js', out: 'public/assets/js/main.js', loader: 'js' },
   { in: 'resources/js/admin.js', out: 'public/assets/js/admin.js', loader: 'js' },
+  { in: 'resources/js/passkey.js', out: 'public/assets/js/passkey.js', loader: 'js' },
 ];
 const buildOpts = (t) => ({
   entryPoints: [join(root, t.in)], outfile: join(root, t.out), bundle: false, minify: true,

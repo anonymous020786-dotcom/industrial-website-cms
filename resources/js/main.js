@@ -78,6 +78,123 @@
     });
   }
 
+  /* ---------------- Multi-item quote list (RFQ basket) ---------------- */
+  // Stored in localStorage on the visitor's device only; sent as items[] with the quote form.
+  function initQuoteList() {
+    const KEY = 'rfq-v1';
+    const MAX = 30;
+    const read = () => { try { const v = JSON.parse(localStorage.getItem(KEY) || '[]'); return Array.isArray(v) ? v.slice(0, MAX) : []; } catch { return []; } };
+    const write = (items) => { try { localStorage.setItem(KEY, JSON.stringify(items.slice(0, MAX))); } catch { /* private mode */ } refreshBadge(); };
+    const count = () => read().length;
+
+    function refreshBadge() {
+      const n = count();
+      document.querySelectorAll('[data-rfq-link]').forEach((a) => {
+        a.hidden = n === 0;
+        a.setAttribute('aria-label', `Quote list: ${n} item${n === 1 ? '' : 's'}`);
+        const c = $('[data-rfq-count]', a); if (c) c.textContent = String(n);
+      });
+    }
+
+    function toast(msg, href) {
+      let t = $('#rfq-toast');
+      if (!t) {
+        t = document.createElement('div');
+        t.id = 'rfq-toast'; t.className = 'rfq-toast'; t.setAttribute('role', 'status'); t.setAttribute('aria-live', 'polite');
+        document.body.append(t);
+      }
+      t.replaceChildren(document.createTextNode(msg + ' '));
+      if (href) { const a = document.createElement('a'); a.href = href; a.textContent = 'View quote list →'; t.append(a); }
+      t.classList.add('is-visible');
+      clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('is-visible'), 4500);
+    }
+
+    // "Add to quote list" buttons (product pages)
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-rfq-add]');
+      if (!btn) return;
+      const items = read();
+      const slug = btn.dataset.slug || '';
+      const existing = items.find((i) => slug && i.slug === slug);
+      if (existing) existing.qty = Math.min(1000000, (Number(existing.qty) || 1) + 1);
+      else if (items.length >= MAX) { toast(`Your quote list is full (${MAX} items).`); return; }
+      else items.push({ slug, name: btn.dataset.name || 'Item', part: '', qty: 1, notes: '' });
+      write(items);
+      btn.querySelector('[data-rfq-label]')?.replaceChildren(document.createTextNode('Added to quote list'));
+      toast(existing ? `${btn.dataset.name}: quantity increased.` : `${btn.dataset.name} added to your quote list.`, btn.dataset.listUrl);
+    });
+
+    // Quote page editor
+    const box = $('[data-rfq]');
+    if (box) {
+      const form = box.closest('form');
+      const productField = form?.elements.product?.closest('.field');
+      const products = JSON.parse(box.dataset.products || '[]');
+      const list = $('[data-rfq-rows]', box);
+      const empty = $('[data-rfq-empty]', box);
+      const picker = $('[data-rfq-picker]', box);
+
+      const render = () => {
+        const items = read();
+        list.replaceChildren();
+        items.forEach((it, i) => {
+          const row = document.createElement('div');
+          row.className = 'rfq-row';
+          const mk = (tag, attrs) => { const el = document.createElement(tag); Object.entries(attrs).forEach(([k, v]) => { if (v !== undefined) el.setAttribute(k, v); }); return el; };
+          const name = it.slug
+            ? Object.assign(mk('input', { type: 'hidden', name: `items[${i}][name]` }), { value: it.name })
+            : Object.assign(mk('input', { name: `items[${i}][name]`, class: 'rfq-input', placeholder: 'Item description', 'aria-label': 'Item description', maxlength: '190', required: '' }), { value: it.name || '' });
+          const label = mk('div', { class: 'rfq-name' });
+          if (it.slug) { label.textContent = it.name; label.append(Object.assign(mk('input', { type: 'hidden', name: `items[${i}][slug]` }), { value: it.slug })); }
+          label.append(name);
+          const part = Object.assign(mk('input', { name: `items[${i}][part]`, class: 'rfq-input', placeholder: 'Part / drawing no.', 'aria-label': `Part number for ${it.name || 'item'}`, maxlength: '120' }), { value: it.part || '' });
+          const qty = Object.assign(mk('input', { name: `items[${i}][qty]`, type: 'number', min: '1', max: '1000000', step: '1', class: 'rfq-input rfq-qty', 'aria-label': `Quantity for ${it.name || 'item'}` }), { value: it.qty || 1 });
+          const notes = Object.assign(mk('input', { name: `items[${i}][notes]`, class: 'rfq-input', placeholder: 'Size, material, notes (optional)', 'aria-label': `Notes for ${it.name || 'item'}`, maxlength: '300' }), { value: it.notes || '' });
+          const rm = mk('button', { type: 'button', class: 'rfq-remove', 'aria-label': `Remove ${it.name || 'item'}` });
+          rm.textContent = '×';
+          const sync = () => { const all = read(); if (!all[i]) return; Object.assign(all[i], { part: part.value, qty: Math.max(1, Math.min(1000000, parseInt(qty.value, 10) || 1)), notes: notes.value }); if (!it.slug) all[i].name = name.value; write(all); };
+          [part, qty, notes, name].forEach((el) => el.addEventListener('change', sync));
+          rm.addEventListener('click', () => { const all = read(); all.splice(i, 1); write(all); render(); });
+          row.append(label, part, qty, notes, rm);
+          list.append(row);
+        });
+        const has = items.length > 0;
+        empty.hidden = has;
+        list.hidden = !has;
+        if (productField) {
+          // With a list, the single product / quantity / part-number fields are replaced by the rows
+          ['product', 'quantity', 'partNumber'].forEach((n) => { const f = form.elements[n]?.closest('.field'); if (f) f.hidden = has; });
+          const sel = form.elements.product;
+          sel.required = !has;
+          if (has) { sel.value = ''; if (form.elements.quantity) form.elements.quantity.value = ''; }
+        }
+      };
+
+      picker?.addEventListener('change', () => {
+        const p = products.find((x) => x.slug === picker.value);
+        picker.value = '';
+        if (!p) return;
+        const items = read();
+        if (items.some((i) => i.slug === p.slug)) { toast(`${p.name} is already in the list.`); return; }
+        if (items.length >= MAX) return;
+        items.push({ slug: p.slug, name: p.name, part: '', qty: 1, notes: '' });
+        write(items); render();
+      });
+      $('[data-rfq-custom]', box)?.addEventListener('click', () => {
+        const items = read();
+        if (items.length >= MAX) return;
+        items.push({ slug: '', name: '', part: '', qty: 1, notes: '' });
+        write(items); render();
+        list.querySelector('.rfq-row:last-child input[name$="[name]"]')?.focus();
+      });
+      window.addEventListener('rfq:sent', () => { write([]); render(); });
+      // Single product from ?product= also lands in the list if the visitor already has one
+      render();
+    }
+    refreshBadge();
+    window.addEventListener('storage', (e) => { if (e.key === KEY) refreshBadge(); });
+  }
+
   /* ---------------- Mobile menu ---------------- */
   function initMobileMenu() {
     const toggle = $('#menu-toggle');
@@ -338,6 +455,7 @@
           success.hidden = false;
           success.focus();
           success.scrollIntoView({ behavior: scrollBehavior, block: 'center' });
+          if (form.elements.form.value === 'quote') window.dispatchEvent(new Event('rfq:sent'));
           if (typeof window.gtag === 'function') window.gtag('event', 'generate_lead', { form_type: form.elements.form.value });
           if (typeof window.fbq === 'function') window.fbq('track', 'Lead');
         } catch {
@@ -447,6 +565,7 @@
     initCatalog();
     initScrollSpy();
     initAttribution();
+    initQuoteList();
     initForms();
     initTracking();
     initCookies();

@@ -26,6 +26,9 @@ $byId = array_column(products_all(), null, 'id');
         <?php foreach ($rel as $p): ?><li><a href="<?= e(product_url($p)) ?>" class="related-row"><?= icon($p['icon'], 'h-5 w-5 text-steel') ?><span class="flex-1 font-semibold text-navy"><?= e($p['name']) ?></span><?= icon('arrow-right', 'h-4 w-4 text-charcoal/40') ?></a></li><?php endforeach ?>
       </ul>
       <?php endif ?>
+      <?php $nProj = count(projects_published((int) $ind['id'])); if ($nProj): ?>
+      <a href="<?= e(url('projects?industry=' . $ind['slug'])) ?>" class="link-arrow mt-6 text-steel hover:text-navy"><?= icon('briefcase-business', 'h-4 w-4') ?> <?= $nProj ?> project<?= $nProj === 1 ? '' : 's' ?> in <?= e(strtolower($ind['name'])) ?> <?= icon('arrow-right', 'h-4 w-4') ?></a>
+      <?php endif ?>
     </div>
   </div>
 </section>

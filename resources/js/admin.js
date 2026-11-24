@@ -47,6 +47,12 @@
     act?.addEventListener('change', () => { if (sched) { sched.classList.toggle('hidden', act.value !== 'schedule'); sched.classList.toggle('flex', act.value === 'schedule'); } });
   });
 
+  /* ---------- Reports: custom date range ---------- */
+  $$('[data-range-select]').forEach((sel) => sel.addEventListener('change', () => {
+    const box = $('[data-custom]', sel.form);
+    if (box) box.hidden = sel.value !== 'custom';
+  }));
+
   /* ---------- Slugs & counters ---------- */
   const slugify = (s) => s.toLowerCase().replace(/&/g, ' and ').normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 150);
   $$('form').forEach((form) => {
@@ -139,18 +145,24 @@
     input.value = path;
     input.dispatchEvent(new Event('input', { bubbles: true }));
   };
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   document.addEventListener('input', (e) => {
     if (!e.target.matches('[data-image-input]')) return;
-    const prev = $('[data-preview]', e.target.closest('[data-image-field]'));
+    const field = e.target.closest('[data-image-field]');
+    const prev = $('[data-preview]', field);
     const v = e.target.value.trim();
-    prev.innerHTML = v ? `<img src="${mediaUrl(v).replace(/"/g, '&quot;')}" alt="">` : '';
+    if (field.dataset.kind === 'pdf') {
+      prev.innerHTML = v ? `<a href="${esc(mediaUrl(v))}" target="_blank" class="text-center text-[11px] font-bold text-red-700">PDF</a>` : '';
+      return;
+    }
+    prev.innerHTML = v ? `<img src="${esc(mediaUrl(v))}" alt="">` : '';
   });
   document.addEventListener('click', async (e) => {
     const field = e.target.closest('[data-image-field]');
     if (e.target.closest('[data-image-clear]') && field) setImage(field, '');
     if (e.target.closest('[data-media-pick]') && field && dialog) {
       pickTarget = field;
-      await loadLibrary();
+      await loadLibrary(field.dataset.kind === 'pdf' ? 'pdf' : 'image');
       dialog.showModal();
     }
     const item = e.target.closest('[data-pick-path]');
@@ -168,17 +180,27 @@
       e.target.value = '';
     }
   });
-  async function loadLibrary() {
+  async function loadLibrary(type = 'image') {
     const grid = $('[data-media-grid]');
-    const res = await fetch(u('admin/media.json'), { headers: { Accept: 'application/json' } });
+    const res = await fetch(u(`admin/media.json?type=${type}`), { headers: { Accept: 'application/json' } });
     const items = await res.json();
     grid.innerHTML = '';
     $('[data-media-empty]').hidden = items.length > 0;
+    const up = $('[data-dialog-upload]');
+    if (up) up.accept = type === 'pdf' ? 'application/pdf' : 'image/jpeg,image/png,image/webp,image/gif';
     items.forEach((m) => {
       const b = document.createElement('button');
       b.type = 'button'; b.className = 'adm-media-item'; b.dataset.pickPath = m.path; b.title = m.original_name;
-      const img = document.createElement('img'); img.src = m.url; img.alt = m.alt || ''; img.loading = 'lazy';
-      b.append(img); grid.append(b);
+      if (m.mime === 'application/pdf') {
+        const t = document.createElement('span');
+        t.className = 'grid h-full place-items-center p-2 text-center text-[11px] font-semibold text-red-700';
+        t.textContent = `PDF · ${m.original_name}`;
+        b.append(t);
+      } else {
+        const img = document.createElement('img'); img.src = m.url; img.alt = m.alt || ''; img.loading = 'lazy';
+        b.append(img);
+      }
+      grid.append(b);
     });
   }
 

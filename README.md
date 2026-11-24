@@ -27,6 +27,15 @@ marketing integrations. It runs on any standard PHP host with no framework and n
   - Blog with categories, search, pagination and RSS
   - Contact, a multi-step Quote form with file upload, legal pages, and HTML and XML sitemaps
 - **Blog.** 72 long-form technical articles ship as drafts, with a drip-publishing scheduler.
+- **Built for B2B leads.**
+  - A multi-item quote list: buyers add several parts with part numbers and quantities to one request.
+  - Product datasheets, and a PDF catalogue that can ask for details first (each download becomes a lead).
+  - Project case studies and verified certificates that hide themselves after expiry.
+  - A lead attribution report by source, campaign and landing page.
+- **Operations.**
+  - Redirect manager with a 404 log; changed URLs get 301s automatically.
+  - Automatic image optimisation to WebP.
+  - Nightly backups with retention, a daily sales follow-up email, and tested CI plus auto-deploy.
 - **Admin panel (`/admin`).**
   - Content: dashboard, leads pipeline, pages, posts, categories, products, industries, media library,
     menus and settings.
@@ -34,8 +43,9 @@ marketing integrations. It runs on any standard PHP host with no framework and n
 - **Integrations.** GA4, Google Tag Manager, Meta Pixel, Microsoft Clarity, Tawk.to chat, WhatsApp button,
   Cloudflare Turnstile and Tunnel, SMTP, Search Console and Bing verification. Tracking loads only after
   cookie consent.
-- **Security.** Email or username sign-in, optional email one-time codes (OTP), password reset, backup
-  email, rate limiting, an audit log and CSP. See [SECURITY.md](SECURITY.md).
+- **Security.** **Passkeys** (Windows Hello, Touch ID/Face ID, Android, security keys), authenticator-app
+  codes (TOTP) with recovery codes, optional email codes, password reset, backup email, rate limiting, an
+  audit log and CSP. See [SECURITY.md](SECURITY.md).
 - **Quality.**
   - Light and dark themes; WCAG 2.2 AA contrast; schema.org JSON-LD.
   - Self-hosted fonts, icons and WebP photos; minified HTML, CSS and JS.
@@ -109,6 +119,58 @@ Set `'debug' => false` in production.
   Clarity, Tawk.to, WhatsApp, Turnstile (it warns about test keys), Cloudflare proxy, Search Console,
   Bing, SMTP and cookie consent.
 
+## Lead generation features
+
+- **Quote list.** "Add to quote list" on product pages collects items (kept in the visitor's browser).
+  - The quote form shows them as editable rows: part/drawing number, quantity and notes. Visitors can also
+    add custom parts.
+  - The server checks each line again and takes product names from the catalogue, not from the browser.
+  - The admin, the notification email and the CSV export all show the item table.
+- **Datasheets and catalogue.**
+  - Set a PDF on each product (*Datasheet*). The catalogue PDF is set in Settings → Catalogue & Downloads.
+  - The catalogue can ask for name, company and email first. That creates a low-priority *download* lead,
+    and the visitor isn't asked again on that device for 30 days.
+  - Every download is counted in Reports.
+- **Projects / case studies** (Admin → Projects). Each one has challenge, solution, measurable results,
+  an optional client quote and the products supplied.
+  - Drafts stay private. Publishing adds `/projects` (with an industry filter) to the site and sitemap.
+  - It also adds "Projects using …" on product pages and links from industries.
+- **Certificates** (Admin → Certificates). Upload only genuine certificates.
+  - Valid ones appear on the Quality page.
+  - Expired ones disappear automatically, and administrators get emails 30 and 7 days before expiry.
+- **Reports** (Admin → Reports).
+  - Leads, qualified, quoted, won, win rate, won value and open pipeline.
+  - Grouped by source, medium, campaign, landing page, form, product or month, for any period.
+  - A 12-month trend, click and download counts, and CSV export. UTM tags come from the visitor's
+    landing URL.
+
+## Redirects, images, backups and automation
+
+- **Redirects & 404s** (Admin → Redirects & 404s).
+  - 301/302/307/308 rules, including `/old-section/*` → `/new/*` wildcards, with hit counts.
+  - CSV import and export, and protection against loops.
+  - The 404 log lists missing addresses people requested, with a one-click "Redirect".
+  - Changing the URL of a published page, post, product or project adds a 301 automatically.
+- **Image optimisation.** Uploads are processed automatically:
+  - rotated upright, capped at 2560 px, with EXIF/GPS metadata removed
+  - converted into WebP sizes (480–1600 px) that pages serve with `srcset`
+  - Older uploads can be processed with **Media → Optimise now**. This needs PHP's GD extension
+    (standard on Hostinger and cPanel hosts).
+  - The media library also stores PDFs (checked by file signature).
+- **Backups** (Admin → Backups & automation).
+  - A gzip SQL dump made in pure PHP (no `mysqldump` needed), with optional zipped uploads.
+  - Runs nightly and keeps the newest N.
+  - Downloading a backup requires your password. To restore:
+    `php app/cli.php restore backup-….sql.gz --yes`.
+- **Scheduled tasks.** Add one cron job (hPanel/cPanel → Cron Jobs), every 10 minutes:
+  `php /path/to/site/app/cli.php cron`. A secret URL is offered for hosts without cron. It runs:
+  - the daily lead follow-up email: overdue and due-today follow-ups, plus new leads not contacted
+    within 24 h; each salesperson gets only their own leads
+  - backups and certificate warnings
+  - the Trash purge and old-log clean-up
+
+  The admin shows a warning if cron stops running.
+
 ## Stock photos
 
 Demo photos are Unsplash images. `npm run images` downloads every photo the site references
@@ -127,6 +189,18 @@ Replace the stock photos with your own photography before launch.
 
 ## Admin sign-in & account security
 
+- **Passkeys** (My profile → Passkeys). Sign in with a fingerprint, face or device PIN instead of a
+  password, using Windows Hello, Touch ID / Face ID, Android or a security key.
+  - Passkeys can't be phished and already include two-factor protection. The browser can offer them
+    straight from the username field.
+  - A passkey works only on the exact domain it was created on; add it again after moving domains.
+  - The implementation is standard WebAuthn (ES256/RS256, user verification required, signature-counter
+    clone detection) with no third-party library.
+- **Authenticator app (TOTP).** Scan a QR code with Google/Microsoft Authenticator, 1Password, Bitwarden
+  and so on.
+  - The secret is encrypted at rest and codes can't be reused.
+  - Ten single-use recovery codes are shown once.
+  - Users with an app enabled always enter its code after their password.
 - **Sign in with email or username.** Wrong passwords are rate limited (5 per account+IP and
   20 per IP per 15 minutes), and every sign-in event is written to an audit log
   (Admin → Settings → Security, and *My profile → Recent security activity*).
@@ -205,16 +279,46 @@ scripts/        dev tooling (asset build, post import, dev server)
 
 ```bash
 php app/cli.php migrate                 # apply schema upgrades (safe to re-run)
+php app/cli.php cron [--force]          # scheduled tasks — add to the server's cron every 5–15 min
+php app/cli.php backup [--uploads]      # back up now
+php app/cli.php restore <file> --yes    # restore a backup (replaces the database)
 php app/cli.php otp --on|--off          # toggle email two-step sign-in
 php app/cli.php import-posts [--refresh]
 php app/cli.php create-admin --email=… --pass=… [--name=…]
 php app/cli.php reset-password --email=… --pass=…
 ```
 
+## Tests, CI and deployment
+
+```bash
+npm run dev     # in one terminal
+npm test        # end-to-end suite against http://localhost:8000 (BASE_URL, ADMIN_LOGIN, ADMIN_PASSWORD to override)
+```
+
+- **What the tests cover.** The suite in `tests/` drives the real site over HTTP:
+  - redirects, the quote list, image optimisation and PDF uploads, gated downloads
+  - projects, certificates, reports
+  - a backup restored into a **temporary** database, and cron
+  - passkeys, using a software authenticator: registration, sign-in, replay, wrong-site and cloned-key
+    rejection
+  - the authenticator app, including recovery codes
+
+  Everything a test creates is removed afterwards.
+- **CI.** `.github/workflows/ci.yml` runs on every push and PR:
+  - PHP 8.1 and 8.4 against MariaDB
+  - syntax checks, an asset build, a fresh install and the full suite
+  - it fails on any PHP warning
+- **Deploy.** `.github/workflows/deploy.yml` deploys after CI passes on `main`.
+  - Add `DEPLOY_SSH_*` secrets (rsync + migrations) or `DEPLOY_FTP_*` secrets (FTPS); the workflow file
+    lists them.
+  - Until secrets are set, the deploy step is skipped.
+  - Config, storage and uploads on the server are never overwritten.
+
 ## Before launch
 
 - Replace demo company details, statistics, specifications, equipment list and images.
 - Have the legal pages reviewed by a lawyer (they are templates), then turn off the notice.
 - Configure SMTP and test it, set lead notification recipients, add real Turnstile keys.
-- Set `debug` to false, enable email two-step sign-in, and add a backup email to each admin.
+- Set `debug` to false and give every admin a passkey or authenticator app, plus a backup email.
+- Add the cron job (Backups & automation shows the exact command) and download one backup to keep off-site.
 - Review and schedule blog drafts; verify every technical claim with your engineers.

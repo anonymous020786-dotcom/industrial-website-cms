@@ -63,6 +63,19 @@ $path = request_path();
       <?php foreach ($flashes as $f): ?>
       <div class="adm-flash adm-flash-<?= e($f['type']) ?>" role="status"><?= icon($f['type'] === 'error' ? 'circle-alert' : ($f['type'] === 'info' ? 'info' : 'circle-check'), 'h-5 w-5 shrink-0') ?><span><?= e($f['message']) ?></span><button type="button" class="ml-auto opacity-60 hover:opacity-100" data-dismiss aria-label="Dismiss"><?= icon('x', 'h-4 w-4') ?></button></div>
       <?php endforeach ?>
+      <?php
+      $me = current_user();
+      $needs2fa = $me && $me['role'] === 'admin' && setting('require_strong_2fa', true) && request_path() !== '/admin/profile'
+          && !(bool) db_val('SELECT totp_enabled_at IS NOT NULL OR EXISTS(SELECT 1 FROM passkeys WHERE user_id = ?) FROM users WHERE id = ?', [(int) $me['id'], (int) $me['id']]);
+      $cronLast = (string) setting('cron_last_run', '');
+      $cronStale = $me && $me['role'] === 'admin' && !config('debug') && ($cronLast === '' || strtotime($cronLast) < time() - 26 * 3600);
+      ?>
+      <?php if ($needs2fa): ?>
+      <div class="adm-flash adm-flash-info" role="status"><?= icon('shield-alert', 'h-5 w-5 shrink-0') ?><span>Protect your administrator account: add a <strong>passkey</strong> or an <strong>authenticator app</strong> so a stolen password is not enough to sign in.</span><a class="adm-btn adm-btn-light adm-btn-sm ml-auto shrink-0" href="<?= e(url('admin/profile#passkeys')) ?>">Set up now</a></div>
+      <?php endif ?>
+      <?php if ($cronStale): ?>
+      <div class="adm-flash adm-flash-error" role="status"><?= icon('clock', 'h-5 w-5 shrink-0') ?><span>Scheduled tasks have not run in over a day, so backups and follow-up emails are not happening.</span><a class="adm-btn adm-btn-light adm-btn-sm ml-auto shrink-0" href="<?= e(url('admin/backups')) ?>">Fix</a></div>
+      <?php endif ?>
       <?= $content ?>
     </main>
   </div>

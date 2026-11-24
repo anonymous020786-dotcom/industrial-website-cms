@@ -11,6 +11,8 @@ CREATE TABLE IF NOT EXISTS users (
   backup_email  VARCHAR(190) NULL,
   backup_email_verified_at DATETIME NULL,
   password_changed_at DATETIME NULL,
+  totp_secret   TEXT NULL,
+  totp_enabled_at DATETIME NULL,
   password_hash VARCHAR(255) NOT NULL,
   role          ENUM('admin','editor','sales') NOT NULL DEFAULT 'editor',
   active        TINYINT(1) NOT NULL DEFAULT 1,
@@ -82,6 +84,7 @@ CREATE TABLE IF NOT EXISTS products (
   features         TEXT NULL,
   applications     TEXT NULL,
   specs            TEXT NULL,
+  datasheet        VARCHAR(500) NULL,
   meta_title       VARCHAR(190) NULL,
   meta_description VARCHAR(300) NULL,
   status           ENUM('draft','published') NOT NULL DEFAULT 'published',
@@ -144,13 +147,14 @@ CREATE TABLE IF NOT EXISTS media (
   width         INT UNSIGNED NULL,
   height        INT UNSIGNED NULL,
   alt           VARCHAR(255) NULL,
+  variants      TEXT NULL,
   uploaded_by   INT UNSIGNED NULL,
   created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS leads (
   id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  type         ENUM('contact','quote','manual') NOT NULL DEFAULT 'contact',
+  type         VARCHAR(20) NOT NULL DEFAULT 'contact',
   status       VARCHAR(20) NOT NULL DEFAULT 'new',
   priority     ENUM('low','normal','high') NOT NULL DEFAULT 'normal',
   name         VARCHAR(150) NOT NULL,
@@ -162,6 +166,7 @@ CREATE TABLE IF NOT EXISTS leads (
   required_by  DATE NULL,
   part_number  VARCHAR(190) NULL,
   message      TEXT NULL,
+  items        MEDIUMTEXT NULL,
   value        DECIMAL(14,2) NULL,
   tags         VARCHAR(255) NULL,
   assigned_to  INT UNSIGNED NULL,
@@ -258,4 +263,104 @@ CREATE TABLE IF NOT EXISTS revisions (
   snapshot   MEDIUMTEXT NOT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   KEY idx_revisions_entity (entity, entity_id, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 301/302 redirects managed in the admin (exact path match, query string ignored)
+CREATE TABLE IF NOT EXISTS redirects (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  source      VARCHAR(500) NOT NULL,
+  source_hash CHAR(40) NOT NULL,
+  target      VARCHAR(500) NOT NULL,
+  code        SMALLINT UNSIGNED NOT NULL DEFAULT 301,
+  note        VARCHAR(190) NULL,
+  hits        INT UNSIGNED NOT NULL DEFAULT 0,
+  last_hit_at DATETIME NULL,
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_redirects_source (source_hash)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Paths that returned 404 (to find broken links and missing redirects)
+CREATE TABLE IF NOT EXISTS not_found_log (
+  id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  path       VARCHAR(500) NOT NULL,
+  path_hash  CHAR(40) NOT NULL,
+  referrer   VARCHAR(500) NULL,
+  hits       INT UNSIGNED NOT NULL DEFAULT 1,
+  ignored    TINYINT(1) NOT NULL DEFAULT 0,
+  first_seen DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  last_seen  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_404_path (path_hash),
+  KEY idx_404_last (last_seen)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Case studies / projects
+CREATE TABLE IF NOT EXISTS projects (
+  id               INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  title            VARCHAR(190) NOT NULL,
+  slug             VARCHAR(160) NOT NULL UNIQUE,
+  client           VARCHAR(190) NULL,
+  location         VARCHAR(190) NULL,
+  industry_id      INT UNSIGNED NULL,
+  product_ids      TEXT NULL,
+  summary          TEXT NULL,
+  challenge        MEDIUMTEXT NULL,
+  solution         MEDIUMTEXT NULL,
+  results          TEXT NULL,
+  testimonial      TEXT NULL,
+  testimonial_by   VARCHAR(190) NULL,
+  image            VARCHAR(500) NULL,
+  image_alt        VARCHAR(255) NULL,
+  completed_at     DATE NULL,
+  meta_title       VARCHAR(190) NULL,
+  meta_description VARCHAR(300) NULL,
+  status           ENUM('draft','published') NOT NULL DEFAULT 'draft',
+  sort_order       INT NOT NULL DEFAULT 0,
+  created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Quality / compliance certificates (hidden automatically after expiry)
+CREATE TABLE IF NOT EXISTS certificates (
+  id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name       VARCHAR(190) NOT NULL,
+  standard   VARCHAR(120) NULL,
+  issuer     VARCHAR(190) NULL,
+  number     VARCHAR(120) NULL,
+  scope      TEXT NULL,
+  issued_at  DATE NULL,
+  expires_at DATE NULL,
+  file       VARCHAR(500) NULL,
+  status     ENUM('draft','published') NOT NULL DEFAULT 'published',
+  sort_order INT NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- WebAuthn passkeys (public keys only — private keys never leave the user's device)
+CREATE TABLE IF NOT EXISTS passkeys (
+  id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id       INT UNSIGNED NOT NULL,
+  credential_id VARCHAR(512) NOT NULL,
+  public_key    TEXT NOT NULL,
+  alg           INT NOT NULL,
+  sign_count    BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  transports    VARCHAR(190) NULL,
+  aaguid        CHAR(36) NULL,
+  backed_up     TINYINT(1) NOT NULL DEFAULT 0,
+  name          VARCHAR(120) NOT NULL,
+  created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  last_used_at  DATETIME NULL,
+  UNIQUE KEY uq_passkeys_cred (credential_id(255)),
+  KEY idx_passkeys_user (user_id),
+  CONSTRAINT fk_passkeys_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- One-time recovery codes for authenticator-app (TOTP) two-factor sign-in. Stored hashed.
+CREATE TABLE IF NOT EXISTS recovery_codes (
+  id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id    INT UNSIGNED NOT NULL,
+  code_hash  VARCHAR(255) NOT NULL,
+  used_at    DATETIME NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_recovery_user (user_id),
+  CONSTRAINT fk_recovery_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -115,6 +115,26 @@ function settings_tabs(): array
             'admin_idle_minutes' => ['type' => 'number', 'label' => 'Sign out after inactivity (minutes)', 'default' => 240],
             'h_ts' => ['type' => 'heading', 'label' => 'Bot protection', 'help' => 'Cloudflare Turnstile keys are set in Integrations. When configured, the contact and quote forms are always protected.'],
             'turnstile_login' => ['type' => 'checkbox', 'label' => 'Login', 'text' => 'Also require Turnstile on the admin sign-in page', 'default' => true, 'wide' => true],
+            'h_strong' => ['type' => 'heading', 'label' => 'Passkeys & authenticator apps', 'help' => 'Each user can add passkeys (Windows Hello, Touch ID, Face ID, Android, security keys) and an authenticator app in My profile. Users with an authenticator app are always asked for its code after their password; a passkey sign-in already includes device verification.'],
+            'require_strong_2fa' => ['type' => 'checkbox', 'label' => 'Enforce', 'text' => 'Remind administrators without a passkey or authenticator app to set one up (banner in the admin)', 'default' => true, 'wide' => true],
+        ]],
+        'catalogue' => ['Catalogue & Downloads', 'file-down', [
+            'h_cat' => ['type' => 'heading', 'label' => 'Product catalogue', 'help' => 'A PDF catalogue offered on the Products page, product pages and in the footer. Product datasheets are set on each product.'],
+            'catalogue_pdf' => ['type' => 'document', 'label' => 'Catalogue PDF'],
+            'catalogue_title' => ['type' => 'text', 'label' => 'Catalogue name', 'default' => 'Product catalogue'],
+            'catalogue_gated' => ['type' => 'checkbox', 'label' => 'Lead capture', 'text' => 'Ask for name, company and email before the catalogue download (creates a lead)', 'default' => true, 'wide' => true],
+            'datasheets_gated' => ['type' => 'checkbox', 'label' => 'Datasheets', 'text' => 'Also ask for details before product datasheet downloads', 'default' => false, 'wide' => true, 'help' => 'Leave off for datasheets — engineers expect them to be instant. Downloads are counted either way.'],
+        ]],
+        'automation' => ['Automation', 'clock', [
+            'h_digest' => ['type' => 'heading', 'label' => 'Daily lead follow-up email', 'help' => 'Every morning: overdue follow-ups, follow-ups due today and new leads nobody has contacted for 24 hours. Each salesperson also receives only their own leads. Nothing is sent on days with nothing to report.'],
+            'digest_enabled' => ['type' => 'checkbox', 'label' => 'Digest', 'text' => 'Send the daily lead follow-up email', 'default' => true, 'wide' => true],
+            'digest_hour' => ['type' => 'select', 'label' => 'Send at', 'options' => array_combine(range(0, 23), array_map(fn($h) => sprintf('%02d:00', $h), range(0, 23))), 'default' => 8],
+            'digest_emails' => ['type' => 'text', 'label' => 'Recipients', 'placeholder' => 'Defaults to the lead alert recipients', 'help' => 'Comma-separated.'],
+            'h_backup' => ['type' => 'heading', 'label' => 'Automatic backups', 'help' => 'Database backups are created daily and stored privately in app/storage/backups. Manage and download them in Backups & automation.'],
+            'backup_enabled' => ['type' => 'checkbox', 'label' => 'Backups', 'text' => 'Back up the database every day', 'default' => true, 'wide' => true],
+            'backup_hour' => ['type' => 'select', 'label' => 'Run at', 'options' => array_combine(range(0, 23), array_map(fn($h) => sprintf('%02d:00', $h), range(0, 23))), 'default' => 2],
+            'backup_keep' => ['type' => 'number', 'label' => 'Keep the newest', 'default' => 14, 'help' => 'Number of daily backups to keep.'],
+            'backup_uploads' => ['type' => 'checkbox', 'label' => 'Uploads', 'text' => 'Also zip uploaded images and documents (uses more disk space)', 'default' => false, 'wide' => true],
         ]],
         'system' => ['System', 'server', []],
     ];
@@ -385,5 +405,10 @@ function admin_profile(): void
         'pendingEmail' => $_SESSION['pending_email']['to'] ?? null,
         'pendingBackup' => $_SESSION['pending_backup']['to'] ?? null,
         'devCode' => config('debug') ? ($_SESSION['otp_dev_code'] ?? null) : null,
+        'passkeys' => db_all('SELECT id, name, transports, backed_up, created_at, last_used_at FROM passkeys WHERE user_id = ? ORDER BY id', [$uid]),
+        'totpOn' => totp_enabled_for($row),
+        'totpPending' => isset($_SESSION['totp_pending']) && time() - (int) $_SESSION['totp_pending']['at'] <= 900 ? $_SESSION['totp_pending']['secret'] : null,
+        'recoveryOnce' => (function () { $c = $_SESSION['recovery_codes_once'] ?? null; unset($_SESSION['recovery_codes_once']); return $c; })(),
+        'recoveryLeft' => recovery_codes_left($uid),
     ]);
 }

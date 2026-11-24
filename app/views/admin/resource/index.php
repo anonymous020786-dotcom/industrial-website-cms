@@ -5,6 +5,12 @@ $fmt = function (string $col, array $row) use ($r) {
         'status' => $v === 'published' ? '<span class="adm-badge bg-emerald-100 text-emerald-800">Published</span>' : '<span class="adm-badge bg-gray-200 text-gray-700">Draft</span>',
         'active' => $v ? '<span class="adm-badge bg-emerald-100 text-emerald-800">Active</span>' : '<span class="adm-badge bg-gray-200 text-gray-700">Disabled</span>',
         'category_id' => e(product_category_name((int) $v) ?: '—'),
+        'industry_id' => e($v ? (string) db_val('SELECT name FROM industries WHERE id = ?', [(int) $v]) : '—'),
+        'completed_at' => e($v ? date('M Y', strtotime((string) $v)) : '—'),
+        'expires_at' => !$v ? '<span class="text-charcoal/60">No expiry</span>' : (strtotime((string) $v) < strtotime('today')
+            ? '<span class="adm-badge bg-red-100 text-red-800">Expired ' . e(date('j M Y', strtotime((string) $v))) . '</span>'
+            : (strtotime((string) $v) <= strtotime('+30 days') ? '<span class="adm-badge bg-amber-100 text-amber-800">Expires ' . e(date('j M Y', strtotime((string) $v))) . '</span>'
+            : '<span class="adm-badge bg-emerald-100 text-emerald-800">' . e(date('j M Y', strtotime((string) $v))) . '</span>')),
         'type' => e($v === 'post' ? 'Blog posts' : 'Pages'),
         'role' => e(ucfirst((string) $v)),
         'last_login_at' => e($v ? time_ago($v) : 'Never'),
@@ -33,7 +39,7 @@ $fmt = function (string $col, array $row) use ($r) {
           <?php if (in_array($res, ['products', 'industries', 'categories', 'product_categories'], true)): ?>
           <form method="post" action="<?= e(url("admin/r/{$res}/{$row['id']}/duplicate")) ?>" class="inline"><?= csrf_field() ?><button class="adm-icon-btn" title="Duplicate"><?= icon('copy', 'h-4 w-4') ?></button></form>
           <?php endif ?>
-          <form method="post" action="<?= e(url("admin/r/{$res}/{$row['id']}/delete")) ?>" class="inline"><?= csrf_field() ?><button class="adm-icon-btn text-red-600" title="Delete" data-confirm="Delete “<?= e($row['name'] ?? '') ?>”?"><?= icon('trash-2', 'h-4 w-4') ?></button></form>
+          <form method="post" action="<?= e(url("admin/r/{$res}/{$row['id']}/delete")) ?>" class="inline"><?= csrf_field() ?><button class="adm-icon-btn text-red-600" title="Delete" data-confirm="Delete “<?= e($row['name'] ?? $row['title'] ?? '') ?>”?"><?= icon('trash-2', 'h-4 w-4') ?></button></form>
         </td>
       </tr>
     <?php endforeach ?>

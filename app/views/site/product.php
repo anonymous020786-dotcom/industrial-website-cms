@@ -5,6 +5,8 @@ usort($related, fn($a, $b) => ((int) ($b['category_id'] === $p['category_id'])) 
 $related = array_slice($related, 0, 3);
 $industries = array_filter(industries_all(), fn($i) => in_array((int) $p['id'], $i['product_ids'], true));
 $quoteHref = url('quote') . '?product=' . rawurlencode($p['name']);
+$projects = db_all("SELECT p.*, i.name AS industry FROM projects p LEFT JOIN industries i ON i.id = p.industry_id WHERE p.status = 'published' AND JSON_CONTAINS(COALESCE(NULLIF(p.product_ids,''),'[]'), ?) ORDER BY p.completed_at DESC, p.id DESC LIMIT 3", [json_encode((int) $p['id'])]);
+$catalogue = (string) setting('catalogue_pdf', '');
 ?>
 <section class="bg-mist">
   <div class="mx-auto max-w-site px-4 pt-8 sm:px-6 lg:px-8"><?= breadcrumbs_html([['label' => 'Products', 'url' => url('products')], ['label' => $p['name'], 'url' => product_url($p)]], false) ?></div>
@@ -22,9 +24,14 @@ $quoteHref = url('quote') . '?product=' . rawurlencode($p['name']);
       <ul class="hero-in mt-7 space-y-3" style="--d:200ms">
         <?php foreach (array_slice($p['features'], 0, 4) as $f): ?><li class="flex gap-3 text-charcoal/80"><?= icon('check', 'mt-0.5 h-5 w-5 shrink-0 text-safety') ?><?= e($f) ?></li><?php endforeach ?>
       </ul>
-      <div class="hero-in mt-9 flex flex-col gap-3 sm:flex-row" style="--d:240ms">
+      <div class="hero-in mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap" style="--d:240ms">
         <a href="<?= e($quoteHref) ?>" class="btn btn-primary btn-lg justify-center">Request a Quote <?= icon('arrow-right', 'btn-arrow h-5 w-5') ?></a>
-        <?php if (company('phone')): ?><a href="tel:<?= e(company('phone_href')) ?>" class="btn btn-outline btn-lg justify-center" data-track="phone"><?= icon('phone', 'h-4 w-4') ?> Speak to an Engineer</a><?php endif ?>
+        <button type="button" class="btn btn-outline btn-lg justify-center" data-rfq-add data-slug="<?= e($p['slug']) ?>" data-name="<?= e($p['name']) ?>" data-list-url="<?= e(url('quote')) ?>#items"><?= icon('list-plus', 'h-5 w-5') ?> <span data-rfq-label>Add to quote list</span></button>
+      </div>
+      <div class="hero-in mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm font-semibold" style="--d:260ms">
+        <?php if (!empty($p['datasheet'])): ?><a href="<?= e(url('download/datasheet/' . $p['slug'])) ?>" class="inline-flex items-center gap-2 text-steel hover:underline"><?= icon('file-down', 'h-4 w-4') ?> Download datasheet (PDF)</a><?php endif ?>
+        <?php if ($catalogue): ?><a href="<?= e(url('catalogue')) ?>" class="inline-flex items-center gap-2 text-steel hover:underline"><?= icon('book-open', 'h-4 w-4') ?> <?= e((string) setting('catalogue_title', 'Product catalogue')) ?></a><?php endif ?>
+        <?php if (company('phone')): ?><a href="tel:<?= e(company('phone_href')) ?>" class="inline-flex items-center gap-2 text-steel hover:underline" data-track="phone"><?= icon('phone', 'h-4 w-4') ?> Speak to an engineer</a><?php endif ?>
       </div>
       <?php if ($wa = whatsapp_link('Hello, I would like a quote for ' . $p['name'] . '.')): ?>
       <a href="<?= e($wa) ?>" target="_blank" rel="noopener" class="hero-in mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#128C7E] hover:underline" style="--d:280ms" data-track="whatsapp"><?= icon('message-circle', 'h-4 w-4') ?> Ask about this product on WhatsApp</a>
@@ -88,6 +95,15 @@ $quoteHref = url('quote') . '?product=' . rawurlencode($p['name']);
     <p class="mt-10 text-sm font-semibold uppercase tracking-widest text-charcoal/50">Industries</p>
     <ul class="mt-4 flex flex-wrap gap-2"><?php foreach ($industries as $i): ?><li><a href="<?= e(url('industries#' . $i['slug'])) ?>" class="tag-link"><?= icon($i['icon'], 'h-4 w-4') ?><?= e($i['name']) ?></a></li><?php endforeach ?></ul>
     <?php endif ?>
+  </div>
+</section>
+<?php endif ?>
+
+<?php if ($projects): ?>
+<section id="projects" class="section">
+  <div class="mx-auto max-w-site px-4 sm:px-6 lg:px-8">
+    <?= section_head('Proven in the field', 'Projects Using ' . $p['name']) ?>
+    <div class="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3"><?php foreach ($projects as $i => $x) echo project_card($x, $i) ?></div>
   </div>
 </section>
 <?php endif ?>

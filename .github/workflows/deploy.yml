@@ -1,0 +1,99 @@
+# Deploy to your web host after CI passes on main.
+# Off until you add the secrets below (Settings → Secrets and variables → Actions). Choose ONE method:
+#
+#   SSH + rsync (recommended — Hostinger, cPanel with SSH, VPS):
+#     DEPLOY_SSH_HOST, DEPLOY_SSH_USER, DEPLOY_SSH_KEY (private key), DEPLOY_PATH (e.g. /home/u123/domains/example.com)
+#     optional: DEPLOY_SSH_PORT (default 22, Hostinger uses 65002), DEPLOY_SSH_KNOWN_HOSTS (output of ssh-keyscan)
+#   FTP / FTPS (shared hosting without SSH):
+#     DEPLOY_FTP_HOST, DEPLOY_FTP_USER, DEPLOY_FTP_PASSWORD, DEPLOY_PATH (remote folder, e.g. /public_html)
+#
+# Never uploaded: app/config.php, app/storage/, public/uploads/, node_modules, tests, docs, .git*.
+# Database migrations run automatically over SSH (FTP: run `php app/cli.php migrate` or open /admin once).
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: production   # add required reviewers in Settings → Environments for a manual approval step
+    env:
+      SSH_HOST: ${{ secrets.DEPLOY_SSH_HOST }}
+      FTP_HOST: ${{ secrets.DEPLOY_FTP_HOST }}
+    steps:
+      - name: Check configuration
+        id: mode
+        run: |
+          if [ -n "$SSH_HOST" ]; then echo "method=ssh" >> "$GITHUB_OUTPUT";
+          elif [ -n "$FTP_HOST" ]; then echo "method=ftp" >> "$GITHUB_OUTPUT";
+          else echo "method=none" >> "$GITHUB_OUTPUT"; echo "::notice::Deployment skipped — add DEPLOY_SSH_* or DEPLOY_FTP_* secrets to enable it."; fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.mode.outputs.method != 'none'
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Files to upload
+        if: steps.mode.outputs.method != 'none'
+        run: |
+          cat > .deployignore <<'EOF'
+          .git/
+          .github/
+          .deployignore
+          node_modules/
+          tests/
+          docs/
+          app/config.php
+          app/storage/
+          public/uploads/
+          .env
+          EOF
+
+      - name: Deploy over SSH (rsync)
+        if: steps.mode.outputs.method == 'ssh'
+        env:
+          SSH_USER: ${{ secrets.DEPLOY_SSH_USER }}
+          SSH_PORT: ${{ secrets.DEPLOY_SSH_PORT }}
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          set -euo pipefail
+          PORT="${SSH_PORT:-22}"
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
+          if [ -n "$KNOWN_HOSTS" ]; then printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts; else ssh-keyscan -p "$PORT" -H "$SSH_HOST" > ~/.ssh/known_hosts; fi
+          SSH="ssh -p $PORT -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes"
+          rsync -az --delete --exclude-from=.deployignore -e "$SSH" ./ "$SSH_USER@$SSH_HOST:$DEPLOY_PATH/"
+          $SSH "$SSH_USER@$SSH_HOST" "cd '$DEPLOY_PATH' && php app/cli.php migrate"
+          rm -f ~/.ssh/deploy_key
+
+      - name: Deploy over FTPS (lftp mirror)
+        if: steps.mode.outputs.method == 'ftp'
+        env:
+          FTP_USER: ${{ secrets.DEPLOY_FTP_USER }}
+          FTP_PASSWORD: ${{ secrets.DEPLOY_FTP_PASSWORD }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq && sudo apt-get install -y -qq lftp
+          EXCLUDES=$(sed 's#^#--exclude-glob #' .deployignore | sed 's#/$##' | tr '\n' ' ')
+          lftp -u "$FTP_USER","$FTP_PASSWORD" "$FTP_HOST" -e "set ftp:ssl-force true; set ssl:verify-certificate yes; mirror -R --only-newer --parallel=4 $EXCLUDES ./ '$DEPLOY_PATH'; quit"
+
+      - name: Smoke test
+        if: steps.mode.outputs.method != 'none' && vars.SITE_URL != ''
+        run: curl -sf -o /dev/null -w "%{http_code} %{time_total}s\n" "${{ vars.SITE_URL }}/"

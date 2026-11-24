@@ -15,10 +15,16 @@ function admin_nav(): array
         ['Products', 'admin/r/products', 'package', 'content'],
         ['Product Categories', 'admin/r/product_categories', 'layers', 'content'],
         ['Industries', 'admin/r/industries', 'factory', 'content'],
+        ['Projects', 'admin/r/projects', 'briefcase-business', 'content'],
+        ['Certificates', 'admin/r/certificates', 'award', 'content'],
         ['Media Library', 'admin/media', 'images', 'content'],
+        ['_', 'Insights'],
+        ['Reports', 'admin/reports', 'chart-column', 'leads'],
+        ['Redirects & 404s', 'admin/redirects', 'route', 'settings'],
         ['_', 'Configuration'],
         ['Settings', 'admin/settings/general', 'settings', 'settings'],
         ['Integrations', 'admin/settings/integrations', 'plug', 'settings'],
+        ['Backups & automation', 'admin/backups', 'database-backup', 'settings'],
         ['Users', 'admin/r/users', 'users', 'users'],
     ];
 }
@@ -68,9 +74,15 @@ function admin_login(): void
             $user = verify_credentials($email, (string) ($_POST['password'] ?? ''));
             if (is_string($user)) {
                 $error = $user;
-            } elseif (!otp_enabled() || device_trusted((int) $user['id'])) {
+            } elseif (device_trusted((int) $user['id']) || (!otp_enabled() && !totp_enabled_for($user))) {
                 complete_login($user);
                 login_redirect_after();
+            } elseif (totp_enabled_for($user)) {
+                // Authenticator app takes priority over emailed codes
+                session_regenerate_id(true);
+                $_SESSION['mfa_uid'] = (int) $user['id'];
+                $_SESSION['mfa_started'] = time();
+                redirect('admin/login/2fa');
             } else {
                 session_regenerate_id(true);
                 $_SESSION['otp_uid'] = (int) $user['id'];

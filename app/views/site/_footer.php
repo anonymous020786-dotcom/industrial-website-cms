@@ -30,6 +30,8 @@ $hours = setting('company_hours', []) ?: [];
         <h2 class="footer-heading">Company</h2>
         <ul class="mt-5 space-y-3 text-sm">
           <?php foreach ($footerMenu as $l): ?><li><a class="footer-link" href="<?= e(menu_href($l['url'] ?? '')) ?>"><?= e($l['label'] ?? '') ?></a></li><?php endforeach ?>
+          <?php if (projects_published(null, 1)): ?><li><a class="footer-link" href="<?= e(url('projects')) ?>">Projects &amp; case studies</a></li><?php endif ?>
+          <?php if (setting('catalogue_pdf')): ?><li><a class="footer-link" href="<?= e(url('catalogue')) ?>"><?= e((string) setting('catalogue_title', 'Product catalogue')) ?></a></li><?php endif ?>
         </ul>
       </div>
       <div class="lg:col-span-3">

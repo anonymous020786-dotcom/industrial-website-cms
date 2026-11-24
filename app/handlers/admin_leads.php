@@ -58,9 +58,10 @@ function admin_leads_export(): void
     header('Content-Disposition: attachment; filename="leads-' . date('Y-m-d') . '.csv"');
     $out = fopen('php://output', 'w');
     fwrite($out, "\xEF\xBB\xBF"); // UTF-8 BOM for Excel
-    $cols = ['id', 'created_at', 'type', 'status', 'priority', 'name', 'company', 'email', 'phone', 'product', 'quantity', 'required_by', 'part_number', 'message', 'value', 'tags', 'assignee', 'follow_up_at', 'source_page', 'referrer', 'utm_source', 'utm_medium', 'utm_campaign'];
+    $cols = ['id', 'created_at', 'type', 'status', 'priority', 'name', 'company', 'email', 'phone', 'product', 'quantity', 'required_by', 'part_number', 'items', 'message', 'value', 'tags', 'assignee', 'follow_up_at', 'source_page', 'referrer', 'utm_source', 'utm_medium', 'utm_campaign'];
     fputcsv($out, $cols, ',', '"', '');
     foreach ($rows as $r) {
+        $r['items'] = implode('; ', array_map(fn($i) => $i['qty'] . ' x ' . $i['name'] . ($i['part'] ? ' (' . $i['part'] . ')' : ''), json_decode((string) ($r['items'] ?? ''), true) ?: []));
         // Prevent CSV formula injection in spreadsheet apps
         fputcsv($out, array_map(fn($c) => is_string($r[$c]) && preg_match('~^[=+\-@\t\r]~', $r[$c]) ? "'" . $r[$c] : $r[$c], $cols), ',', '"', '');
     }

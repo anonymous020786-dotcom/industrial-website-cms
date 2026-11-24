@@ -393,7 +393,15 @@ function img_tag(?string $src, string $alt = '', array $opt = []): string
     $sizes = $opt['sizes'] ?? '100vw';
     if ($src === '') return '';
     $attrs = '';
-    if (stock_local($src, $widths[0]) !== null) {
+    $rel = preg_match('~^' . preg_quote(rtrim(url(''), '/'), '~') . '/(uploads/[^?#]+\.(?:jpe?g|png|webp))$~i', $src, $um) ? $um[1] : null;
+    if ($rel && ($vars = media_variants($rel))) {
+        // Optimised upload: serve the generated WebP sizes
+        $base = preg_replace('~\.[a-z0-9]+$~i', '', $rel);
+        $attrs .= ' srcset="' . implode(', ', array_map(fn($w) => e(url("{$base}-{$w}.webp")) . " {$w}w", $vars)) . '" sizes="' . e($sizes) . '"';
+        $pick = end($vars);
+        foreach ($vars as $vw) if ($vw >= ($widths[1] ?? $widths[0])) { $pick = $vw; break; }
+        $src = url("{$base}-{$pick}.webp");
+    } elseif (stock_local($src, $widths[0]) !== null) {
         $set = [];
         foreach ($widths as $w) {
             $local = (string) stock_local($src, $w);

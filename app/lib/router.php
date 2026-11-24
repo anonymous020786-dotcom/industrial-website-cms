@@ -17,6 +17,11 @@ function routes(): array
         ['GET', '/site.webmanifest', 'site_manifest', 'site'],
         ['GET', '/browserconfig.xml', 'site_browserconfig', 'site'],
         ['GET', '/products/{slug}', 'site_product', 'site'],
+        ['GET', '/projects', 'site_projects', 'site_extra'],
+        ['GET', '/projects/{slug}', 'site_project', 'site_extra'],
+        ['GET', '/download/datasheet/{slug}', 'site_datasheet', 'site_extra'],
+        ['GET|POST', '/catalogue', 'site_catalogue', 'site_extra'],
+        ['GET', '/cron/{key}', 'site_cron', 'site_extra'],
         ['GET', '/blog/category/{slug}', 'site_blog_category', 'site'],
         ['GET', '/blog/{slug}', 'site_blog_post', 'site'],
 
@@ -24,6 +29,33 @@ function routes(): array
         ['GET|POST', '/admin/login', 'admin_login', 'admin'],
         ['GET|POST', '/admin/login/verify', 'admin_login_verify', 'admin'],
         ['POST', '/admin/login/resend', 'admin_login_resend', 'admin'],
+        ['GET|POST', '/admin/login/2fa', 'admin_login_2fa', 'admin_security'],
+        ['POST', '/admin/login/passkey/options', 'admin_login_passkey_options', 'admin_security'],
+        ['POST', '/admin/login/passkey', 'admin_login_passkey', 'admin_security'],
+
+        // Passkeys & authenticator app (signed-in user)
+        ['POST', '/admin/passkeys/options', 'admin_passkey_options', 'admin_security'],
+        ['POST', '/admin/passkeys/register', 'admin_passkey_register', 'admin_security'],
+        ['POST', '/admin/passkeys/{id}/rename', 'admin_passkey_rename', 'admin_security'],
+        ['POST', '/admin/passkeys/{id}/delete', 'admin_passkey_delete', 'admin_security'],
+        ['POST', '/admin/2fa/setup', 'admin_totp_setup', 'admin_security'],
+        ['POST', '/admin/2fa/confirm', 'admin_totp_confirm', 'admin_security'],
+        ['POST', '/admin/2fa/disable', 'admin_totp_disable', 'admin_security'],
+        ['POST', '/admin/2fa/recovery', 'admin_recovery_regenerate', 'admin_security'],
+
+        // Tools: redirects, reports, backups, cron
+        ['GET', '/admin/redirects', 'admin_redirects', 'admin_tools'],
+        ['POST', '/admin/redirects/save', 'admin_redirect_save', 'admin_tools'],
+        ['GET', '/admin/redirects/export', 'admin_redirects_export', 'admin_tools'],
+        ['POST', '/admin/redirects/import', 'admin_redirects_import', 'admin_tools'],
+        ['POST', '/admin/redirects/404', 'admin_404_action', 'admin_tools'],
+        ['POST', '/admin/redirects/{id}/delete', 'admin_redirect_delete', 'admin_tools'],
+        ['GET', '/admin/reports', 'admin_reports', 'admin_tools'],
+        ['GET', '/admin/backups', 'admin_backups', 'admin_tools'],
+        ['POST', '/admin/backups/create', 'admin_backup_create', 'admin_tools'],
+        ['POST', '/admin/backups/download', 'admin_backup_download', 'admin_tools'],
+        ['POST', '/admin/backups/delete', 'admin_backup_delete', 'admin_tools'],
+        ['POST', '/admin/cron/run', 'admin_cron_run', 'admin_tools'],
         ['GET|POST', '/admin/forgot', 'admin_forgot', 'admin'],
         ['GET|POST', '/admin/reset', 'admin_reset', 'admin'],
         ['GET', '/admin/dev-mail', 'admin_dev_mail', 'admin_settings'],
@@ -73,6 +105,7 @@ function routes(): array
         ['GET', '/admin/media', 'admin_media', 'admin_content'],
         ['GET', '/admin/media.json', 'admin_media_json', 'admin_content'],
         ['POST', '/admin/media/upload', 'admin_media_upload', 'admin_content'],
+        ['POST', '/admin/media/optimize', 'admin_media_optimize', 'admin_content'],
         ['POST', '/admin/media/{id}/update', 'admin_media_update', 'admin_content'],
         ['POST', '/admin/media/{id}/delete', 'admin_media_delete', 'admin_content'],
         ['GET', '/admin/icon.svg', 'admin_icon_svg', 'admin_content'],
@@ -109,6 +142,10 @@ function app_run(): void
         }
         abort(404);
     } catch (HttpException $e) {
+        // Before showing a public 404: apply a matching redirect, otherwise record the broken address
+        if ($e->status === 404 && $method === 'GET' && !str_starts_with($path, '/admin')) {
+            try { redirect_try($path); not_found_log($path); } catch (Throwable $t) { error_log('redirects: ' . $t->getMessage()); }
+        }
         http_response_code($e->status);
         if (str_starts_with($path, '/admin') && $e->status !== 404) {
             require_once APP_DIR . '/handlers/admin.php';

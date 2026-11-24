@@ -203,6 +203,9 @@ function site_sitemap_xml(): void
         $urls[] = [abs_url($p['slug'] === 'home' ? '' : $p['slug']), $p['updated_at'], $p['slug'] === 'home' ? '1.0' : '0.8'];
     }
     foreach (db_all("SELECT slug, updated_at FROM products WHERE status = 'published'") as $p) $urls[] = [abs_url('products/' . $p['slug']), $p['updated_at'], '0.8'];
+    $projects = db_all("SELECT slug, updated_at FROM projects WHERE status = 'published'");
+    if ($projects) $urls[] = [abs_url('projects'), null, '0.7'];
+    foreach ($projects as $p) $urls[] = [abs_url('projects/' . $p['slug']), $p['updated_at'], '0.7'];
     foreach (db_all("SELECT c.slug FROM categories c WHERE c.type = 'post' AND EXISTS (SELECT 1 FROM posts p WHERE p.category_id = c.id AND " . POST_VISIBLE . ')') as $c) $urls[] = [abs_url('blog/category/' . $c['slug']), null, '0.5'];
     foreach (db_all('SELECT p.slug, p.updated_at FROM posts p WHERE ' . POST_VISIBLE . ' AND p.noindex = 0 ORDER BY p.published_at DESC') as $p) $urls[] = [abs_url('blog/' . $p['slug']), $p['updated_at'], '0.6'];
 

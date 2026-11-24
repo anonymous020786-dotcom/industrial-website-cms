@@ -4,8 +4,8 @@
 Options -Indexes
 <IfModule mod_rewrite.c>
   RewriteEngine On
-  RewriteRule ^(app|database|content|scripts|resources|node_modules|vendor)(/|$) - [F,L]
-  RewriteRule ^(package(-lock)?\.json|tailwind\.config\.js|README\.md|\.git.*)$ - [F,L]
+  RewriteRule ^(app|database|content|scripts|resources|node_modules|vendor|tests|docs|\.github)(/|$) - [F,L]
+  RewriteRule ^(package(-lock)?\.json|tailwind\.config\.js|README\.md|SECURITY\.md|\.git.*|\.editorconfig)$ - [F,L]
   RewriteRule ^$ public/ [L]
   RewriteRule ^(?!public/)(.*)$ public/$1 [L]
 </IfModule>

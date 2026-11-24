@@ -1,5 +1,6 @@
 <?php
-/** @var array $user @var array $errors @var array $old @var array $events @var ?string $pendingEmail @var ?string $pendingBackup @var ?string $devCode */
+/** @var array $user @var array $errors @var array $old @var array $events @var ?string $pendingEmail @var ?string $pendingBackup @var ?string $devCode
+ *  @var array $passkeys @var bool $totpOn @var ?string $totpPending @var ?array $recoveryOnce @var int $recoveryLeft */
 $err = fn($k) => isset($errors[$k]) ? '<p class="adm-error">' . e($errors[$k]) . '</p>' : '';
 $val = fn($k, $d = '') => e((string) ($old[$k] ?? $d));
 $codeInput = fn($name = 'code') => '<input class="adm-input max-w-[12rem] text-center font-mono text-xl tracking-[0.4em]" name="' . $name . '" inputmode="numeric" maxlength="7" autocomplete="one-time-code" required aria-label="6-digit code">';
@@ -11,7 +12,11 @@ $labels = [
     'backup_email_changed' => 'Backup email changed', 'backup_email_removed' => 'Backup email removed', 'backup_email_code_sent' => 'Backup email code sent',
     'username_changed' => 'Username changed', 'username_removed' => 'Username removed', 'reauth_failed' => 'Wrong current password', 'logout' => 'Signed out',
     'session_timeout' => 'Session timed out', 'login_locked' => 'Sign-in locked',
+    'passkey_added' => 'Passkey added', 'passkey_removed' => 'Passkey removed', 'passkey_login' => 'Signed in with a passkey', 'passkey_failed' => 'Passkey check failed',
+    'totp_enabled' => 'Authenticator app enabled', 'totp_disabled' => 'Authenticator app turned off', 'totp_failed' => 'Wrong authenticator code',
+    'recovery_code_used' => 'Recovery code used', 'recovery_codes_regenerated' => 'New recovery codes', 'backup_downloaded' => 'Backup downloaded',
 ];
+$transportLabel = fn(?string $t) => str_contains((string) $t, 'internal') ? 'This device (built-in)' : (str_contains((string) $t, 'hybrid') ? 'Phone' : ($t ? 'Security key' : 'Passkey'));
 ?>
 <div class="grid gap-6 xl:grid-cols-[1fr_20rem]">
 <div class="space-y-6">
@@ -118,6 +123,94 @@ $labels = [
       </form>
     <?php endif ?>
   </section>
+
+  <!-- Passkeys -->
+  <section class="adm-card space-y-4 p-6" id="passkeys">
+    <div>
+      <h2 class="adm-subheading flex items-center gap-2"><?= icon('fingerprint', 'h-5 w-5 text-steel') ?> Passkeys</h2>
+      <p class="mt-1 text-sm text-charcoal/70">Sign in with your fingerprint, face or device PIN instead of a password — Windows Hello, Touch ID / Face ID, Android or a security key. Passkeys cannot be phished or reused on other sites, and include two-factor protection by themselves.</p>
+    </div>
+    <?php if ($passkeys): ?>
+    <ul class="divide-y divide-black/5 rounded-lg border border-black/10">
+      <?php foreach ($passkeys as $pk): ?>
+      <li class="flex flex-wrap items-center gap-3 p-3">
+        <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-mist text-steel"><?= icon('key-round', 'h-4 w-4') ?></span>
+        <div class="min-w-0 flex-1">
+          <form method="post" action="<?= e(url('admin/passkeys/' . $pk['id'] . '/rename')) ?>" class="flex items-center gap-2"><?= csrf_field() ?>
+            <input name="name" value="<?= e($pk['name']) ?>" class="adm-input !py-1 text-sm font-semibold" maxlength="120" aria-label="Passkey name"><button class="adm-icon-btn" title="Save name"><?= icon('check', 'h-4 w-4') ?></button>
+          </form>
+          <p class="mt-1 text-xs text-charcoal/60"><?= e($transportLabel($pk['transports'])) ?><?= $pk['backed_up'] ? ' · synced' : '' ?> · added <?= e(date('j M Y', strtotime($pk['created_at']))) ?> · <?= $pk['last_used_at'] ? 'last used ' . e(time_ago($pk['last_used_at'])) : 'not used yet' ?></p>
+        </div>
+        <details class="text-sm">
+          <summary class="cursor-pointer font-semibold text-red-700">Remove</summary>
+          <form method="post" action="<?= e(url('admin/passkeys/' . $pk['id'] . '/delete')) ?>" class="mt-2 flex flex-wrap items-end gap-2"><?= csrf_field() ?>
+            <input type="password" name="password" class="adm-input !w-48" placeholder="Current password" autocomplete="current-password" required aria-label="Current password">
+            <button class="adm-btn adm-btn-danger adm-btn-sm">Remove passkey</button>
+          </form>
+        </details>
+      </li>
+      <?php endforeach ?>
+    </ul>
+    <?php endif ?>
+    <form class="space-y-3 rounded-lg border border-dashed border-black/15 p-4" data-passkey-add novalidate>
+      <p class="text-sm font-semibold text-navy"><?= $passkeys ? 'Add another passkey' : 'Add a passkey' ?></p>
+      <div class="grid gap-3 sm:grid-cols-2">
+        <div><label class="adm-label" for="pk_name">Name</label><input id="pk_name" name="pk_name" class="adm-input" maxlength="120" placeholder="e.g. Work laptop, iPhone"></div>
+        <div><label class="adm-label" for="pk_pw">Current password</label><input id="pk_pw" name="password" type="password" class="adm-input" autocomplete="current-password" required></div>
+      </div>
+      <div class="flex flex-wrap items-center gap-3"><button type="submit" class="adm-btn adm-btn-primary"><?= icon('plus', 'h-4 w-4') ?> Create passkey</button><p class="text-sm text-red-700" role="alert" data-passkey-add-error></p></div>
+      <p class="text-xs text-charcoal/60">Passkeys work on this exact website address (<?= e(webauthn_rp_id()) ?>). After moving to a new domain, add them again.</p>
+    </form>
+  </section>
+
+  <!-- Authenticator app -->
+  <section class="adm-card space-y-4 p-6" id="two-factor">
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <h2 class="adm-subheading flex items-center gap-2"><?= icon('smartphone', 'h-5 w-5 text-steel') ?> Authenticator app</h2>
+        <p class="mt-1 text-sm text-charcoal/70">Ask for a 6-digit code from Google Authenticator, Microsoft Authenticator, 1Password, Bitwarden or Authy after your password. Stronger than emailed codes — it still works if your email is compromised.</p>
+      </div>
+      <?= $totpOn ? '<span class="adm-badge bg-emerald-100 text-emerald-800">On</span>' : '<span class="adm-badge bg-gray-200 text-gray-700">Off</span>' ?>
+    </div>
+
+    <?php if ($recoveryOnce): ?>
+    <div class="rounded-lg border-2 border-amber-300 bg-amber-50 p-4">
+      <p class="font-semibold text-amber-900"><?= icon('triangle-alert', 'mr-1 inline h-4 w-4') ?> Save these recovery codes now — they will not be shown again</p>
+      <p class="mt-1 text-sm text-amber-900">Each code works once, if you lose your phone. Store them in a password manager or print them.</p>
+      <ol class="mt-3 grid grid-cols-2 gap-2 font-mono text-sm sm:grid-cols-5"><?php foreach ($recoveryOnce as $c): ?><li class="rounded bg-white px-2 py-1 text-center"><?= e($c) ?></li><?php endforeach ?></ol>
+      <button type="button" class="adm-btn adm-btn-light adm-btn-sm mt-3" data-copy="<?= e(implode("\n", $recoveryOnce)) ?>"><?= icon('copy', 'h-3.5 w-3.5') ?> Copy all</button>
+    </div>
+    <?php endif ?>
+
+    <?php if ($totpOn): ?>
+      <p class="text-sm text-charcoal/70"><?= icon('circle-check', 'mr-1 inline h-4 w-4 text-emerald-600') ?> On since <?= e(date('j M Y', strtotime((string) $user['totp_enabled_at']))) ?> · <strong><?= (int) $recoveryLeft ?></strong> unused recovery code<?= $recoveryLeft === 1 ? '' : 's' ?><?= $recoveryLeft <= 3 ? ' — create new ones soon' : '' ?>.</p>
+      <div class="flex flex-wrap gap-4">
+        <details class="text-sm"><summary class="cursor-pointer font-semibold text-steel">New recovery codes</summary>
+          <form method="post" action="<?= e(url('admin/2fa/recovery')) ?>" class="mt-2 flex flex-wrap items-end gap-2"><?= csrf_field() ?><input type="password" name="password" class="adm-input !w-48" placeholder="Current password" autocomplete="current-password" required aria-label="Current password"><button class="adm-btn adm-btn-light adm-btn-sm">Generate</button></form></details>
+        <details class="text-sm"><summary class="cursor-pointer font-semibold text-red-700">Turn off</summary>
+          <form method="post" action="<?= e(url('admin/2fa/disable')) ?>" class="mt-2 flex flex-wrap items-end gap-2"><?= csrf_field() ?><input type="password" name="password" class="adm-input !w-48" placeholder="Current password" autocomplete="current-password" required aria-label="Current password"><button class="adm-btn adm-btn-danger adm-btn-sm" data-confirm="Turn off authenticator-app sign-in?">Turn off</button></form></details>
+      </div>
+    <?php elseif ($totpPending): $uri = totp_uri($user, $totpPending); ?>
+      <div class="grid gap-6 rounded-lg border border-steel/20 bg-mist/60 p-4 sm:grid-cols-[auto_1fr]">
+        <div class="grid h-[200px] w-[200px] place-items-center bg-white" data-qr="<?= e($uri) ?>"><span class="text-xs text-charcoal/60">QR code</span></div>
+        <div class="space-y-3 text-sm">
+          <p><strong>1.</strong> Scan the QR code with your authenticator app.</p>
+          <p class="text-charcoal/70">Can’t scan? Enter this key manually (time-based, 6 digits):</p>
+          <code class="block break-all rounded bg-white px-3 py-2 font-mono text-sm tracking-wider"><?= e(trim(chunk_split($totpPending, 4, ' '))) ?></code>
+          <form method="post" action="<?= e(url('admin/2fa/confirm')) ?>" class="space-y-2"><?= csrf_field() ?>
+            <label class="block" for="totp_code"><strong>2.</strong> Enter the 6-digit code it shows:</label>
+            <div class="flex flex-wrap items-center gap-3"><input id="totp_code" class="adm-input max-w-[12rem] text-center font-mono text-xl tracking-[0.4em]" name="code" inputmode="numeric" maxlength="7" autocomplete="one-time-code" required><button class="adm-btn adm-btn-primary"><?= icon('check', 'h-4 w-4') ?> Turn on</button></div>
+          </form>
+        </div>
+      </div>
+      <script src="<?= e(url('assets/vendor/qrcode/qrcode.js')) ?>"></script>
+    <?php else: ?>
+      <form method="post" action="<?= e(url('admin/2fa/setup')) ?>" class="flex flex-wrap items-end gap-3"><?= csrf_field() ?>
+        <div><label class="adm-label" for="totp_pw">Current password</label><input id="totp_pw" type="password" name="password" class="adm-input" autocomplete="current-password" required></div>
+        <button class="adm-btn adm-btn-primary"><?= icon('qr-code', 'h-4 w-4') ?> Set up authenticator app</button>
+      </form>
+    <?php endif ?>
+  </section>
 </div>
 
 <!-- Recent activity -->
@@ -133,3 +226,4 @@ $labels = [
   <p class="mt-5 text-xs text-charcoal/50">Don’t recognise something? Change your password now — it signs out every other session.</p>
 </aside>
 </div>
+<script src="<?= e(asset('js/passkey.js')) ?>" defer></script>

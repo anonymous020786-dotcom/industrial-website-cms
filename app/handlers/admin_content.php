@@ -245,7 +245,15 @@ function admin_post_edit(?string $id = null): void
         }
         $v['reading_minutes'] = reading_minutes((string) $v['content']);
         if (!$errors) {
-            if ($post) { revision_save('post', $post); db_update('posts', $v, (int) $post['id']); $pid = (int) $post['id']; }
+            if ($post) {
+                revision_save('post', $post);
+                db_update('posts', $v, (int) $post['id']);
+                $pid = (int) $post['id'];
+                if ($v['slug'] !== $post['slug'] && $post['status'] !== 'draft') {
+                    redirect_auto('/blog/' . $post['slug'], '/blog/' . $v['slug'], 'Automatic: post URL changed');
+                    flash('info', 'The URL changed, so a 301 redirect from the old address was added automatically.');
+                }
+            }
             else $pid = db_insert('posts', $v);
             flash('success', 'Post saved' . ($v['status'] === 'published' ? ' and published.' : ($v['status'] === 'scheduled' ? ' — scheduled for ' . format_date($v['published_at'], 'j M Y H:i') . '.' : ' as draft.')));
             redirect('admin/posts/' . $pid . '/edit');
@@ -427,7 +435,7 @@ function admin_page_edit(?string $id = null): void
         if ($page && $page['is_system']) { $v['slug'] = $page['slug']; $v['template'] = $page['template']; }
         else {
             $v['slug'] = unique_slug('pages', $v['slug'] ?: slugify($v['title'] ?? 'page'), $page['id'] ?? null);
-            $reserved = ['admin', 'install', 'lead', 'track', 'blog', 'products', 'assets', 'uploads', 'sitemap.xml', 'robots.txt', 'feed.xml', 'home'];
+            $reserved = ['admin', 'install', 'lead', 'track', 'blog', 'products', 'projects', 'catalogue', 'download', 'cron', 'assets', 'uploads', 'sitemap.xml', 'robots.txt', 'feed.xml', 'home'];
             if (in_array($v['slug'], $reserved, true)) $errors['slug'] = 'This URL is reserved. Choose another.';
             $v['template'] = in_array($v['template'], ['default', 'legal'], true) ? $v['template'] : 'default';
         }
@@ -436,7 +444,15 @@ function admin_page_edit(?string $id = null): void
         if (template_def($v['template'])['content']) $v['content'] = sanitize_html((string) ($_POST['content'] ?? ''));
         $v['data'] = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         if (!$errors) {
-            if ($page) { revision_save('page', $page); db_update('pages', $v, (int) $page['id']); $pid = (int) $page['id']; }
+            if ($page) {
+                revision_save('page', $page);
+                db_update('pages', $v, (int) $page['id']);
+                $pid = (int) $page['id'];
+                if ($v['slug'] !== $page['slug'] && $page['status'] === 'published' && !$page['is_system']) {
+                    redirect_auto('/' . $page['slug'], '/' . $v['slug'], 'Automatic: page URL changed');
+                    flash('info', 'The URL changed, so a 301 redirect from the old address was added automatically.');
+                }
+            }
             else $pid = db_insert('pages', $v);
             if (!$page && !empty($_POST['add_to_menu'])) {
                 $menu = header_menu();
@@ -495,8 +511,52 @@ function resources(): array
                 'features' => ['type' => 'lines', 'label' => 'Key features (one per line)'],
                 'applications' => ['type' => 'lines', 'label' => 'Applications (one per line)', 'rows' => 4],
                 'specs' => ['type' => 'list', 'label' => 'Specifications', 'item' => 'Spec', 'fields' => ['label' => ['type' => 'text', 'label' => 'Specification'], 'value' => ['type' => 'text', 'label' => 'Value']]],
+                'datasheet' => ['type' => 'document', 'label' => 'Datasheet (PDF)', 'help' => 'Shown as a “Download datasheet” button on the product page. Downloads are counted in Reports.'],
                 'meta_title' => ['type' => 'text', 'label' => 'SEO title', 'counter' => 60],
                 'meta_description' => ['type' => 'textarea', 'label' => 'Meta description', 'rows' => 2, 'counter' => 160],
+            ],
+        ],
+        'projects' => [
+            'title' => 'Projects', 'singular' => 'Project', 'table' => 'projects', 'perm' => 'content', 'order' => 'sort_order, completed_at DESC, id DESC',
+            'columns' => ['title' => 'Project', 'client' => 'Client', 'industry_id' => 'Industry', 'status' => 'Status', 'completed_at' => 'Completed'],
+            'view' => fn($r) => url('projects/' . $r['slug']) . ($r['status'] === 'draft' ? '?preview=1' : ''),
+            'json' => ['product_ids', 'results'],
+            'fields' => [
+                'title' => ['type' => 'text', 'label' => 'Project title', 'required' => true, 'attrs' => 'data-slug-source', 'help' => 'e.g. “Replacement sheave set for a 50 t port crane”'],
+                'slug' => ['type' => 'slug', 'label' => 'URL slug'],
+                'status' => ['type' => 'select', 'label' => 'Status', 'options' => ['draft' => 'Draft', 'published' => 'Published'], 'help' => 'Only publish projects the client has approved for publication.'],
+                'sort_order' => ['type' => 'number', 'label' => 'Display order', 'default' => 0],
+                'client' => ['type' => 'text', 'label' => 'Client', 'help' => 'Or a description such as “European port operator” if the name is confidential.'],
+                'location' => ['type' => 'text', 'label' => 'Location'],
+                'industry_id' => ['type' => 'select', 'label' => 'Industry', 'options' => fn() => array_column(db_all('SELECT id, name FROM industries ORDER BY sort_order, name'), 'name', 'id'), 'empty' => '— None —'],
+                'completed_at' => ['type' => 'date', 'label' => 'Completed'],
+                'image' => ['type' => 'image', 'label' => 'Main photo'],
+                'image_alt' => ['type' => 'text', 'label' => 'Photo alt text', 'wide' => true],
+                'summary' => ['type' => 'textarea', 'label' => 'Summary (cards and search results)', 'rows' => 2, 'required' => true, 'counter' => 220],
+                'challenge' => ['type' => 'html', 'label' => 'The challenge', 'toolbar' => 'basic'],
+                'solution' => ['type' => 'html', 'label' => 'Our solution', 'toolbar' => 'basic'],
+                'results' => ['type' => 'list', 'label' => 'Results (measurable outcomes)', 'item' => 'Result', 'fields' => ['value' => ['type' => 'text', 'label' => 'Figure', 'placeholder' => 'e.g. 9 days'], 'label' => ['type' => 'text', 'label' => 'Meaning', 'placeholder' => 'e.g. from drawing to delivery']]],
+                'product_ids' => ['type' => 'multiselect', 'label' => 'Products supplied', 'options' => $prods],
+                'testimonial' => ['type' => 'textarea', 'label' => 'Client quote (optional, with permission)', 'rows' => 3],
+                'testimonial_by' => ['type' => 'text', 'label' => 'Quote attributed to', 'placeholder' => 'Name, role, company'],
+                'meta_title' => ['type' => 'text', 'label' => 'SEO title', 'counter' => 60],
+                'meta_description' => ['type' => 'textarea', 'label' => 'Meta description', 'rows' => 2, 'counter' => 160],
+            ],
+        ],
+        'certificates' => [
+            'title' => 'Certificates', 'singular' => 'Certificate', 'table' => 'certificates', 'perm' => 'content', 'order' => 'sort_order, name',
+            'columns' => ['name' => 'Certificate', 'standard' => 'Standard', 'issuer' => 'Issued by', 'expires_at' => 'Valid until', 'status' => 'Status'],
+            'fields' => [
+                'name' => ['type' => 'text', 'label' => 'Certificate name', 'required' => true, 'help' => 'e.g. “Quality management system certificate”'],
+                'standard' => ['type' => 'text', 'label' => 'Standard', 'placeholder' => 'e.g. ISO 9001:2015'],
+                'issuer' => ['type' => 'text', 'label' => 'Issued by (certification body)'],
+                'number' => ['type' => 'text', 'label' => 'Certificate number'],
+                'issued_at' => ['type' => 'date', 'label' => 'Issue date'],
+                'expires_at' => ['type' => 'date', 'label' => 'Expiry date', 'help' => 'The certificate is hidden from the website automatically after this date, and administrators are emailed 30 and 7 days before.'],
+                'status' => ['type' => 'select', 'label' => 'Status', 'options' => ['published' => 'Published', 'draft' => 'Draft']],
+                'sort_order' => ['type' => 'number', 'label' => 'Display order', 'default' => 0],
+                'scope' => ['type' => 'textarea', 'label' => 'Scope', 'rows' => 3],
+                'file' => ['type' => 'document', 'label' => 'Certificate file (PDF)', 'help' => 'Upload only genuine, current certificates issued to your company.'],
             ],
         ],
         'industries' => [
@@ -601,10 +661,10 @@ function admin_resource_edit(string $res, ?string $id = null): void
 
         if (isset($schema['slug'])) {
             $scope = isset($r['unique_scope']) ? [$r['unique_scope'] . ' = ?', [$v[$r['unique_scope']]]] : ['', []];
-            $v['slug'] = unique_slug($r['table'], $v['slug'] ?: slugify((string) ($v['name'] ?? 'item')), $row['id'] ?? null, $scope[0], $scope[1]);
+            $v['slug'] = unique_slug($r['table'], $v['slug'] ?: slugify((string) ($v['name'] ?? $v['title'] ?? 'item')), $row['id'] ?? null, $scope[0], $scope[1]);
         }
         if ($res === 'users') resource_user_rules($v, $errors, $row);
-        foreach (['category_id'] as $fk) if (array_key_exists($fk, $v)) $v[$fk] = $v[$fk] !== null ? (int) $v[$fk] : null;
+        foreach (['category_id', 'industry_id'] as $fk) if (array_key_exists($fk, $v)) $v[$fk] = $v[$fk] !== null ? (int) $v[$fk] : null;
         foreach (['sort_order'] as $n) if (array_key_exists($n, $v)) $v[$n] = (int) $v[$n];
         foreach (['active'] as $b) if (array_key_exists($b, $v)) $v[$b] = (int) $v[$b];
         foreach ($r['json'] ?? [] as $j) if (array_key_exists($j, $v)) $v[$j] = json_encode($v[$j], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -612,6 +672,12 @@ function admin_resource_edit(string $res, ?string $id = null): void
         if (!$errors) {
             if ($row) { db_update($r['table'], $v, (int) $row['id']); $rid = (int) $row['id']; }
             else $rid = db_insert($r['table'], $v);
+            // Keep old links working when a published item's URL changes
+            $urlBase = ['products' => 'products/', 'projects' => 'projects/'][$res] ?? null;
+            if ($row && $urlBase && isset($v['slug']) && $v['slug'] !== $row['slug'] && ($row['status'] ?? '') === 'published') {
+                redirect_auto('/' . $urlBase . $row['slug'], '/' . $urlBase . $v['slug'], 'Automatic: ' . strtolower($r['singular']) . ' URL changed');
+                flash('info', 'The URL changed, so a 301 redirect from the old address was added automatically.');
+            }
             flash('success', $r['singular'] . ' saved.');
             redirect("admin/r/{$res}/{$rid}/edit");
         }
@@ -685,22 +751,31 @@ function admin_resource_duplicate(string $res, string $id): void
 /* MEDIA                                                               */
 /* ================================================================== */
 
-const MEDIA_TYPES = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif'];
-const MEDIA_MAX = 8 * 1024 * 1024;
+const MEDIA_TYPES = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif', 'application/pdf' => 'pdf'];
+const MEDIA_MAX = 8 * 1024 * 1024;       // images
+const MEDIA_PDF_MAX = 25 * 1024 * 1024;  // datasheets, catalogues, certificates
 
 function admin_media(): void
 {
     require_login('content');
     $q = (string) query('q', '');
-    $rows = $q ? db_all('SELECT * FROM media WHERE original_name LIKE ? OR alt LIKE ? ORDER BY id DESC', ["%{$q}%", "%{$q}%"]) : db_all('SELECT * FROM media ORDER BY id DESC LIMIT 300');
-    $actions = '<label class="adm-btn adm-btn-primary cursor-pointer">' . icon('upload', 'h-4 w-4') . ' Upload images<input type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif" class="sr-only" data-library-upload></label>';
-    admin_render('Media Library', 'media', ['rows' => $rows, 'q' => $q], ['actions' => $actions, 'wide' => true]);
+    $type = (string) query('type', '');
+    $where = ['1=1'];
+    $params = [];
+    if ($q !== '') { $where[] = '(original_name LIKE ? OR alt LIKE ?)'; array_push($params, "%{$q}%", "%{$q}%"); }
+    if ($type === 'pdf') $where[] = "mime = 'application/pdf'";
+    if ($type === 'image') $where[] = "mime LIKE 'image/%'";
+    $rows = db_all('SELECT * FROM media WHERE ' . implode(' AND ', $where) . ' ORDER BY id DESC LIMIT 300', $params);
+    $pending = images_supported() ? (int) db_val("SELECT COUNT(*) FROM media WHERE mime IN ('image/jpeg','image/png','image/webp') AND (variants IS NULL OR variants = '')") : 0;
+    $actions = '<label class="adm-btn adm-btn-primary cursor-pointer">' . icon('upload', 'h-4 w-4') . ' Upload images or PDFs<input type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif,application/pdf" class="sr-only" data-library-upload></label>';
+    admin_render('Media Library', 'media', ['rows' => $rows, 'q' => $q, 'type' => $type, 'pending' => $pending, 'gd' => images_supported()], ['actions' => $actions, 'wide' => true]);
 }
 
 function admin_media_json(): void
 {
     require_login('content');
-    $rows = db_all('SELECT id, path, original_name, alt, width, height FROM media ORDER BY id DESC LIMIT 200');
+    $type = (string) query('type', 'image');
+    $rows = db_all('SELECT id, path, original_name, alt, width, height, mime FROM media WHERE ' . ($type === 'pdf' ? "mime = 'application/pdf'" : "mime LIKE 'image/%'") . ' ORDER BY id DESC LIMIT 200');
     json_response(array_map(fn($m) => $m + ['url' => media_url($m['path'])], $rows));
 }
 
@@ -709,21 +784,51 @@ function admin_media_upload(): void
     $user = require_login('content');
     csrf_check();
     $f = $_FILES['file'] ?? null;
-    if (!$f || $f['error'] !== UPLOAD_ERR_OK) json_response(['error' => 'Upload failed. Images must be under 8 MB.'], 422);
-    if ($f['size'] > MEDIA_MAX) json_response(['error' => 'Image is larger than 8 MB.'], 422);
+    if (!$f || $f['error'] !== UPLOAD_ERR_OK) json_response(['error' => 'Upload failed. Images must be under 8 MB and PDFs under 25 MB.'], 422);
     $mime = (new finfo(FILEINFO_MIME_TYPE))->file($f['tmp_name']) ?: '';
-    $info = @getimagesize($f['tmp_name']);
-    if (!isset(MEDIA_TYPES[$mime]) || !$info) json_response(['error' => 'Only JPG, PNG, WebP or GIF images are allowed.'], 422);
-
-    $dir = 'uploads/' . date('Y/m');
+    if ($mime === 'application/pdf') {
+        if ($f['size'] > MEDIA_PDF_MAX) json_response(['error' => 'PDF is larger than 25 MB.'], 422);
+        $head = (string) file_get_contents($f['tmp_name'], false, null, 0, 5);
+        if ($head !== '%PDF-') json_response(['error' => 'This file is not a valid PDF.'], 422);
+        $info = [null, null];
+    } else {
+        if ($f['size'] > MEDIA_MAX) json_response(['error' => 'Image is larger than 8 MB.'], 422);
+        $info = @getimagesize($f['tmp_name']);
+        if (!isset(MEDIA_TYPES[$mime]) || !$info) json_response(['error' => 'Only JPG, PNG, WebP or GIF images and PDF documents are allowed.'], 422);
+    }
+    $dir = ($mime === 'application/pdf' ? 'uploads/docs/' : 'uploads/') . date('Y/m');
     @mkdir(PUBLIC_DIR . '/' . $dir, 0775, true);
-    $base = slugify(pathinfo((string) $f['name'], PATHINFO_FILENAME)) ?: 'image';
+    $base = slugify(pathinfo((string) $f['name'], PATHINFO_FILENAME)) ?: ($mime === 'application/pdf' ? 'document' : 'image');
     $name = substr($base, 0, 60) . '-' . bin2hex(random_bytes(3)) . '.' . MEDIA_TYPES[$mime];
     if (!move_uploaded_file($f['tmp_name'], PUBLIC_DIR . '/' . $dir . '/' . $name)) json_response(['error' => 'Could not save the file. Check folder permissions on public/uploads.'], 500);
     $path = $dir . '/' . $name;
-    $id = db_insert('media', ['path' => $path, 'original_name' => mb_substr((string) $f['name'], 0, 255), 'mime' => $mime, 'size' => (int) $f['size'],
-        'width' => $info[0], 'height' => $info[1], 'alt' => mb_substr(ucfirst(str_replace('-', ' ', $base)), 0, 255), 'uploaded_by' => (int) $user['id']]);
-    json_response(['id' => $id, 'path' => $path, 'url' => media_url($path)]);
+    $row = ['path' => $path, 'original_name' => mb_substr((string) $f['name'], 0, 255), 'mime' => $mime, 'size' => (int) $f['size'],
+        'width' => $info[0], 'height' => $info[1], 'alt' => mb_substr(ucfirst(str_replace('-', ' ', $base)), 0, 255), 'uploaded_by' => (int) $user['id']];
+    if ($opt = image_optimize($path, $mime)) {
+        $row = array_merge($row, ['width' => $opt['width'], 'height' => $opt['height'], 'size' => $opt['size'], 'variants' => json_encode($opt['variants'])]);
+    }
+    $id = db_insert('media', $row);
+    json_response(['id' => $id, 'path' => $path, 'url' => media_url($path), 'mime' => $mime,
+        'optimized' => $opt ? ['saved_kb' => max(0, (int) round(((int) $f['size'] - $opt['size']) / 1024)), 'sizes' => $opt['variants']] : null]);
+}
+
+/** Optimise images uploaded before optimisation existed (batch of 25 per click to avoid timeouts). */
+function admin_media_optimize(): void
+{
+    require_login('content');
+    csrf_check();
+    if (!images_supported()) { flash('error', 'Image optimisation needs the PHP GD extension with WebP support.'); redirect('admin/media'); }
+    @set_time_limit(300);
+    $done = 0; $saved = 0;
+    foreach (db_all("SELECT * FROM media WHERE mime IN ('image/jpeg','image/png','image/webp') AND (variants IS NULL OR variants = '') ORDER BY id LIMIT 25") as $m) {
+        $before = (int) $m['size'];
+        $opt = image_optimize($m['path'], $m['mime']);
+        db_update('media', $opt ? ['width' => $opt['width'], 'height' => $opt['height'], 'size' => $opt['size'], 'variants' => json_encode($opt['variants'])] : ['variants' => '[]'], (int) $m['id']);
+        if ($opt) { $done++; $saved += max(0, $before - $opt['size']); }
+    }
+    $left = (int) db_val("SELECT COUNT(*) FROM media WHERE mime IN ('image/jpeg','image/png','image/webp') AND (variants IS NULL OR variants = '')");
+    flash('success', "Optimised {$done} image(s), saving " . round($saved / 1024) . ' KB' . ($left ? " — {$left} left, click again to continue." : '.'));
+    redirect('admin/media');
 }
 
 function admin_media_update(string $id): void
@@ -742,11 +847,15 @@ function admin_media_delete(string $id): void
     csrf_check();
     $m = db_one('SELECT * FROM media WHERE id = ?', [(int) $id]);
     if ($m) {
-        $file = realpath(PUBLIC_DIR . '/' . $m['path']);
-        if ($file && str_starts_with($file, realpath(PUBLIC_DIR . '/uploads'))) @unlink($file);
+        $root = realpath(PUBLIC_DIR . '/uploads');
+        $files = array_merge([PUBLIC_DIR . '/' . $m['path']], image_variant_files($m['path'], array_map('intval', json_decode((string) $m['variants'], true) ?: [])));
+        foreach ($files as $f) {
+            $real = realpath($f);
+            if ($real && $root && str_starts_with($real, $root)) @unlink($real);
+        }
         db_delete('media', (int) $id);
     }
-    flash('success', 'Image deleted. Pages that used it will show a placeholder until you choose a new image.');
+    flash('success', 'File deleted. Pages that used it will show a placeholder until you choose a new one.');
     redirect('admin/media');
 }
 

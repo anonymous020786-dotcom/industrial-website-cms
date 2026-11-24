@@ -60,6 +60,43 @@ function turnstile_verify(string $response): bool
 }
 
 /**
+ * Normalise the multi-item quote list posted as items[n][slug|name|part|qty|notes].
+ * Product names are taken from the catalogue (not the browser) when a known slug is given.
+ * @return array{0: array, 1: ?string} [items, error]
+ */
+function lead_items_from_input(mixed $raw): array
+{
+    if (!is_array($raw)) return [[], null];
+    $catalogue = array_column(products_all(), 'name', 'slug');
+    $items = [];
+    foreach (array_slice($raw, 0, 30) as $it) {
+        if (!is_array($it)) continue;
+        $slug = (string) ($it['slug'] ?? '');
+        $name = isset($catalogue[$slug]) ? $catalogue[$slug] : mb_substr(trim((string) ($it['name'] ?? '')), 0, 190);
+        $part = mb_substr(trim((string) ($it['part'] ?? '')), 0, 120);
+        $notes = mb_substr(trim((string) ($it['notes'] ?? '')), 0, 300);
+        if ($name === '' && $part === '') continue;
+        $qtyRaw = trim((string) ($it['qty'] ?? '1'));
+        if (!ctype_digit($qtyRaw) || (int) $qtyRaw < 1 || (int) $qtyRaw > 1000000) return [[], 'Each item needs a whole-number quantity between 1 and 1,000,000.'];
+        $items[] = ['slug' => isset($catalogue[$slug]) ? $slug : '', 'name' => $name !== '' ? $name : 'Part ' . $part, 'part' => $part, 'qty' => (int) $qtyRaw, 'notes' => $notes];
+    }
+    return [$items, null];
+}
+
+/** HTML table of quote items (used in emails and the admin). */
+function lead_items_table(array $items, bool $email = true): string
+{
+    if (!$items) return '';
+    $th = $email ? 'style="text-align:left;padding:6px 8px;background:#101D32;color:#fff;font-size:12px"' : 'class="text-left"';
+    $td = $email ? 'style="padding:6px 8px;border-bottom:1px solid #e5e7eb;font-size:13px;vertical-align:top"' : '';
+    $h = '<table cellpadding="0" cellspacing="0" ' . ($email ? 'style="width:100%;border-collapse:collapse;margin:8px 0 4px"' : 'class="adm-table"') . '><thead><tr><th ' . $th . '>#</th><th ' . $th . '>Item</th><th ' . $th . '>Part / drawing no.</th><th ' . $th . '>Qty</th><th ' . $th . '>Notes</th></tr></thead><tbody>';
+    foreach ($items as $i => $it) {
+        $h .= '<tr><td ' . $td . '>' . ($i + 1) . '</td><td ' . $td . '><b>' . e($it['name']) . '</b></td><td ' . $td . '>' . e($it['part'] ?: '—') . '</td><td ' . $td . '>' . (int) $it['qty'] . '</td><td ' . $td . '>' . e($it['notes'] ?: '') . '</td></tr>';
+    }
+    return $h . '</tbody></table>';
+}
+
+/**
  * Validate and store a public form submission.
  * @return array{ok: bool, errors?: array, message?: string, id?: int}
  */
@@ -86,6 +123,9 @@ function lead_submit(array $in, array $files): array
         'product' => $v('product'), 'part_number' => $v('partNumber'), 'message' => $v('message', 5000),
     ];
     $errors = [];
+    [$items, $itemsError] = $type === 'quote' ? lead_items_from_input($in['items'] ?? null) : [[], null];
+    if ($itemsError) $errors['items'] = $itemsError;
+    if ($items && $data['product'] === '') $data['product'] = mb_substr(count($items) === 1 ? $items[0]['name'] : 'Multiple items (' . count($items) . ')', 0, 190);
     if (mb_strlen($data['name']) < 2) $errors['fullName'] = 'Please enter your full name.';
     if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) $errors['email'] = 'Please enter a valid email address.';
     if ($data['phone'] !== '' && !preg_match('~^\+?[\d\s\-()]{7,20}$~', $data['phone'])) $errors['phone'] = 'Please enter a valid phone number.';
@@ -131,6 +171,7 @@ function lead_submit(array $in, array $files): array
         'ip' => client_ip(),
         'user_agent' => mb_substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 500),
         'consent' => 1,
+        'items' => $items ? json_encode($items, JSON_UNESCAPED_UNICODE) : null,
     ]);
 
     $dir = STORAGE_DIR . '/leads';
@@ -165,7 +206,9 @@ function lead_notify(int $id): void
             $rows .= '<tr><td style="padding:6px 12px 6px 0;color:#6b7280;white-space:nowrap">' . e($k) . '</td><td style="padding:6px 0">' . e($val) . '</td></tr>';
         }
         $files = (int) db_val('SELECT COUNT(*) FROM lead_files WHERE lead_id = ?', [$id]);
+        $items = json_decode((string) $lead['items'], true) ?: [];
         $inner = '<table cellpadding="0" cellspacing="0" style="font-size:14px">' . $rows . '</table>'
+            . ($items ? '<p style="margin:16px 0 0;color:#6b7280;font-size:13px">Items requested (' . count($items) . ')</p>' . lead_items_table($items) : '')
             . '<p style="margin:16px 0 6px;color:#6b7280;font-size:13px">Message</p><div style="padding:12px;background:#F3F5F7;font-size:14px;white-space:pre-wrap">' . e($lead['message']) . '</div>'
             . ($files ? '<p style="font-size:13px">' . $files . ' attachment(s) — download them in the admin panel.</p>' : '')
             . '<p style="margin-top:20px"><a href="' . e(abs_url('admin/leads/' . $id)) . '" style="background:#F28C28;color:#fff;padding:10px 18px;text-decoration:none;font-weight:bold">Open lead #' . $id . '</a></p>';

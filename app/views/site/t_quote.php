@@ -20,8 +20,22 @@ $sent = !empty($_GET['sent']);
             <?= form_field(['id' => 'phone', 'label' => 'Phone Number', 'type' => 'tel', 'required' => true, 'autocomplete' => 'tel']) ?>
           </div>
         </fieldset>
-        <fieldset class="form-step">
+        <fieldset class="form-step" id="items">
           <legend><span class="step-num">2</span> Requirement</legend>
+          <div class="rfq mb-6" data-rfq data-products="<?= e(json_encode(array_map(fn($x) => ['slug' => $x['slug'], 'name' => $x['name']], products_all()), JSON_UNESCAPED_UNICODE)) ?>">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <p class="text-sm font-semibold text-navy">Items to quote</p>
+              <div class="flex flex-wrap gap-2">
+                <select class="rfq-input !w-auto" data-rfq-picker aria-label="Add a product to the list">
+                  <option value="">+ Add a product…</option>
+                  <?php foreach (products_all() as $x): ?><option value="<?= e($x['slug']) ?>"><?= e($x['name']) ?></option><?php endforeach ?>
+                </select>
+                <button type="button" class="btn btn-outline btn-sm" data-rfq-custom><?= icon('plus', 'h-4 w-4') ?> Custom part</button>
+              </div>
+            </div>
+            <p class="mt-3 text-sm text-charcoal/70" data-rfq-empty>Need several parts? Add each one here with its part number and quantity — or just describe your requirement below.</p>
+            <div class="rfq-rows mt-3" data-rfq-rows hidden></div>
+          </div>
           <div class="grid gap-5 sm:grid-cols-2">
             <?= form_field(['id' => 'product', 'label' => 'Product / Service Required', 'type' => 'select', 'required' => true, 'full' => true, 'options' => enquiry_options($preset)]) ?>
             <?= form_field(['id' => 'quantity', 'label' => 'Quantity', 'type' => 'number', 'placeholder' => 'e.g. 4']) ?>

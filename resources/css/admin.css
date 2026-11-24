@@ -181,3 +181,6 @@ textarea.adm-input { resize: vertical; line-height: 1.5; }
 @media (min-width: 1280px) {
   .adm-aside { position: sticky; top: 5rem; align-self: start; max-height: calc(100vh - 6rem); overflow-y: auto; padding-right: .25rem; scrollbar-width: thin; }
 }
+
+/* The hidden attribute always wins over utility display classes (flex, grid…) */
+[hidden] { display: none !important; }
