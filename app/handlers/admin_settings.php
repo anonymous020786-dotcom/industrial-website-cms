@@ -114,6 +114,9 @@ function settings_tabs(): array
             'admin_otp_enabled' => ['type' => 'checkbox', 'label' => 'Email OTP', 'text' => 'Require an emailed code for every admin sign-in', 'wide' => true],
             'otp_trust_days' => ['type' => 'number', 'label' => 'Trust a browser for (days)', 'help' => 'Users can tick “trust this browser” to skip the code on that device. 0 = always ask. Changing a password revokes trusted browsers.', 'default' => 30],
             'admin_idle_minutes' => ['type' => 'number', 'label' => 'Sign out after inactivity (minutes)', 'default' => 240],
+            'h_remember' => ['type' => 'heading', 'label' => 'Keep me signed in', 'help' => 'Lets users stay signed in on their own devices. Uses a single-use token that rotates on every visit, is bound to the device and is revoked on sign-out, password change or “sign out everywhere”. Sensitive actions still ask for a one-time code.'],
+            'remember_enabled' => ['type' => 'checkbox', 'label' => 'Keep me signed in', 'text' => 'Offer “Keep me signed in” on the sign-in page', 'default' => true, 'wide' => true],
+            'remember_days' => ['type' => 'number', 'label' => 'Stay signed in for (days)', 'default' => 30, 'help' => '1–90 days.'],
             'h_ts' => ['type' => 'heading', 'label' => 'Bot protection', 'help' => 'Cloudflare Turnstile keys are set in Integrations. When configured, the contact and quote forms are always protected.'],
             'turnstile_login' => ['type' => 'checkbox', 'label' => 'Login', 'text' => 'Also require Turnstile on the admin sign-in page', 'default' => true, 'wide' => true],
             'h_strong' => ['type' => 'heading', 'label' => 'Passkeys & authenticator apps', 'help' => 'Each user can add passkeys (Windows Hello, Touch ID, Face ID, Android, security keys) and an authenticator app in My profile. Users with an authenticator app are always asked for its code after their password; a passkey sign-in already includes device verification.'],
@@ -169,6 +172,7 @@ function admin_settings(string $tab): void
         if ($tab === 'security') {
             $values['otp_trust_days'] = max(0, min(90, (int) $values['otp_trust_days']));
             $values['admin_idle_minutes'] = max(15, min(1440, (int) ($values['admin_idle_minutes'] ?: 240)));
+            $values['remember_days'] = max(1, min(90, (int) ($values['remember_days'] ?: 30)));
             // Lock-out protection: OTP needs working email delivery.
             if (!empty($values['admin_otp_enabled']) && !setting('admin_otp_enabled')) {
                 if (!setting('smtp_host') && !config('debug')) {
@@ -427,5 +431,7 @@ function admin_profile(): void
         'totpPending' => isset($_SESSION['totp_pending']) && time() - (int) $_SESSION['totp_pending']['at'] <= 900 ? $_SESSION['totp_pending']['secret'] : null,
         'recoveryOnce' => (function () { $c = $_SESSION['recovery_codes_once'] ?? null; unset($_SESSION['recovery_codes_once']); return $c; })(),
         'recoveryLeft' => recovery_codes_left($uid),
+        'devices' => db_all('SELECT * FROM known_devices WHERE user_id = ? ORDER BY last_seen DESC LIMIT 30', [$uid]),
+        'currentDevice' => !empty($_COOKIE[DEVICE_COOKIE]) ? device_hash() : '',
     ]);
 }

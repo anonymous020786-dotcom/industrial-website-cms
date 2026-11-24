@@ -43,6 +43,7 @@ test.after(async () => {
   sql("DELETE FROM certificates WHERE name LIKE 'e2e%'");
   sql("DELETE FROM testimonials WHERE author LIKE 'e2e%'");
   setSetting('heading_style', 'industrial');
+  setSetting('admin_otp_enabled', false);
   sql("DELETE FROM passkeys WHERE name LIKE 'e2e%'");
   sql('UPDATE users SET totp_secret = NULL, totp_enabled_at = NULL WHERE id = ?', [adminId()]);
   sql('DELETE FROM recovery_codes WHERE user_id = ?', [adminId()]);
@@ -491,7 +492,7 @@ test('notifications: new-device sign-in alert, bell count, admin alert for secur
   assert.equal(count('login_new_device'), before + 1, 'new-device alert recorded');
   assert.match((await admin.get('admin')).text, /adm-bell-count">\d/, 'bell shows unread count');
 
-  const cur = { admin_otp_enabled: '0', otp_trust_days: String(getSetting('otp_trust_days') ?? 30), turnstile_login: getSetting('turnstile_login') === false ? '0' : '1', require_strong_2fa: '1' };
+  const cur = { admin_otp_enabled: '0', otp_trust_days: String(getSetting('otp_trust_days') ?? 30), turnstile_login: getSetting('turnstile_login') === false ? '0' : '1', require_strong_2fa: '1', remember_enabled: '1', remember_days: '30' };
   const idle = Number(getSetting('admin_idle_minutes') || 240);
   const page = await admin.get('admin/settings/security');
   assert.equal(page.status, 200);
@@ -561,4 +562,78 @@ test('forms: password show/hide on admin screens; Turnstile sits directly above 
     const iBtn = h.indexOf(submit);
     assert.ok(iField > -1 && iTs > iField && iBtn > iTs, `${p}: widget after the fields and before the submit button`);
   }
+});
+
+/* ------------------------------------------------------------------ */
+test('keep me signed in: survives a browser restart, rotates, is device-bound, detects stolen tokens, ends on sign-out', async () => {
+  setSetting('remember_enabled', true);
+  setSetting('remember_days', 30);
+  const c = new Client();
+  assert.match(await c.login(ADMIN, PASSWORD, { remember: '1' }), /\/admin$/);
+  assert.ok(c.jar.has('ivremember') && c.jar.has('ivdev'), 'remember + device cookies set');
+  const first = c.jar.get('ivremember');
+  c.jar.delete('ivadmin'); // browser restart: session cookie gone
+  assert.equal((await c.get('admin')).status, 200, 'signed in again from the remember token');
+  assert.notEqual(c.jar.get('ivremember'), first, 'token rotated after use');
+
+  const thief = new Client();
+  thief.jar.set('ivremember', c.jar.get('ivremember')); // token without the device cookie
+  assert.equal((await thief.get('admin')).status, 302, 'token alone is useless');
+
+  const replay = new Client();
+  replay.jar.set('ivdev', c.jar.get('ivdev'));
+  replay.jar.set('ivremember', first); // an old, already-rotated token
+  assert.equal((await replay.get('admin')).status, 302);
+  c.jar.delete('ivadmin');
+  assert.equal((await c.get('admin')).status, 302, 'replayed old token revoked the remembered sign-in');
+
+  const d = new Client();
+  await d.login(ADMIN, PASSWORD, { remember: '1' });
+  await d.post('admin/logout', { _token: token((await d.get('admin')).text) });
+  d.jar.delete('ivadmin');
+  assert.equal((await d.get('admin')).status, 302, 'sign-out ends "keep me signed in"');
+});
+
+test('trusted device: skips the sign-in code until trust is removed; sign out everywhere ends other sessions', async () => {
+  const uid = adminId();
+  const ageCodes = () => sql('UPDATE login_otps SET created_at = created_at - INTERVAL 20 MINUTE WHERE user_id = ?', [uid]);
+  setSetting('admin_otp_enabled', true);
+  try {
+    const c = new Client();
+    ageCodes();
+    assert.match(await c.login(ADMIN, PASSWORD), /admin\/login\/verify$/, 'code required on a new device');
+    const v = await c.get('admin/login/verify');
+    assert.match(v.text, /Don’t ask for a code on this device/);
+    const code = (v.text.match(/the code is <code class="font-bold">(\d{6})/) || [])[1];
+    assert.ok(code, 'debug code shown');
+    const r = await c.post('admin/login/verify', { _token: token(v.text), code, trust: '1' });
+    assert.match(r.location, /\/admin$/);
+    assert.ok(sql('SELECT trusted_until FROM known_devices WHERE user_id = ? AND trusted_until > NOW()', [uid]).length >= 1);
+
+    c.jar.delete('ivadmin');
+    assert.match(await c.login(ADMIN, PASSWORD), /\/admin$/, 'trusted device: password only, no code');
+
+    const prof = await c.get('admin/profile');
+    assert.match(prof.text, /Devices &amp; sessions/);
+    assert.match(prof.text, /This device/);
+    const devId = sql('SELECT id FROM known_devices WHERE user_id = ? AND trusted_until > NOW() ORDER BY last_seen DESC LIMIT 1', [uid])[0].id;
+    await c.post(`admin/devices/${devId}`, { _token: token(prof.text), action: 'untrust' });
+    c.jar.delete('ivadmin');
+    ageCodes();
+    assert.match(await c.login(ADMIN, PASSWORD), /admin\/login\/verify$/, 'asks for a code again after "Stop trusting"');
+  } finally {
+    setSetting('admin_otp_enabled', false);
+  }
+
+  const a = new Client(); const b = new Client();
+  await a.login(ADMIN, PASSWORD); await b.login(ADMIN, PASSWORD, { remember: '1' });
+  assert.equal((await b.get('admin')).status, 200);
+  await a.post('admin/devices/signout-all', { _token: token((await a.get('admin/profile')).text) });
+  assert.equal((await a.get('admin')).status, 200, 'the device that clicked stays signed in');
+  assert.equal((await b.get('admin')).status, 302, 'other open session ended');
+  b.jar.delete('ivadmin');
+  assert.equal((await b.get('admin')).status, 302, 'and its "keep me signed in" was revoked');
+  // The main test client was "another device" too — sign it back in for the clean-up hook
+  await admin.login(ADMIN, PASSWORD);
+  csrf = token((await admin.get('admin')).text);
 });

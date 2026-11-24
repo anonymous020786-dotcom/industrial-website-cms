@@ -194,3 +194,41 @@ function admin_avatar_remove(): void
     flash('success', 'Profile picture removed.');
     redirect('admin/profile#profile');
 }
+
+/* ================================================================== */
+/* DEVICES & SESSIONS                                                  */
+/* ================================================================== */
+
+/** Stop trusting one of your browsers, or remove it (also ends its "keep me signed in"). */
+function admin_device_action(string $id): void
+{
+    $user = require_login();
+    csrf_check();
+    $dev = db_one('SELECT * FROM known_devices WHERE id = ? AND user_id = ?', [(int) $id, (int) $user['id']]);
+    if (!$dev) abort(404);
+    $isCurrent = hash_equals((string) $dev['device_hash'], device_hash());
+    if (input('action') === 'untrust') {
+        db_query('UPDATE known_devices SET trusted_until = NULL WHERE id = ?', [(int) $dev['id']]);
+        auth_log('device_untrusted', (int) $user['id'], $user['email']);
+        flash('success', ($isCurrent ? 'This browser' : $dev['label']) . ' will ask for a sign-in code again.');
+    } else {
+        db_query('DELETE FROM known_devices WHERE id = ?', [(int) $dev['id']]);
+        if ($isCurrent) remember_clear_cookie();
+        auth_log('device_removed', (int) $user['id'], $user['email']);
+        flash('success', ($isCurrent ? 'This browser' : $dev['label']) . ' was removed: it is no longer trusted or kept signed in. To end a session that is open there right now, use “Sign out all other devices”.');
+    }
+    redirect('admin/profile#devices');
+}
+
+function admin_devices_signout_all(): void
+{
+    $user = require_login();
+    csrf_check();
+    devices_revoke_all((int) $user['id'], true);
+    auth_log('signout_everywhere', (int) $user['id'], $user['email']);
+    security_notice(db_one('SELECT * FROM users WHERE id = ?', [(int) $user['id']]), 'You signed out of all other devices',
+        'All other browsers and devices were signed out of your account, and none of them are trusted or kept signed in any more. If you did not do this, change your password now.',
+        null, 'signout_everywhere');
+    flash('success', 'All other devices were signed out. This browser stays signed in.');
+    redirect('admin/profile#devices');
+}

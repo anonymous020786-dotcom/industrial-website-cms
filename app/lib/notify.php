@@ -105,25 +105,13 @@ function actor_name(): string
 function login_device_check(array $user): void
 {
     try {
-        $raw = (string) ($_COOKIE['ivdev'] ?? '');
-        if (!preg_match('~^[a-f0-9]{48}$~', $raw)) {
-            $raw = bin2hex(random_bytes(24));
-            $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https';
-            if (!headers_sent()) setcookie('ivdev', $raw, ['expires' => time() + 400 * 86400, 'path' => (base_path() ?: '') . '/admin', 'secure' => $secure, 'httponly' => true, 'samesite' => 'Lax']);
-        }
-        $hash = hash_hmac('sha256', $raw, (string) config('app_key'));
         $uid = (int) $user['id'];
-        $known = db_one('SELECT id FROM known_devices WHERE user_id = ? AND device_hash = ?', [$uid, $hash]);
-        if ($known) {
-            db_query('UPDATE known_devices SET last_seen = NOW(), ip = ? WHERE id = ?', [client_ip(), (int) $known['id']]);
-            return;
-        }
-        $first = !(bool) db_val('SELECT COUNT(*) FROM known_devices WHERE user_id = ?', [$uid]);
-        db_insert('known_devices', ['user_id' => $uid, 'device_hash' => $hash, 'label' => mb_substr(device_label(), 0, 120), 'ip' => client_ip()]);
-        if (!$first) {
+        $hadDevices = (bool) db_val('SELECT COUNT(*) FROM known_devices WHERE user_id = ?', [$uid]);
+        [, $isNew] = device_register($uid);
+        if ($isNew && $hadDevices) {
             notify_user($user, 'login_new_device', 'New sign-in to your account',
                 'Your ' . company('name') . ' control panel account was just signed in to from a browser or device it has not been used on before (' . device_label() . ').',
-                ['severity' => 'warning', 'category' => 'signin', 'link' => 'admin/profile#security-activity']);
+                ['severity' => 'warning', 'category' => 'signin', 'link' => 'admin/profile#devices']);
         }
     } catch (Throwable $e) {
         error_log('device check: ' . $e->getMessage());

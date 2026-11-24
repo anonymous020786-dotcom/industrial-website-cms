@@ -73,6 +73,7 @@ function admin_login(): void
             auth_log('login_captcha_failed', null, $email);
         } else {
             $user = verify_credentials($email, (string) ($_POST['password'] ?? ''));
+            $_SESSION['login_remember'] = !empty($_POST['remember']); // carried through the code step
             if (is_string($user)) {
                 $error = $user;
             } elseif (device_trusted((int) $user['id']) || (!otp_enabled() && !totp_enabled_for($user))) {

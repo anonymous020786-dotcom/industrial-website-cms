@@ -15,8 +15,18 @@ Include steps to reproduce and the affected version. You will get a reply within
 - Authenticator-app codes (TOTP, RFC 6238): secrets encrypted with AES-256-GCM, replay protection,
   rate limiting, ten hashed single-use recovery codes
 - Passwords hashed with `password_hash()`; login rate limiting and an audit log
-- Optional email one-time-code (OTP) sign-in with trusted devices; password reset and email changes
-  verified by single-use codes; security notices emailed on sensitive changes
+- Optional email one-time-code (OTP) sign-in. Password reset and email changes are verified by single-use
+  codes.
+- Trusted devices are recorded per browser (a random device cookie, stored as an HMAC) and can be
+  revoked from My profile.
+- "Keep me signed in" tokens are random, stored as SHA-256, and rotated on every use. They are bound to
+  the device cookie. Replaying an old token revokes them, and signing out, changing the password or
+  "sign out all other devices" ends them (a per-user session salt is rotated).
+- Step-up confirmation ("confirm it's you") is needed for sensitive actions: a passkey, TOTP or emailed
+  code, valid 10 minutes. Interrupted forms are replayed only when they hold no password or secret
+  fields.
+- Security alerts are shown in the admin and emailed; account-security alerts can't be turned off.
+- Profile pictures are re-encoded to WebP, which removes metadata.
 - Strict Content-Security-Policy on the admin; frame, base-uri, object and form-action limits on the site
 - HTML from the editor is sanitised; uploads are type-checked and PHP execution is blocked in `uploads/`
 - Uploaded images are re-encoded (metadata/GPS removed); PDFs are verified by file signature

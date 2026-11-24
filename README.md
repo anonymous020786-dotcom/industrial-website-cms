@@ -44,8 +44,9 @@ marketing integrations. It runs on any standard PHP host with no framework and n
   Cloudflare Turnstile and Tunnel, SMTP, Search Console and Bing verification. Tracking loads only after
   cookie consent.
 - **Security.** **Passkeys** (Windows Hello, Touch ID/Face ID, Android, security keys), authenticator-app
-  codes (TOTP) with recovery codes, optional email codes, password reset, backup email, rate limiting, an
-  audit log and CSP. See [SECURITY.md](SECURITY.md).
+  codes (TOTP) with recovery codes, optional email codes, trusted devices, "keep me signed in", a
+  one-time-code confirmation before sensitive actions, in-app and email security alerts, password reset,
+  backup email, rate limiting, an audit log and CSP. See [SECURITY.md](SECURITY.md).
 - **Quality.**
   - Light and dark themes; WCAG 2.2 AA contrast; schema.org JSON-LD.
   - Self-hosted fonts, icons and WebP photos; minified HTML, CSS and JS.
@@ -216,8 +217,31 @@ Replace the stock photos with your own photography before launch.
   (Admin → Settings → Security, and *My profile → Recent security activity*).
 - **Two-step email codes (OTP).** Turn on in Settings → Security once SMTP has passed a test
   email. The 6-digit codes expire after 10 minutes, allow 5 attempts, can be resent after 60 s, and are
-  limited to 5 per 15 minutes. Codes are stored hashed. Users can trust a browser for N days, and can
-  have the code sent to their verified backup email instead.
+  limited to 5 per 15 minutes. Codes are stored hashed. Users can have the code sent to their verified
+  backup email instead.
+- **Trusted devices.** On the code screen, *Don’t ask for a code on this device for N days* (on by
+  default; N is set in Settings → Security, 0 turns it off). That browser then signs in with the password
+  alone until the trust expires or is removed.
+- **Keep me signed in.** A checkbox on the sign-in page (and for passkey sign-in) keeps the browser signed
+  in for up to 30 days (Settings → Security: on/off and 1–90 days).
+  - The token is random, stored only as a hash, replaced after every use, and works only together with
+    the browser's device cookie.
+  - If an old token is replayed, every "keep me signed in" for that browser is cancelled and the owner is
+    alerted.
+  - Signing out, changing or resetting the password ends it.
+- **Devices & sessions** (My profile). Each browser that signed in is listed with *This device*,
+  *Trusted* and *Kept signed in* badges. You can stop trusting a device, remove it, or **sign out all
+  other devices**. Unused devices are forgotten after 6 months.
+- **Confirm it’s you (step-up).** Sensitive actions ask for a fresh one-time code, not just a password:
+  passkey, authenticator app or an emailed code. They include changing a password, email or 2FA,
+  managing users, security/email/integration settings, backups, lead export and permanent deletes. A
+  confirmation lasts 10 minutes, and the interrupted action then continues by itself.
+- **Security alerts.** The bell in the header lists alerts, and they are emailed by category (choose
+  under My profile → Notifications). Alerts about your own account's security are always emailed:
+  sign-ins from new devices, lockouts, wrong confirmation codes, and password, email and 2FA changes.
+  Admins are also alerted about user, settings and backup changes.
+- **Profile picture.** Upload a JPG, PNG or WebP image (My profile). It is cropped to a square and
+  re-encoded to WebP, which removes EXIF/GPS data.
 - **Forgot / reset password** (`/admin/forgot`). A reset code is emailed to the primary address and the verified backup
   email. The response is identical whether or not the account exists. Codes are single-use, and a
   reset signs out every other session and trusted browser.

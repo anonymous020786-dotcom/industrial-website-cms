@@ -65,7 +65,7 @@
     const cred = await navigator.credentials.get({ publicKey: opts, signal: ctrl.signal, ...(conditional ? { mediation: 'conditional' } : {}) });
     if (!cred) return;
     if (loginBtn) { loginBtn.disabled = true; loginBtn.textContent = 'Signing in…'; }
-    const res = await post('admin/login/passkey', { credential: credToJSON(cred) });
+    const res = await post('admin/login/passkey', { credential: credToJSON(cred), remember: !!$('[data-remember]')?.checked });
     window.location.href = res.redirect || u('admin');
   }
 

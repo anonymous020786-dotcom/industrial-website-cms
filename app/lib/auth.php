@@ -41,7 +41,12 @@ function current_user(): ?array
     if ($user !== false) return $user;
     session_boot();
     $id = $_SESSION['uid'] ?? null;
-    if (!$id) return $user = null;
+    if (!$id) {
+        // "Keep me signed in": start a new session from the rotating device-bound token
+        $rem = remember_login();
+        if (!$rem) return $user = null;
+        $id = (int) $rem['id'];
+    }
     $row = db_one('SELECT id, name, email, username, backup_email, backup_email_verified_at, role, active, password_changed_at, avatar, notify_prefs, totp_enabled_at FROM users WHERE id = ?', [(int) $id]);
     if (!$row || !$row['active'] || ($_SESSION['ver'] ?? '') !== session_fingerprint((int) $id)) {
         unset($_SESSION['uid']);
@@ -53,8 +58,9 @@ function current_user(): ?array
 /** Changes when the password changes, so other sessions and trusted devices are invalidated. */
 function session_fingerprint(int $userId): string
 {
-    $hash = (string) db_val('SELECT password_hash FROM users WHERE id = ?', [$userId]);
-    return substr(hash('sha256', $hash . config('app_key')), 0, 24);
+    $row = db_one('SELECT password_hash, session_salt FROM users WHERE id = ?', [$userId]);
+    // Changes when the password changes or the user signs out everywhere (salt rotated)
+    return substr(hash('sha256', (string) ($row['password_hash'] ?? '') . (string) ($row['session_salt'] ?? '') . config('app_key')), 0, 24);
 }
 
 function can(string $permission): bool
@@ -75,9 +81,13 @@ function require_login(?string $permission = null): array
     $idle = max(15, (int) setting('admin_idle_minutes', 240)) * 60;
     if (isset($_SESSION['last']) && time() - $_SESSION['last'] > $idle) {
         auth_log('session_timeout', (int) $u['id'], $u['email']);
-        logout_user();
-        flash('info', 'You were signed out after a period of inactivity.');
-        redirect('admin/login');
+        // End the idle session; "keep me signed in" (if set) quietly starts a fresh one
+        $_SESSION = [];
+        session_regenerate_id(true);
+        if (!remember_login()) {
+            flash('info', 'You were signed out after a period of inactivity.');
+            redirect('admin/login');
+        }
     }
     $_SESSION['last'] = time();
     return $u;
@@ -162,17 +172,19 @@ function verify_credentials(string $identifier, string $password): array|string
     return $user;
 }
 
-function complete_login(array $user, bool $trustDevice = false): void
+function complete_login(array $user, bool $trustDevice = false, ?bool $remember = null): void
 {
+    $remember ??= !empty($_SESSION['login_remember']);
     session_regenerate_id(true);
-    unset($_SESSION['otp_uid'], $_SESSION['otp_started'], $_SESSION['otp_dev_code'], $_SESSION['otp_to']);
+    unset($_SESSION['otp_uid'], $_SESSION['otp_started'], $_SESSION['otp_dev_code'], $_SESSION['otp_to'], $_SESSION['login_remember']);
     $_SESSION['uid'] = (int) $user['id'];
     $_SESSION['ver'] = session_fingerprint((int) $user['id']);
     $_SESSION['last'] = time();
     db_update('users', ['last_login_at' => now()], (int) $user['id']);
-    if ($trustDevice) trust_device((int) $user['id']);
     auth_log('login_success', (int) $user['id'], $user['email']);
     login_device_check($user);
+    if ($trustDevice) trust_device((int) $user['id']);
+    if ($remember) remember_issue($user);
 }
 
 /** Single-step login used when OTP is disabled. */
@@ -187,6 +199,7 @@ function attempt_login(string $identifier, string $password): string|bool
 function logout_user(): void
 {
     session_boot();
+    if (!empty($_SESSION['uid'])) remember_forget_current((int) $_SESSION['uid']);
     $_SESSION = [];
     session_regenerate_id(true);
 }
@@ -206,6 +219,8 @@ function set_password(array $user, string $newPassword, string $reason = 'change
 {
     db_update('users', ['password_hash' => password_hash($newPassword, PASSWORD_DEFAULT), 'password_changed_at' => now()], (int) $user['id']);
     db_query('UPDATE login_otps SET used_at = NOW() WHERE user_id = ? AND used_at IS NULL', [(int) $user['id']]);
+    // Other browsers lose "trusted" and "keep me signed in"; a reset (possible compromise) revokes this one too
+    devices_revoke_all((int) $user['id'], $reason !== 'reset');
     auth_log($reason === 'reset' ? 'password_reset' : 'password_changed', (int) $user['id'], $user['email']);
     security_notice($user, $reason === 'reset' ? 'Your password was reset' : 'Your password was changed',
         'The password for your ' . company('name') . ' control panel account was ' . ($reason === 'reset' ? 'reset using an emailed code' : 'changed') . ' on ' . date('j M Y \a\t H:i') . ' from IP ' . client_ip() . '. All other signed-in sessions and trusted browsers have been signed out.');
@@ -225,26 +240,6 @@ function security_notice(array $user, string $title, string $text, ?string $extr
 function otp_enabled(): bool
 {
     return (bool) setting('admin_otp_enabled', false);
-}
-
-/** Signed "trusted device" cookie lets a browser skip OTP for N days. Invalidated when the password changes. */
-function trust_device(int $userId): void
-{
-    $days = (int) setting('otp_trust_days', 30);
-    if ($days < 1) return;
-    $exp = time() + $days * 86400;
-    $sig = hash_hmac('sha256', $userId . '|' . $exp . '|' . session_fingerprint($userId), (string) config('app_key'));
-    $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https';
-    setcookie('ivtrust_' . $userId, $exp . '.' . $sig, ['expires' => $exp, 'path' => (base_path() ?: '') . '/admin', 'secure' => $secure, 'httponly' => true, 'samesite' => 'Strict']);
-}
-
-function device_trusted(int $userId): bool
-{
-    $raw = (string) ($_COOKIE['ivtrust_' . $userId] ?? '');
-    [$exp, $sig] = array_pad(explode('.', $raw, 2), 2, '');
-    if (!ctype_digit($exp) || (int) $exp < time() || (int) setting('otp_trust_days', 30) < 1) return false;
-    $good = hash_hmac('sha256', $userId . '|' . $exp . '|' . session_fingerprint($userId), (string) config('app_key'));
-    return hash_equals($good, $sig);
 }
 
 /**

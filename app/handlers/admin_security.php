@@ -94,8 +94,10 @@ function admin_login_passkey(): void
     session_boot();
     csrf_check();
     if (!rate_limit(ip_bucket('passkey-login'), 15, 900)) json_error('Too many attempts. Please wait a few minutes.', 429);
+    $body = json_body();
+    $_SESSION['login_remember'] = !empty($body['remember']);
     try {
-        $user = webauthn_login((array) (json_body()['credential'] ?? []));
+        $user = webauthn_login((array) ($body['credential'] ?? []));
     } catch (Throwable $e) {
         auth_log('passkey_login_failed', null, null);
         json_error($e->getMessage());

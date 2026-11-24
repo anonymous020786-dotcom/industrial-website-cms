@@ -75,9 +75,9 @@ export class Client {
   }
 
   /** Sign in with password (+ dummy Turnstile token). Returns the redirect target. */
-  async login(login, password) {
+  async login(login, password, extra = {}) {
     const page = await this.get('admin/login');
-    const r = await this.post('admin/login', { _token: token(page.text), login, password, 'cf-turnstile-response': TS_TOKEN });
+    const r = await this.post('admin/login', { _token: token(page.text), login, password, 'cf-turnstile-response': TS_TOKEN, ...extra });
     return r.location;
   }
 }

@@ -43,7 +43,7 @@ $devHint = fn($code) => $code ? '<div class="adm-flash adm-flash-info">' . icon(
         <input class="adm-input text-center font-mono text-2xl tracking-[0.5em]" id="code" name="code" inputmode="numeric" pattern="[0-9 ]{6,7}" maxlength="7" autocomplete="one-time-code" required autofocus>
       </div>
       <?php if ($trustDays > 0): ?>
-      <label class="adm-check text-sm"><input type="checkbox" name="trust" value="1"><span>Trust this browser for <?= (int) $trustDays ?> days</span></label>
+      <label class="adm-check text-sm"><input type="checkbox" name="trust" value="1" checked><span>Don’t ask for a code on this device for <?= (int) $trustDays ?> days</span></label>
       <?php endif ?>
       <button class="adm-btn adm-btn-primary w-full justify-center py-3">Verify &amp; sign in <?= icon('arrow-right', 'h-4 w-4') ?></button>
     </form>
@@ -75,7 +75,7 @@ $devHint = fn($code) => $code ? '<div class="adm-flash adm-flash-info">' . icon(
         <?php endif ?>
       </div>
       <?php if (($trustDays ?? 0) > 0): ?>
-      <label class="adm-check text-sm"><input type="checkbox" name="trust" value="1"><span>Trust this browser for <?= (int) $trustDays ?> days</span></label>
+      <label class="adm-check text-sm"><input type="checkbox" name="trust" value="1" checked><span>Don’t ask for a code on this device for <?= (int) $trustDays ?> days</span></label>
       <?php endif ?>
       <button class="adm-btn adm-btn-primary w-full justify-center py-3">Verify &amp; sign in <?= icon('arrow-right', 'h-4 w-4') ?></button>
     </form>
@@ -130,6 +130,9 @@ $devHint = fn($code) => $code ? '<div class="adm-flash adm-flash-info">' . icon(
         <input class="adm-input" id="password" name="password" type="password" autocomplete="current-password" required>
       </div>
       <?php if (!empty($turnstile)): ?><?= turnstile_widget() ?><?php endif ?>
+      <?php if (remember_enabled()): ?>
+      <label class="adm-check text-sm"><input type="checkbox" name="remember" value="1" data-remember><span>Keep me signed in on this device for <?= (int) setting('remember_days', 30) ?> days</span></label>
+      <?php endif ?>
       <button class="adm-btn adm-btn-primary w-full justify-center py-3">Sign in <?= icon('arrow-right', 'h-4 w-4') ?></button>
       <?php if (otp_enabled()): ?><p class="flex items-center gap-2 text-xs text-charcoal/60"><?= icon('shield-check', 'h-4 w-4 text-emerald-600') ?> Two-step verification is on — you will be asked for a code.</p><?php endif ?>
       <div class="space-y-3" data-passkey-box>

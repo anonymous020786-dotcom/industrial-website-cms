@@ -1,5 +1,5 @@
 <?php
-/** @var array $user @var array $errors @var array $old @var array $events @var ?string $pendingEmail @var ?string $pendingBackup @var ?string $devCode
+/** @var array $devices @var string $currentDevice @var array $user @var array $errors @var array $old @var array $events @var ?string $pendingEmail @var ?string $pendingBackup @var ?string $devCode
  *  @var array $passkeys @var bool $totpOn @var ?string $totpPending @var ?array $recoveryOnce @var int $recoveryLeft */
 $err = fn($k) => isset($errors[$k]) ? '<p class="adm-error">' . e($errors[$k]) . '</p>' : '';
 $val = fn($k, $d = '') => e((string) ($old[$k] ?? $d));
@@ -15,6 +15,7 @@ $labels = [
     'passkey_added' => 'Passkey added', 'passkey_removed' => 'Passkey removed', 'passkey_login' => 'Signed in with a passkey', 'passkey_failed' => 'Passkey check failed',
     'totp_enabled' => 'Authenticator app enabled', 'totp_disabled' => 'Authenticator app turned off', 'totp_failed' => 'Wrong authenticator code',
     'recovery_code_used' => 'Recovery code used', 'recovery_codes_regenerated' => 'New recovery codes', 'backup_downloaded' => 'Backup downloaded',
+    'login_remembered' => 'Signed in (kept signed in)', 'device_trusted' => 'Device trusted for codes', 'device_untrusted' => 'Stopped trusting a device', 'device_removed' => 'Device removed', 'signout_everywhere' => 'Signed out of all other devices', 'remember_token_mismatch' => 'Blocked an invalid sign-in token',
     'stepup_ok' => 'Confirmed a sensitive action', 'stepup_required' => 'Confirmation requested', 'stepup_failed' => 'Wrong confirmation code',
     'avatar_changed' => 'Profile picture changed', 'leads_exported' => 'Leads exported', 'backup_created' => 'Backup created', 'backup_deleted' => 'Backup deleted', 'stepup_code_sent' => 'Confirmation code sent',
 ];
@@ -230,6 +231,56 @@ $transportLabel = fn(?string $t) => str_contains((string) $t, 'internal') ? 'Thi
     <?php endif ?>
   </section>
 </div>
+
+<!-- Devices & sessions -->
+<section class="adm-card space-y-4 p-6 xl:col-start-1" id="devices">
+  <div class="flex flex-wrap items-start justify-between gap-3">
+    <div>
+      <h2 class="adm-subheading flex items-center gap-2"><?= icon('monitor-smartphone', 'h-5 w-5 text-steel') ?> Devices &amp; sessions</h2>
+      <p class="mt-1 text-sm text-charcoal/75">Browsers that have signed in to your account. <strong>Trusted</strong> devices skip the sign-in code; <strong>kept signed in</strong> devices open the admin without a password. Sensitive actions always ask for a one-time code.</p>
+    </div>
+    <?php if (count($devices) > 1): ?>
+    <form method="post" action="<?= e(url('admin/devices/signout-all')) ?>"><?= csrf_field() ?><button class="adm-btn adm-btn-danger adm-btn-sm" data-confirm="Sign out every other browser and device? They will need your password (and code) again."><?= icon('log-out', 'h-4 w-4') ?> Sign out all other devices</button></form>
+    <?php endif ?>
+  </div>
+  <?php if (!$devices): ?><p class="text-sm text-charcoal/75">No devices recorded yet.</p><?php else: ?>
+  <?php
+    // This browser first, then most recently active; older ones fold away after five
+    usort($devices, fn ($a, $b) => [$currentDevice !== '' && hash_equals((string) $b['device_hash'], $currentDevice), $b['last_seen']] <=> [$currentDevice !== '' && hash_equals((string) $a['device_hash'], $currentDevice), $a['last_seen']]);
+    $shown = 5; ?>
+  <ul class="divide-y divide-black/5 rounded-lg border border-black/10">
+    <?php foreach ($devices as $i => $d):
+      if ($i === $shown): ?>
+  </ul>
+  <details class="group">
+    <summary class="cursor-pointer select-none py-1 text-sm font-semibold text-steel hover:text-navy">Show <?= count($devices) - $shown ?> older device<?= count($devices) - $shown === 1 ? '' : 's' ?></summary>
+  <ul class="mt-2 divide-y divide-black/5 rounded-lg border border-black/10">
+      <?php endif;
+      $cur = $currentDevice !== '' && hash_equals((string) $d['device_hash'], $currentDevice);
+      $trusted = $d['trusted_until'] && strtotime((string) $d['trusted_until']) > time();
+      $kept = $d['remember_until'] && strtotime((string) $d['remember_until']) > time();
+      $ic = str_contains((string) $d['label'], 'Android') || str_contains((string) $d['label'], 'iOS') ? 'smartphone' : 'monitor'; ?>
+    <li class="flex flex-wrap items-center gap-3 p-3">
+      <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-mist text-steel"><?= icon($ic, 'h-5 w-5') ?></span>
+      <div class="min-w-0 flex-1">
+        <p class="flex flex-wrap items-center gap-2 font-semibold text-navy"><?= e((string) $d['label']) ?>
+          <?php if ($cur): ?><span class="adm-badge bg-navy text-white">This device</span><?php endif ?>
+          <?php if ($trusted): ?><span class="adm-badge bg-emerald-100 text-emerald-800" title="No sign-in code until <?= e(date('j M Y', strtotime($d['trusted_until']))) ?>">Trusted</span><?php endif ?>
+          <?php if ($kept): ?><span class="adm-badge bg-sky-100 text-sky-800" title="Stays signed in until <?= e(date('j M Y', strtotime($d['remember_until']))) ?>">Kept signed in</span><?php endif ?>
+        </p>
+        <p class="text-xs text-charcoal/75">Last active <?= e(time_ago($d['last_seen'])) ?> · <?= e((string) $d['ip']) ?> · first seen <?= e(date('j M Y', strtotime($d['first_seen']))) ?><?= $trusted ? ' · trusted until ' . e(date('j M Y', strtotime($d['trusted_until']))) : '' ?></p>
+      </div>
+      <form method="post" action="<?= e(url('admin/devices/' . $d['id'])) ?>" class="flex gap-2">
+        <?= csrf_field() ?>
+        <?php if ($trusted): ?><button class="adm-btn adm-btn-light adm-btn-sm" name="action" value="untrust">Stop trusting</button><?php endif ?>
+        <button class="adm-btn adm-btn-light adm-btn-sm !text-red-700" name="action" value="remove" data-confirm="Remove <?= e((string) $d['label']) ?>? It will no longer be trusted or kept signed in.">Remove</button>
+      </form>
+    </li>
+    <?php endforeach ?>
+  </ul>
+  <?php if (count($devices) > $shown): ?></details><?php endif ?>
+  <?php endif ?>
+</section>
 
 <!-- Notification preferences (full width under the security sections) -->
 <?php $prefs = notify_prefs($user); ?>

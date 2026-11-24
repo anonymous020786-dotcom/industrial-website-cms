@@ -43,6 +43,8 @@ function routes(): array
         ['POST', '/admin/notify-prefs', 'admin_notify_prefs', 'admin_account'],
         ['POST', '/admin/avatar', 'admin_avatar_upload', 'admin_account'],
         ['POST', '/admin/avatar/remove', 'admin_avatar_remove', 'admin_account'],
+        ['POST', '/admin/devices/signout-all', 'admin_devices_signout_all', 'admin_account'],
+        ['POST', '/admin/devices/{id}', 'admin_device_action', 'admin_account'],
 
         // Passkeys & authenticator app (signed-in user)
         ['POST', '/admin/passkeys/options', 'admin_passkey_options', 'admin_security'],
