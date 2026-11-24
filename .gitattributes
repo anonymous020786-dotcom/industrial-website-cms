@@ -1,0 +1,16 @@
+* text=auto eol=lf
+*.bat text eol=crlf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+# Generated files: hide from diffs and language stats
+public/assets/css/*.css linguist-generated
+public/assets/js/*.js linguist-generated
+public/assets/vendor/** linguist-vendored
+app/data/lucide.php linguist-generated
+database/seed/posts.json linguist-generated

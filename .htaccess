@@ -1,0 +1,11 @@
+# Used only when the whole project is uploaded into the web root (e.g. public_html)
+# and the document root cannot be pointed at /public. Routes everything into /public
+# and blocks access to application code, database files and tooling.
+Options -Indexes
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteRule ^(app|database|content|scripts|resources|node_modules|vendor)(/|$) - [F,L]
+  RewriteRule ^(package(-lock)?\.json|tailwind\.config\.js|README\.md|\.git.*)$ - [F,L]
+  RewriteRule ^$ public/ [L]
+  RewriteRule ^(?!public/)(.*)$ public/$1 [L]
+</IfModule>

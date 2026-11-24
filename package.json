@@ -1,0 +1,30 @@
+{
+  "name": "industrial-website",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Industrial website + PHP/MySQL CMS (blog, pages, leads, integrations)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anonymous020786-dotcom/industrial-website-cms.git"
+  },
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "serve": "php -S localhost:8000 -t public public/router.php",
+    "assets": "node scripts/build-assets.mjs",
+    "posts": "node scripts/import-posts.mjs",
+    "build": "npm run posts && npm run icons && npm run images && npm run assets",
+    "lint:php": "node -e \"const {execSync}=require('child_process');const g=require('fs').readdirSync;function w(d){for(const f of g(d,{withFileTypes:true})){const p=d+'/'+f.name;if(f.isDirectory())w(p);else if(p.endsWith('.php')&&!p.includes('/data/'))execSync('php -l '+p,{stdio:'pipe'})}}w('app');w('public');console.log('PHP syntax OK')\"",
+    "icons": "node scripts/build-icons.mjs",
+    "images": "node scripts/stock-images.mjs"
+  },
+  "devDependencies": {
+    "@fontsource/barlow": "5.1.0",
+    "@fontsource/barlow-condensed": "5.1.0",
+    "esbuild": "0.24.0",
+    "lucide": "0.460.0",
+    "marked": "15.0.0",
+    "quill": "2.0.3",
+    "sharp": "0.33.5",
+    "tailwindcss": "3.4.16"
+  }
+}

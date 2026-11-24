@@ -1,0 +1,10 @@
+[
+  { "slug": "hydraulic-cylinders", "name": "Hydraulic Cylinders", "description": "Design, selection, sealing, failure analysis and repair of hydraulic cylinders for cranes, mobile equipment and industrial machines." },
+  { "slug": "hydraulic-systems", "name": "Hydraulic Systems & Power Packs", "description": "Power units, fluids, filtration, accumulators, circuit design and preventive maintenance for industrial hydraulic systems." },
+  { "slug": "pumps-motors", "name": "Pumps & Motors", "description": "Selecting, troubleshooting, commissioning and reconditioning hydraulic pumps and motors." },
+  { "slug": "crane-maintenance", "name": "Crane Components & Maintenance", "description": "Crane spare parts, inspection routines, brakes, sheaves, hooks and planned maintenance for overhead and gantry cranes." },
+  { "slug": "crane-wheels-drives", "name": "Crane Wheels & Drives", "description": "Crane wheels, rails, end carriages, bearings and travel drives — wear, alignment and replacement." },
+  { "slug": "manufacturing-engineering", "name": "Manufacturing & Engineering", "description": "CNC machining, honing, heat treatment, welding, testing and the engineering behind reliable heavy-duty components." },
+  { "slug": "industry-applications", "name": "Industry Applications", "description": "How hydraulics and lifting equipment perform in construction, mining, ports, warehouses, steel plants and manufacturing." },
+  { "slug": "buying-guides", "name": "Buying Guides & Procurement", "description": "Practical advice for maintenance managers and buyers on RFQs, suppliers, documentation, lead times and total cost of ownership." }
+]

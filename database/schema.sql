@@ -1,0 +1,261 @@
+-- Industrial Website CMS — MySQL / MariaDB schema (utf8mb4)
+-- Imported automatically by the installer (/install or `php app/cli.php install`).
+
+SET NAMES utf8mb4;
+
+CREATE TABLE IF NOT EXISTS users (
+  id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name          VARCHAR(120) NOT NULL,
+  email         VARCHAR(190) NOT NULL UNIQUE,
+  username      VARCHAR(60) NULL UNIQUE,
+  backup_email  VARCHAR(190) NULL,
+  backup_email_verified_at DATETIME NULL,
+  password_changed_at DATETIME NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  role          ENUM('admin','editor','sales') NOT NULL DEFAULT 'editor',
+  active        TINYINT(1) NOT NULL DEFAULT 1,
+  last_login_at DATETIME NULL,
+  created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS settings (
+  `key`      VARCHAR(100) NOT NULL PRIMARY KEY,
+  `value`    MEDIUMTEXT NULL,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS categories (
+  id               INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  type             ENUM('post','page') NOT NULL DEFAULT 'post',
+  name             VARCHAR(150) NOT NULL,
+  slug             VARCHAR(160) NOT NULL,
+  description      TEXT NULL,
+  meta_title       VARCHAR(190) NULL,
+  meta_description VARCHAR(300) NULL,
+  sort_order       INT NOT NULL DEFAULT 0,
+  created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_cat_type_slug (type, slug)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS pages (
+  id               INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  slug             VARCHAR(160) NOT NULL UNIQUE,
+  title            VARCHAR(190) NOT NULL,
+  template         VARCHAR(40) NOT NULL DEFAULT 'default',
+  status           ENUM('draft','published') NOT NULL DEFAULT 'published',
+  category_id      INT UNSIGNED NULL,
+  hero_eyebrow     VARCHAR(190) NULL,
+  hero_title       VARCHAR(255) NULL,
+  hero_lead        TEXT NULL,
+  hero_image       VARCHAR(500) NULL,
+  content          MEDIUMTEXT NULL,
+  data             MEDIUMTEXT NULL,
+  meta_title       VARCHAR(190) NULL,
+  meta_description VARCHAR(300) NULL,
+  og_image         VARCHAR(500) NULL,
+  noindex          TINYINT(1) NOT NULL DEFAULT 0,
+  is_system        TINYINT(1) NOT NULL DEFAULT 0,
+  deleted_at       DATETIME NULL,
+  created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  KEY idx_pages_category (category_id),
+  CONSTRAINT fk_pages_category FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS product_categories (
+  id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name       VARCHAR(150) NOT NULL,
+  slug       VARCHAR(160) NOT NULL UNIQUE,
+  sort_order INT NOT NULL DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS products (
+  id               INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  category_id      INT UNSIGNED NULL,
+  name             VARCHAR(190) NOT NULL,
+  slug             VARCHAR(160) NOT NULL UNIQUE,
+  icon             VARCHAR(60) NULL,
+  image            VARCHAR(500) NULL,
+  image_alt        VARCHAR(255) NULL,
+  summary          TEXT NULL,
+  overview         MEDIUMTEXT NULL,
+  features         TEXT NULL,
+  applications     TEXT NULL,
+  specs            TEXT NULL,
+  meta_title       VARCHAR(190) NULL,
+  meta_description VARCHAR(300) NULL,
+  status           ENUM('draft','published') NOT NULL DEFAULT 'published',
+  sort_order       INT NOT NULL DEFAULT 0,
+  created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_products_category FOREIGN KEY (category_id) REFERENCES product_categories(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS industries (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name        VARCHAR(190) NOT NULL,
+  slug        VARCHAR(160) NOT NULL UNIQUE,
+  icon        VARCHAR(60) NULL,
+  image       VARCHAR(500) NULL,
+  image_alt   VARCHAR(255) NULL,
+  summary     TEXT NULL,
+  body        TEXT NULL,
+  product_ids TEXT NULL,
+  status      ENUM('draft','published') NOT NULL DEFAULT 'published',
+  sort_order  INT NOT NULL DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS posts (
+  id               INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  title            VARCHAR(255) NOT NULL,
+  slug             VARCHAR(190) NOT NULL UNIQUE,
+  excerpt          TEXT NULL,
+  content          MEDIUMTEXT NULL,
+  featured_image   VARCHAR(500) NULL,
+  featured_alt     VARCHAR(255) NULL,
+  category_id      INT UNSIGNED NULL,
+  tags             VARCHAR(500) NULL,
+  author_id        INT UNSIGNED NULL,
+  status           ENUM('draft','published','scheduled') NOT NULL DEFAULT 'draft',
+  published_at     DATETIME NULL,
+  meta_title       VARCHAR(190) NULL,
+  meta_description VARCHAR(300) NULL,
+  focus_keyword    VARCHAR(190) NULL,
+  canonical_url    VARCHAR(500) NULL,
+  noindex          TINYINT(1) NOT NULL DEFAULT 0,
+  reading_minutes  SMALLINT UNSIGNED NOT NULL DEFAULT 1,
+  views            INT UNSIGNED NOT NULL DEFAULT 0,
+  deleted_at       DATETIME NULL,
+  created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  KEY idx_posts_public (status, published_at),
+  KEY idx_posts_category (category_id),
+  FULLTEXT KEY ft_posts (title, excerpt, content),
+  CONSTRAINT fk_posts_category FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL,
+  CONSTRAINT fk_posts_author FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS media (
+  id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  path          VARCHAR(500) NOT NULL,
+  original_name VARCHAR(255) NOT NULL,
+  mime          VARCHAR(100) NOT NULL,
+  size          INT UNSIGNED NOT NULL,
+  width         INT UNSIGNED NULL,
+  height        INT UNSIGNED NULL,
+  alt           VARCHAR(255) NULL,
+  uploaded_by   INT UNSIGNED NULL,
+  created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS leads (
+  id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  type         ENUM('contact','quote','manual') NOT NULL DEFAULT 'contact',
+  status       VARCHAR(20) NOT NULL DEFAULT 'new',
+  priority     ENUM('low','normal','high') NOT NULL DEFAULT 'normal',
+  name         VARCHAR(150) NOT NULL,
+  company      VARCHAR(190) NULL,
+  email        VARCHAR(190) NULL,
+  phone        VARCHAR(50) NULL,
+  product      VARCHAR(190) NULL,
+  quantity     INT UNSIGNED NULL,
+  required_by  DATE NULL,
+  part_number  VARCHAR(190) NULL,
+  message      TEXT NULL,
+  value        DECIMAL(14,2) NULL,
+  tags         VARCHAR(255) NULL,
+  assigned_to  INT UNSIGNED NULL,
+  follow_up_at DATE NULL,
+  source_page  VARCHAR(500) NULL,
+  referrer     VARCHAR(500) NULL,
+  utm_source   VARCHAR(120) NULL,
+  utm_medium   VARCHAR(120) NULL,
+  utm_campaign VARCHAR(120) NULL,
+  ip           VARCHAR(45) NULL,
+  user_agent   VARCHAR(500) NULL,
+  consent      TINYINT(1) NOT NULL DEFAULT 0,
+  created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  KEY idx_leads_status (status),
+  KEY idx_leads_created (created_at),
+  KEY idx_leads_followup (follow_up_at),
+  CONSTRAINT fk_leads_user FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS lead_files (
+  id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  lead_id       INT UNSIGNED NOT NULL,
+  stored_name   VARCHAR(100) NOT NULL,
+  original_name VARCHAR(255) NOT NULL,
+  mime          VARCHAR(100) NOT NULL,
+  size          INT UNSIGNED NOT NULL,
+  CONSTRAINT fk_lead_files_lead FOREIGN KEY (lead_id) REFERENCES leads(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS lead_notes (
+  id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  lead_id    INT UNSIGNED NOT NULL,
+  user_id    INT UNSIGNED NULL,
+  kind       ENUM('note','status','system','call','email') NOT NULL DEFAULT 'note',
+  body       TEXT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_notes_lead (lead_id),
+  CONSTRAINT fk_notes_lead FOREIGN KEY (lead_id) REFERENCES leads(id) ON DELETE CASCADE,
+  CONSTRAINT fk_notes_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Anonymous click events (WhatsApp / phone / email buttons) — no personal data stored
+CREATE TABLE IF NOT EXISTS events (
+  id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  type       VARCHAR(40) NOT NULL,
+  page       VARCHAR(500) NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_events_type_date (type, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Rate limiting for login attempts and public form submissions (IP stored as hash)
+CREATE TABLE IF NOT EXISTS rate_limits (
+  id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  bucket     VARCHAR(120) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_rl_bucket (bucket, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Admin email one-time passcodes (2-step login). Codes are stored hashed.
+CREATE TABLE IF NOT EXISTS login_otps (
+  id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id    INT UNSIGNED NOT NULL,
+  purpose    VARCHAR(30) NOT NULL DEFAULT 'login',
+  target     VARCHAR(190) NULL,
+  code_hash  VARCHAR(255) NOT NULL,
+  attempts   TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  expires_at DATETIME NOT NULL,
+  used_at    DATETIME NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_otp_user (user_id, created_at),
+  CONSTRAINT fk_otp_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Security audit log for admin authentication
+CREATE TABLE IF NOT EXISTS auth_events (
+  id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id    INT UNSIGNED NULL,
+  email      VARCHAR(190) NULL,
+  event      VARCHAR(40) NOT NULL,
+  ip         VARCHAR(45) NULL,
+  user_agent VARCHAR(255) NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_auth_events_date (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Content revision history (posts and pages). Snapshot of the previous version on every save.
+CREATE TABLE IF NOT EXISTS revisions (
+  id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  entity     VARCHAR(20) NOT NULL,
+  entity_id  INT UNSIGNED NOT NULL,
+  user_id    INT UNSIGNED NULL,
+  title      VARCHAR(255) NULL,
+  snapshot   MEDIUMTEXT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_revisions_entity (entity, entity_id, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

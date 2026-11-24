@@ -1,0 +1,2 @@
+# Application code, config and storage must never be served directly.
+Require all denied

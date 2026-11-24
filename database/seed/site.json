@@ -1,0 +1,643 @@
+{
+  "company": {
+    "name": "Ironvale Engineering",
+    "legalName": "Ironvale Engineering Pvt. Ltd.",
+    "shortName": "Ironvale",
+    "logoSub": "Engineering",
+    "tagline": "Precision Engineering | Reliable Hydraulic & Crane Solutions",
+    "description": "Industrial engineering and manufacturing of crane components, hydraulic cylinders and complete hydraulic systems for heavy-duty applications.",
+    "address": [
+      "Plot 00, Industrial Area, Phase 0",
+      "City, State 000000",
+      "Country"
+    ],
+    "phone": "+00 00000 00000",
+    "phoneHref": "+000000000000",
+    "email": "sales@example.com",
+    "privacyEmail": "privacy@example.com",
+    "registration": "Company Reg. No. 000000",
+    "jurisdiction": "[Jurisdiction]",
+    "hours": [
+      [
+        "Monday – Friday",
+        "9:00 AM – 6:00 PM"
+      ],
+      [
+        "Saturday",
+        "9:00 AM – 1:00 PM"
+      ],
+      [
+        "Sunday",
+        "Closed"
+      ]
+    ],
+    "social": [
+      {
+        "label": "LinkedIn",
+        "icon": "linkedin",
+        "url": "#"
+      },
+      {
+        "label": "Facebook",
+        "icon": "facebook",
+        "url": "#"
+      },
+      {
+        "label": "YouTube",
+        "icon": "youtube",
+        "url": "#"
+      },
+      {
+        "label": "Instagram",
+        "icon": "instagram",
+        "url": "#"
+      }
+    ]
+  },
+  "legalUpdated": "2026-11-21",
+  "url": "https://www.example.com",
+  "productCategories": [
+    {
+      "id": "crane",
+      "label": "Crane Components",
+      "sort": 0
+    },
+    {
+      "id": "hydraulic",
+      "label": "Hydraulics",
+      "sort": 1
+    },
+    {
+      "id": "custom",
+      "label": "Custom Engineering",
+      "sort": 2
+    }
+  ],
+  "products": [
+    {
+      "slug": "crane-spare-parts",
+      "name": "Crane Spare Parts",
+      "category": "crane",
+      "icon": "wrench",
+      "image": "https://images.unsplash.com/photo-1597423498219-04418210827d?auto=format&fit=crop&w=1200&q=80",
+      "alt": "Assorted precision-machined fasteners and mechanical spare parts",
+      "summary": "Sheaves, pins, bushes, couplings, brake components and fasteners for EOT, gantry and mobile cranes.",
+      "overview": "<p>Unplanned crane downtime costs far more than the part that caused it. We manufacture replacement and upgraded spare parts to OEM drawings, or reverse-engineer them from worn samples when drawings are unavailable.</p>\n<p>Every part is machined from specified material grades, heat-treated where required and dimensionally inspected before dispatch, so it fits first time and keeps your lifting equipment in service.</p>",
+      "features": [
+        "Manufactured to OEM drawings or reverse-engineered from samples",
+        "Alloy steel, cast steel and bronze options",
+        "Heat treatment and surface hardening available",
+        "Single urgent pieces through to batch production",
+        "Dimensional inspection report with every order"
+      ],
+      "applications": [
+        "EOT & overhead cranes",
+        "Gantry & goliath cranes",
+        "Jib cranes",
+        "Mobile & crawler cranes"
+      ],
+      "specs": [
+        [
+          "Crane types",
+          "EOT, gantry, jib, mobile"
+        ],
+        [
+          "Supply basis",
+          "OEM drawing or sample"
+        ],
+        [
+          "Materials",
+          "Alloy steel, cast steel, bronze"
+        ],
+        [
+          "Batch size",
+          "Single piece to series"
+        ],
+        [
+          "Documentation",
+          "Inspection report"
+        ]
+      ],
+      "sort": 0
+    },
+    {
+      "slug": "hydraulic-cylinders",
+      "name": "Hydraulic Cylinders",
+      "category": "hydraulic",
+      "icon": "move-vertical",
+      "image": "https://images.unsplash.com/photo-1537462715879-360eeb61a0ad?auto=format&fit=crop&w=1200&q=80",
+      "alt": "Close-up of hydraulic cylinder and damper assemblies on heavy machinery",
+      "summary": "Single and double-acting cylinders with hard-chrome rods, honed tubes and high-performance seal kits.",
+      "overview": "<p>Tie-rod, welded and telescopic hydraulic cylinders designed for lifting, tipping, clamping and steering duties, built to your bore, stroke, mounting and pressure requirements.</p>\n<p>Rods are induction-hardened and hard-chrome plated, tubes are honed for a consistent seal surface, and every cylinder is pressure and leak tested before it leaves the floor.</p>",
+      "features": [
+        "Tie-rod, welded and multi-stage telescopic designs",
+        "Hard-chrome plated, induction-hardened piston rods",
+        "Honed tubes for long seal life",
+        "Standard and custom mounting styles",
+        "Pressure and leak tested before dispatch"
+      ],
+      "applications": [
+        "Crane booms & outriggers",
+        "Tipper & dump bodies",
+        "Presses & clamping",
+        "Mining & earthmoving equipment"
+      ],
+      "specs": [
+        [
+          "Bore range",
+          "40 – 400 mm"
+        ],
+        [
+          "Stroke",
+          "Up to 6,000 mm"
+        ],
+        [
+          "Working pressure",
+          "Up to 250 bar"
+        ],
+        [
+          "Types",
+          "Tie-rod, welded, telescopic"
+        ],
+        [
+          "Testing",
+          "Pressure & leak test"
+        ]
+      ],
+      "sort": 1
+    },
+    {
+      "slug": "hydraulic-power-packs",
+      "name": "Hydraulic Power Packs",
+      "category": "hydraulic",
+      "icon": "zap",
+      "image": "https://images.unsplash.com/photo-1621905251918-48416bd8575a?auto=format&fit=crop&w=1200&q=80",
+      "alt": "Technician in a hard hat commissioning an industrial power unit control panel",
+      "summary": "Compact and skid-mounted power units with integrated reservoirs, valves, filtration and controls.",
+      "overview": "<p>Standard and application-specific hydraulic power units, configured with the right pump, motor, valve stack, filtration and cooling for your duty cycle.</p>\n<p>Each unit is assembled, flushed and function-tested in-house and supplied with a hydraulic circuit diagram and test record for straightforward installation and maintenance.</p>",
+      "features": [
+        "Compact, vertical and skid-mounted layouts",
+        "Manual, solenoid and proportional control",
+        "Integrated filtration, cooling and level/temperature monitoring",
+        "Optional accumulators, heaters and electrical panels",
+        "Supplied with circuit diagram and test record"
+      ],
+      "applications": [
+        "Crane & hoist systems",
+        "Machine tools & presses",
+        "Material handling equipment",
+        "Test rigs & special machines"
+      ],
+      "specs": [
+        [
+          "Motor power",
+          "0.5 – 75 kW"
+        ],
+        [
+          "Reservoir",
+          "10 – 1,000 L"
+        ],
+        [
+          "Control",
+          "Manual, solenoid, proportional"
+        ],
+        [
+          "Options",
+          "Cooler, heater, accumulator"
+        ],
+        [
+          "Testing",
+          "Flushing & function test"
+        ]
+      ],
+      "sort": 2
+    },
+    {
+      "slug": "hydraulic-pumps-motors",
+      "name": "Hydraulic Pumps & Motors",
+      "category": "hydraulic",
+      "icon": "cog",
+      "image": "https://images.unsplash.com/photo-1513828583688-c52646db42da?auto=format&fit=crop&w=1200&q=80",
+      "alt": "Industrial electric motor driving a pump with stainless steel pipework",
+      "summary": "Gear, vane and piston pumps with matching hydraulic motors for mobile and industrial circuits.",
+      "overview": "<p>Supply, repair and replacement of hydraulic pumps and motors, matched to the flow, pressure and mounting requirements of your circuit.</p>\n<p>Serviced units are stripped, inspected, rebuilt with new wear parts and tested to confirm performance, giving you a cost-effective alternative to full replacement.</p>",
+      "features": [
+        "Gear, vane and axial piston pumps",
+        "Low-speed high-torque and high-speed motors",
+        "Repair and reconditioning service",
+        "Performance testing after service",
+        "SAE and ISO mounting options"
+      ],
+      "applications": [
+        "Mobile hydraulics",
+        "Industrial power units",
+        "Winches & slew drives",
+        "Conveyor & handling drives"
+      ],
+      "specs": [
+        [
+          "Pump types",
+          "Gear, vane, axial piston"
+        ],
+        [
+          "Displacement",
+          "1 – 250 cc/rev"
+        ],
+        [
+          "Service",
+          "Supply, repair, testing"
+        ],
+        [
+          "Mounting",
+          "SAE / ISO flange"
+        ],
+        [
+          "Testing",
+          "Flow & pressure test"
+        ]
+      ],
+      "sort": 3
+    },
+    {
+      "slug": "crane-wheels-assemblies",
+      "name": "Crane Wheels & Assemblies",
+      "category": "crane",
+      "icon": "circle-dot",
+      "image": "https://images.unsplash.com/photo-1615906655593-ad0386982a0f?auto=format&fit=crop&w=1200&q=80",
+      "alt": "Technician assembling a heavy mechanical drive assembly",
+      "summary": "Forged and cast wheels, axles, bearing housings and complete end-carriage assemblies.",
+      "overview": "<p>Crane wheels machined from forged or cast steel and heat-treated for long tread life under heavy rolling loads.</p>\n<p>Supplied loose or as complete assemblies with axles, bearings and housings, ready for installation to minimise time on site.</p>",
+      "features": [
+        "Single and double-flange tread profiles",
+        "Induction or through-hardened treads",
+        "Complete assemblies with axles and bearing housings",
+        "Matched pairs for even wear",
+        "Hardness and dimensional inspection"
+      ],
+      "applications": [
+        "EOT crane end carriages",
+        "Gantry & port cranes",
+        "Rail-mounted trolleys",
+        "Transfer cars"
+      ],
+      "specs": [
+        [
+          "Wheel diameter",
+          "200 – 900 mm"
+        ],
+        [
+          "Tread",
+          "Single / double flange"
+        ],
+        [
+          "Hardening",
+          "Induction / through hardened"
+        ],
+        [
+          "Supply",
+          "Loose or full assembly"
+        ],
+        [
+          "Documentation",
+          "Hardness & dimensional report"
+        ]
+      ],
+      "sort": 4
+    },
+    {
+      "slug": "custom-hydraulic-systems",
+      "name": "Custom Hydraulic Systems",
+      "category": "custom",
+      "icon": "drafting-compass",
+      "image": "https://images.unsplash.com/photo-1581092160562-40aa08e78837?auto=format&fit=crop&w=1200&q=80",
+      "alt": "Engineer drafting mechanical component drawings at a workbench",
+      "summary": "Engineered-to-order hydraulic systems, from circuit design and manifolds to commissioning support.",
+      "overview": "<p>When standard components do not fit the application, our engineers design the complete hydraulic solution: circuit design, component selection, manifolds, manufacturing, assembly and testing.</p>\n<p>You receive a documented, tested system with drawings and a test report, plus installation and commissioning support on-site or remotely.</p>",
+      "features": [
+        "Application review and circuit design",
+        "Custom manifolds and cylinders",
+        "Complete system assembly and testing",
+        "Drawings, circuit diagram and test report",
+        "Installation and commissioning support"
+      ],
+      "applications": [
+        "Special-purpose machines",
+        "Lifting & positioning systems",
+        "Presses & forming",
+        "Retrofit & upgrade projects"
+      ],
+      "specs": [
+        [
+          "Scope",
+          "Design to commissioning"
+        ],
+        [
+          "Deliverables",
+          "Circuit, drawings, test report"
+        ],
+        [
+          "Applications",
+          "Lifting, pressing, handling"
+        ],
+        [
+          "Support",
+          "On-site & remote"
+        ],
+        [
+          "Lead time",
+          "Project dependent"
+        ]
+      ],
+      "sort": 5
+    }
+  ],
+  "industries": [
+    {
+      "slug": "construction",
+      "name": "Construction & Infrastructure",
+      "icon": "hard-hat",
+      "image": "https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=1200&q=80",
+      "alt": "Construction workers placing steel reinforcement on a building site",
+      "summary": "Hydraulic and lifting components for tower cranes, mobile cranes and site equipment.",
+      "body": "Construction equipment works outdoors, under shock loads and on tight schedules. We supply cylinders, wheels, sheaves and spare parts that keep tower cranes, mobile cranes and site machinery lifting safely.",
+      "products": [
+        "hydraulic-cylinders",
+        "crane-spare-parts",
+        "crane-wheels-assemblies"
+      ],
+      "sort": 0
+    },
+    {
+      "slug": "material-handling",
+      "name": "Material Handling",
+      "icon": "package",
+      "image": "https://images.unsplash.com/photo-1553413077-190dd305871c?auto=format&fit=crop&w=1200&q=80",
+      "alt": "High-bay warehouse racking stocked with palletised goods",
+      "summary": "Parts for EOT cranes, hoists, forklifts and automated handling systems.",
+      "body": "In warehouses and production halls, lifting equipment runs every shift. Our crane wheels, spare parts and power units are built for high-cycle duty and quick replacement.",
+      "products": [
+        "crane-wheels-assemblies",
+        "crane-spare-parts",
+        "hydraulic-power-packs"
+      ],
+      "sort": 1
+    },
+    {
+      "slug": "mining",
+      "name": "Mining & Heavy Industries",
+      "icon": "pickaxe",
+      "image": "https://images.unsplash.com/photo-1517089596392-fb9a9033e05b?auto=format&fit=crop&w=1200&q=80",
+      "alt": "Excavators and bulldozers working in an open-pit mine",
+      "summary": "Heavy-duty cylinders and components built for abrasive, high-load conditions.",
+      "body": "Mining and heavy industry demand components that tolerate dust, abrasion and extreme loads. We build heavy-wall cylinders and robust assemblies with sealing selected for harsh environments.",
+      "products": [
+        "hydraulic-cylinders",
+        "hydraulic-pumps-motors",
+        "custom-hydraulic-systems"
+      ],
+      "sort": 2
+    },
+    {
+      "slug": "manufacturing-plants",
+      "name": "Manufacturing Plants",
+      "icon": "factory",
+      "image": "https://images.unsplash.com/photo-1567789884554-0b844b597180?auto=format&fit=crop&w=1200&q=80",
+      "alt": "Robotic assembly line in a manufacturing plant",
+      "summary": "Hydraulic power and lifting equipment for production lines and press shops.",
+      "body": "Production lines rely on hydraulic power for pressing, clamping and positioning. We design and supply power packs, cylinders and custom systems that integrate with existing plant equipment.",
+      "products": [
+        "hydraulic-power-packs",
+        "custom-hydraulic-systems",
+        "hydraulic-cylinders"
+      ],
+      "sort": 3
+    },
+    {
+      "slug": "ports-logistics",
+      "name": "Ports & Logistics",
+      "icon": "ship",
+      "image": "https://images.unsplash.com/photo-1494412574643-ff11b0a5c1c3?auto=format&fit=crop&w=1200&q=80",
+      "alt": "Aerial view of a container port with ship-to-shore cranes",
+      "summary": "Wheels, sheaves and hydraulics for container cranes and port handling equipment.",
+      "body": "Port cranes and handling equipment operate around the clock in corrosive coastal conditions. We supply wheels, sheaves, spare parts and hydraulic components built for continuous operation.",
+      "products": [
+        "crane-wheels-assemblies",
+        "crane-spare-parts",
+        "hydraulic-pumps-motors"
+      ],
+      "sort": 4
+    },
+    {
+      "slug": "industrial-equipment",
+      "name": "Industrial Equipment",
+      "icon": "cog",
+      "image": "https://images.unsplash.com/photo-1547895749-888a559fc2a7?auto=format&fit=crop&w=1200&q=80",
+      "alt": "Industrial plant building with large yellow process ducts",
+      "summary": "OEM components and custom systems for machine builders and plant operators.",
+      "body": "Machine builders and OEMs partner with us for repeatable component supply and engineered-to-order hydraulic systems, produced to their drawings and quality requirements.",
+      "products": [
+        "custom-hydraulic-systems",
+        "hydraulic-cylinders",
+        "hydraulic-power-packs"
+      ],
+      "sort": 5
+    }
+  ],
+  "capabilities": [
+    {
+      "name": "CNC Machining",
+      "icon": "cpu",
+      "text": "Multi-axis turning and milling for rods, glands, pistons, hubs and shafts, with repeatable precision across batch sizes.",
+      "points": [
+        "CNC turning & milling",
+        "Boring & honing",
+        "Thread cutting"
+      ]
+    },
+    {
+      "name": "Precision Fabrication",
+      "icon": "flame",
+      "text": "Cutting, forming and qualified welding of brackets, frames, sheaves and structural crane components.",
+      "points": [
+        "Profile cutting",
+        "Qualified welding",
+        "Stress relieving"
+      ]
+    },
+    {
+      "name": "Hydraulic Assembly",
+      "icon": "wrench",
+      "text": "Clean assembly of cylinders, manifolds and power units with correct sealing and torque control.",
+      "points": [
+        "Clean assembly area",
+        "Seal installation",
+        "Torque-controlled fastening"
+      ]
+    },
+    {
+      "name": "Component Testing",
+      "icon": "gauge",
+      "text": "Pressure, leak and functional testing on dedicated rigs before any hydraulic product leaves the floor.",
+      "points": [
+        "Pressure testing",
+        "Leak testing",
+        "Functional testing"
+      ]
+    },
+    {
+      "name": "Quality Inspection",
+      "icon": "scan-search",
+      "text": "Dimensional checks, surface finish verification and traceable inspection records for every order.",
+      "points": [
+        "Dimensional inspection",
+        "Hardness testing",
+        "Surface finish checks"
+      ]
+    },
+    {
+      "name": "Custom Manufacturing",
+      "icon": "drafting-compass",
+      "text": "Reverse engineering, prototypes and small-batch production for non-standard and obsolete parts.",
+      "points": [
+        "Reverse engineering",
+        "Prototyping",
+        "Small-batch runs"
+      ]
+    }
+  ],
+  "equipment": [
+    [
+      "CNC turning centres",
+      "0 units"
+    ],
+    [
+      "Vertical machining centres",
+      "0 units"
+    ],
+    [
+      "Honing & boring machines",
+      "0 units"
+    ],
+    [
+      "Welding stations",
+      "0 units"
+    ],
+    [
+      "Hydraulic test benches",
+      "0 units"
+    ],
+    [
+      "Overhead cranes in plant",
+      "0 units"
+    ]
+  ],
+  "process": [
+    {
+      "name": "Enquiry",
+      "icon": "message-square-text",
+      "text": "Share drawings, samples or application requirements."
+    },
+    {
+      "name": "Engineering Review",
+      "icon": "drafting-compass",
+      "text": "Our engineers confirm design, materials and feasibility."
+    },
+    {
+      "name": "Manufacturing",
+      "icon": "factory",
+      "text": "Machining, fabrication and assembly in-house."
+    },
+    {
+      "name": "Testing & Inspection",
+      "icon": "gauge",
+      "text": "Every part is inspected; hydraulics are pressure tested."
+    },
+    {
+      "name": "Delivery & Support",
+      "icon": "truck",
+      "text": "Documented dispatch with after-sales technical support."
+    }
+  ],
+  "stats": [
+    {
+      "value": 15,
+      "suffix": "+",
+      "label": "Years of Experience"
+    },
+    {
+      "value": 500,
+      "suffix": "+",
+      "label": "Products & Components"
+    },
+    {
+      "value": 200,
+      "suffix": "+",
+      "label": "Industrial Clients"
+    },
+    {
+      "value": 25,
+      "suffix": "+",
+      "label": "Industries Served"
+    }
+  ],
+  "faq": [
+    [
+      "Can you manufacture a part without an original drawing?",
+      "Yes. We can reverse-engineer most mechanical and hydraulic components from a worn sample, then produce a drawing for your approval before manufacturing."
+    ],
+    [
+      "What information do you need for a quotation?",
+      "Drawings or part numbers, quantities, material requirements, operating pressure (for hydraulics) and your required delivery date. Photos and samples also help."
+    ],
+    [
+      "Do you repair hydraulic cylinders and pumps?",
+      "Yes. We strip, inspect, rebuild and test cylinders, pumps and motors, and provide a report on what was found and replaced."
+    ],
+    [
+      "Do you supply test or inspection documentation?",
+      "Inspection reports and test records can be supplied with deliveries. Please mention any specific documentation requirements in your enquiry."
+    ],
+    [
+      "Do you deliver outside your region?",
+      "Delivery options depend on the product size and destination. Share your location in the enquiry and we will confirm logistics in the quotation."
+    ]
+  ],
+  "extraEnquiryOptions": [
+    "Spare Parts Enquiry",
+    "Repair & Reconditioning",
+    "Technical Support",
+    "Other"
+  ],
+  "legalPages": [
+    {
+      "slug": "privacy-policy",
+      "title": "Privacy Policy",
+      "description": "How [company_name] collects, uses and protects personal information.",
+      "content": "<p class=\"legal-lead\">This Privacy Policy explains how [legal_name] (“we”, “us”, “our”) collects, uses, shares and protects personal information when you visit this website or contact us about our products and services.</p>\n<h2 id=\"who-we-are\">Who We Are</h2>\n<p>[legal_name] is an industrial engineering and manufacturing company. We are responsible for the personal information processed through this website. You can contact us using the details in the <a href=\"#contact-us\">Contact Us</a> section.</p>\n<h2 id=\"information-we-collect\">Information We Collect</h2>\n<p><strong>Information you provide to us.</strong> When you submit a contact or quote request form, email or call us, we may collect:</p>\n<ul>\n<li>your name, job title and company name;</li>\n<li>contact details such as email address and phone number;</li>\n<li>details of your enquiry, including technical requirements, drawings, photographs and other files you attach;</li>\n<li>any other information you choose to share with us.</li>\n</ul>\n<p><strong>Information collected automatically.</strong> Like most websites, our hosting provider may record technical information such as your IP address, browser type, device information, pages visited and the date and time of your visit in server logs for security and operation of the website.</p>\n<p><strong>Cookies and similar technologies.</strong> See our <a href=\"cookie-policy.html\">Cookie Policy</a>.</p>\n<p>Please do not submit sensitive personal information (for example health information) through our forms — it is not needed to respond to business enquiries.</p>\n<h2 id=\"how-we-use\">How We Use Your Information</h2>\n<p>We use personal information to:</p>\n<ul>\n<li>respond to enquiries and prepare quotations;</li>\n<li>communicate with you about orders, deliveries and technical support;</li>\n<li>manage our business relationship with you or your organisation;</li>\n<li>operate, maintain and secure our website;</li>\n<li>comply with legal, tax and accounting obligations;</li>\n<li>send relevant business updates, where permitted by law — you can opt out at any time.</li>\n</ul>\n<h2 id=\"legal-basis\">Legal Basis for Processing</h2>\n<p>Where data-protection law requires a legal basis, we rely on one or more of the following:</p>\n<ul>\n<li><strong>Steps before or performance of a contract</strong> — to respond to quote requests and fulfil orders;</li>\n<li><strong>Legitimate interests</strong> — to run and promote our business, maintain customer relationships and keep our website secure, where these interests are not overridden by your rights;</li>\n<li><strong>Legal obligation</strong> — to comply with laws that apply to us;</li>\n<li><strong>Consent</strong> — where we ask for it, for example when you tick the consent box on our forms. You may withdraw consent at any time.</li>\n</ul>\n<h2 id=\"sharing\">How We Share Information</h2>\n<p>We do not sell your personal information. We may share it with:</p>\n<ul>\n<li><strong>service providers</strong> who help us operate our business, such as website hosting, email and IT providers, under appropriate confidentiality and data-protection terms;</li>\n<li><strong>logistics partners</strong> where needed to deliver goods;</li>\n<li><strong>professional advisers</strong> such as lawyers, accountants and auditors;</li>\n<li><strong>authorities</strong> where required by law or to protect our rights;</li>\n<li>a buyer or successor in the event of a merger, acquisition or sale of business assets.</li>\n</ul>\n<h2 id=\"international-transfers\">International Transfers</h2>\n<p>Some of our service providers may be located outside your country. Where we transfer personal information internationally, we take steps required by applicable law to ensure it remains protected, such as contractual safeguards.</p>\n<h2 id=\"retention\">Data Retention</h2>\n<p>We keep personal information only for as long as necessary for the purposes described in this policy — for example, for the duration of our business relationship and for any period required by tax, accounting or legal obligations. Enquiries that do not lead to a business relationship are deleted or anonymised after a reasonable period. </p>\n<h2 id=\"security\">Security</h2>\n<p>We use appropriate technical and organisational measures to protect personal information against loss, misuse and unauthorised access, including encrypted connections (HTTPS) and access controls. No method of transmission over the internet is completely secure, so we cannot guarantee absolute security.</p>\n<h2 id=\"your-rights\">Your Rights</h2>\n<p>Depending on the law that applies to you, you may have the right to:</p>\n<ul>\n<li>access the personal information we hold about you;</li>\n<li>correct inaccurate or incomplete information;</li>\n<li>request deletion of your information;</li>\n<li>object to or restrict certain processing;</li>\n<li>receive your information in a portable format;</li>\n<li>withdraw consent where processing is based on consent;</li>\n<li>lodge a complaint with your local data-protection authority.</li>\n</ul>\n<p>To exercise these rights, contact us at <a href=\"mailto:[privacy_email]\">[privacy_email]</a>. We may need to verify your identity before responding.</p>\n<h2 id=\"children\">Children’s Privacy</h2>\n<p>Our website and services are intended for businesses and are not directed at children. We do not knowingly collect personal information from children.</p>\n<h2 id=\"third-party-links\">Third-Party Links</h2>\n<p>Our website may link to third-party websites, such as social media profiles. We are not responsible for the privacy practices of those websites and encourage you to read their privacy policies.</p>\n<h2 id=\"changes\">Changes to This Policy</h2>\n<p>We may update this Privacy Policy from time to time. The “Last updated” date at the top of this page shows when it was last revised. Significant changes will be highlighted on this page.</p>\n<h2 id=\"contact-us\">Contact Us</h2>\n<p>For any questions about this Privacy Policy or how we handle personal information, contact:</p>\n[contact_block]"
+    },
+    {
+      "slug": "terms-of-use",
+      "title": "Terms of Use",
+      "description": "Terms governing the use of the [company_name] website.",
+      "content": "<p class=\"legal-lead\">These Terms of Use govern your access to and use of this website, operated by [legal_name]. By using the website you agree to these terms. If you do not agree, please do not use the website.</p>\n<h2 id=\"use-of-website\">Use of the Website</h2>\n<p>You may use this website for lawful business purposes, including learning about our products and services and contacting us. You must not:</p>\n<ul>\n<li>use the website in any way that breaches applicable laws or regulations;</li>\n<li>attempt to gain unauthorised access to the website, its servers or connected systems;</li>\n<li>introduce viruses, malware or other harmful material;</li>\n<li>use automated tools to scrape or copy content without our written permission;</li>\n<li>submit false, misleading or unlawful information through our forms.</li>\n</ul>\n<h2 id=\"product-information\">Product Information & Quotations</h2>\n<p>Product descriptions, specifications, images and capabilities shown on this website are provided for general information only. Typical values and ranges may vary by design, material and application.</p>\n<p>Nothing on this website is an offer to sell. Any quotation, order or supply of goods and services is governed by our separate written quotation and terms and conditions of sale, which take precedence over the content of this website.</p>\n<h2 id=\"submissions\">Drawings & Information You Submit</h2>\n<p>When you send us drawings, specifications or other technical information, you confirm that you are entitled to share it. We will use it only to evaluate and respond to your enquiry and to fulfil any resulting order, and we will treat it as confidential. If you require a formal non-disclosure agreement, please tell us before sending information.</p>\n<h2 id=\"intellectual-property\">Intellectual Property</h2>\n<p>All content on this website — including text, graphics, logos, layout and design — is owned by or licensed to [legal_name] and protected by intellectual property laws. You may view and print pages for your own business reference, but you may not reproduce, modify or distribute content without our prior written consent.</p>\n<p>Third-party trademarks or equipment manufacturers’ names that appear on this website are used for identification purposes only and remain the property of their respective owners.</p>\n<h2 id=\"third-party-links\">Third-Party Links</h2>\n<p>Links to third-party websites are provided for convenience. We do not control and are not responsible for their content, availability or practices.</p>\n<h2 id=\"disclaimer\">Disclaimer of Warranties</h2>\n<p>The website is provided “as is” and “as available”. While we aim to keep information accurate and up to date, we make no warranties that the website will be error-free, uninterrupted or free of harmful components, or that information on it is complete or current. See also our <a href=\"disclaimer.html\">Disclaimer</a>.</p>\n<h2 id=\"liability\">Limitation of Liability</h2>\n<p>To the fullest extent permitted by law, [legal_name] is not liable for any indirect, incidental, special or consequential loss, or for loss of profit, revenue, data or business opportunity, arising from your use of or inability to use this website. Nothing in these terms limits liability that cannot be limited by law.</p>\n<h2 id=\"indemnity\">Indemnity</h2>\n<p>You agree to indemnify [legal_name] against claims, losses and expenses arising from your breach of these Terms of Use or misuse of the website.</p>\n<h2 id=\"privacy\">Privacy</h2>\n<p>Our use of personal information is described in our <a href=\"privacy-policy.html\">Privacy Policy</a> and <a href=\"cookie-policy.html\">Cookie Policy</a>.</p>\n<h2 id=\"changes\">Changes to These Terms</h2>\n<p>We may revise these Terms of Use at any time by updating this page. Continued use of the website after changes means you accept the revised terms.</p>\n<h2 id=\"governing-law\">Governing Law</h2>\n<p>These Terms of Use are governed by the laws of [jurisdiction], and the courts of [jurisdiction] have exclusive jurisdiction over any dispute arising from them. </p>\n<h2 id=\"contact\">Contact</h2>\n<p>Questions about these terms can be sent to:</p>\n[contact_block]"
+    },
+    {
+      "slug": "cookie-policy",
+      "title": "Cookie Policy",
+      "description": "How [company_name] uses cookies and similar technologies on this website.",
+      "content": "<p class=\"legal-lead\">This Cookie Policy explains what cookies and similar technologies are, which ones this website uses, and how you can control them.</p>\n<h2 id=\"what-are-cookies\">What Are Cookies?</h2>\n<p>Cookies are small text files placed on your device when you visit a website. Similar technologies, such as browser local storage, store information in your browser in a comparable way. They are widely used to make websites work and to remember your preferences.</p>\n<h2 id=\"cookies-we-use\">Cookies We Use</h2>\n<p>This website is designed to minimise tracking. The table below lists the cookies and similar technologies currently in use. Strictly necessary storage is always active; all other cookies are only set after you choose <strong>Accept</strong> in the cookie banner.</p>\n[cookie_table]\n<p>If we add or remove services, this table is updated automatically and we will ask for your consent again where required.</p>\n<h2 id=\"third-party\">Third-Party Content</h2>\n<p>Fonts and icons on this website are hosted on our own servers. Some images may be loaded from third-party image hosting services; when your browser requests those images, the provider receives technical information such as your IP address, as with any web request. If we embed maps or videos, those providers may set their own cookies — we will only load such content in line with your choices.</p>\n<h2 id=\"managing-cookies\">Managing Your Choices</h2>\n<p>You can change your choice at any time using the <button type=\"button\" class=\"inline-link\" data-cookie-settings>Cookie Settings</button> link in the website footer.</p>\n<p>You can also block or delete cookies and local storage through your browser settings. Blocking strictly necessary storage may mean the cookie banner is shown on every visit.</p>\n<h2 id=\"changes\">Changes to This Policy</h2>\n<p>We may update this Cookie Policy to reflect changes to the technologies we use or to legal requirements. Please check this page periodically.</p>\n<h2 id=\"contact\">Contact</h2>\n<p>If you have questions about our use of cookies, contact:</p>\n[contact_block]"
+    },
+    {
+      "slug": "disclaimer",
+      "title": "Disclaimer",
+      "description": "Important information about the content on the [company_name] website.",
+      "content": "<p class=\"legal-lead\">The information on this website is provided by [legal_name] for general information purposes only. Please read this disclaimer carefully.</p>\n<h2 id=\"general\">General Information</h2>\n<p>While we make reasonable efforts to keep website content accurate and current, we make no representations or warranties of any kind about the completeness, accuracy, reliability or availability of the information, products or services described.</p>\n<h2 id=\"technical\">Technical Information & Specifications</h2>\n<p>Specifications, dimensions, pressure ratings, load capacities and other technical data shown on this website are <strong>typical or indicative values</strong>. Actual values depend on design, materials, manufacturing tolerances and application. They must not be used as the sole basis for design, selection or safety decisions.</p>\n<p>Always confirm specifications for your application with our engineering team and refer to the documentation supplied with the product.</p>\n<h2 id=\"safety\">Installation & Safety</h2>\n<p>Crane components, lifting equipment and hydraulic systems must be selected, installed, inspected and maintained by suitably qualified and competent personnel, in accordance with the manufacturer’s instructions and all applicable laws, regulations and standards for lifting and pressure equipment. Information on this website is not a substitute for professional engineering advice or a site-specific risk assessment.</p>\n<h2 id=\"images\">Images</h2>\n<p>Images on this website are for illustration only and may not show the exact product, finish or configuration supplied.</p>\n<h2 id=\"figures\">Statistics & Figures</h2>\n<p>Any figures shown about our business (for example years of experience or number of customers) are provided in good faith for general information. </p>\n<h2 id=\"oem\">OEM References</h2>\n<p>Where we refer to original equipment manufacturers or their part numbers, this is for identification and compatibility purposes only. It does not imply any affiliation with, or endorsement by, those manufacturers unless expressly stated.</p>\n<h2 id=\"external-links\">External Links</h2>\n<p>Links to external websites are provided for convenience. We have no control over their content and accept no responsibility for them.</p>\n<h2 id=\"liability\">Limitation of Liability</h2>\n<p>To the fullest extent permitted by law, we will not be liable for any loss or damage arising from reliance on information on this website. See our <a href=\"terms-of-use.html\">Terms of Use</a> for more details.</p>"
+    },
+    {
+      "slug": "accessibility",
+      "title": "Accessibility Statement",
+      "description": "[company_name] is committed to making this website accessible to everyone.",
+      "content": "<p class=\"legal-lead\">[legal_name] is committed to making this website accessible to as many people as possible, including people who use assistive technologies.</p>\n<h2 id=\"standard\">Our Standard</h2>\n<p>We aim to meet the <a href=\"https://www.w3.org/TR/WCAG22/\" target=\"_blank\" rel=\"noopener\">Web Content Accessibility Guidelines (WCAG) 2.2</a> at level AA. These guidelines explain how to make web content more accessible for people with disabilities.</p>\n<h2 id=\"measures\">Measures We Have Taken</h2>\n<ul>\n<li>semantic HTML with a logical heading structure and page landmarks;</li>\n<li>a “Skip to content” link and full keyboard navigation, including menus;</li>\n<li>visible focus indicators on interactive elements;</li>\n<li>text alternatives for meaningful images;</li>\n<li>colour combinations chosen for readable contrast;</li>\n<li>form fields with visible labels and clear error messages announced to screen readers;</li>\n<li>support for the “reduce motion” system setting, which disables animations;</li>\n<li>responsive layouts that work at different screen sizes and when zoomed to 200%.</li>\n</ul>\n<h2 id=\"limitations\">Known Limitations</h2>\n<p>Despite our efforts, some content may not yet be fully accessible — for example technical drawings, third-party content or downloadable documents. We are working to address these. If you need information in an alternative format, please contact us.</p>\n<h2 id=\"feedback\">Feedback & Contact</h2>\n<p>If you encounter an accessibility barrier on this website, please let us know. We aim to respond within 5 business days. </p>\n[contact_block]\n<h2 id=\"assessment\">Assessment Approach</h2>\n<p>This website has been reviewed using a combination of automated testing tools and manual checks with keyboard navigation. This statement was last reviewed on [last_updated].</p>"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+# Dependencies (dev tooling only — the site itself needs no Node at runtime)
+node_modules/
+
+# Local configuration & secrets (created by the installer)
+app/config.php
+.env
+.env.*
+
+# Runtime data: logs, lead attachments, dev mailbox, install lock
+app/storage/*
+!app/storage/.htaccess
+
+# User uploads from the media library
+public/uploads/*
+!public/uploads/.htaccess
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+*.swp
+*.log
+npm-debug.log*
