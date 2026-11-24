@@ -35,6 +35,30 @@ function page_templates(): array
             'fields' => [
                 'hero_trust' => ['type' => 'lines', 'label' => 'Hero trust points (one per line)', 'default' => ['Precision Manufacturing', 'Industrial-Grade Quality', 'Custom Engineering Solutions']],
                 'hero_image_alt' => ['type' => 'text', 'label' => 'Hero image alt text', 'default' => 'Heavy-duty gantry cranes loading a container ship at an industrial port'],
+                'tiles_heading' => ['type' => 'heading', 'label' => 'Hero quick links', 'help' => 'Up to 4 shortcuts shown beside the hero text. Links can be a page path (products/hydraulic-cylinders), https://…, tel:… or mailto:…'],
+                'hero_tiles' => ['type' => 'list', 'item' => 'Quick link', 'label' => 'Quick links', 'fields' => [
+                    'icon' => ['type' => 'icon', 'label' => 'Icon'],
+                    'label' => ['type' => 'text', 'label' => 'Label'],
+                    'url' => ['type' => 'text', 'label' => 'Link'],
+                ], 'default' => [
+                    ['icon' => 'wrench', 'label' => 'Crane Spare Parts', 'url' => 'products/crane-spare-parts'],
+                    ['icon' => 'cylinder', 'label' => 'Hydraulic Cylinders', 'url' => 'products/hydraulic-cylinders'],
+                    ['icon' => 'siren', 'label' => 'Urgent Breakdown', 'url' => 'contact'],
+                    ['icon' => 'clipboard-list', 'label' => 'Request a Quote', 'url' => 'quote'],
+                ]],
+                'trust_heading' => ['type' => 'heading', 'label' => 'Strip under the hero', 'help' => 'A slow-scrolling row of sectors you supply — or, once you have their permission, client names or logos. Never list a client you do not actually supply.'],
+                'trust_enabled' => ['type' => 'checkbox', 'label' => 'Show strip', 'text' => 'Show the strip under the hero', 'default' => true],
+                'trust_title' => ['type' => 'text', 'label' => 'Strip label', 'default' => 'Supplying engineering teams across'],
+                'trust_items' => ['type' => 'list', 'item' => 'Entry', 'label' => 'Entries', 'fields' => [
+                    'icon' => ['type' => 'icon', 'label' => 'Icon (for text entries)'],
+                    'label' => ['type' => 'text', 'label' => 'Name'],
+                    'logo' => ['type' => 'image', 'label' => 'Logo (optional, replaces the name)'],
+                ], 'default' => [
+                    ['icon' => 'anchor', 'label' => 'Ports & Terminals'], ['icon' => 'hard-hat', 'label' => 'Construction'], ['icon' => 'mountain', 'label' => 'Mining & Quarrying'],
+                    ['icon' => 'flame', 'label' => 'Steel & Metals'], ['icon' => 'warehouse', 'label' => 'Material Handling'], ['icon' => 'factory', 'label' => 'Manufacturing Plants'],
+                    ['icon' => 'truck', 'label' => 'Logistics'], ['icon' => 'cog', 'label' => 'OEMs & Fabricators'],
+                ]],
+                'testimonials_title' => ['type' => 'text', 'label' => 'Testimonials section title', 'default' => 'What Our Clients Say', 'help' => 'The section appears once at least one testimonial is published (Admin → Testimonials).'],
                 'about_heading' => ['type' => 'heading', 'label' => 'About section'],
                 'about_title' => ['type' => 'text', 'label' => 'Title', 'default' => 'Built on Engineering Excellence'],
                 'about_text' => ['type' => 'html', 'label' => 'Text', 'toolbar' => 'basic', 'default' => '<p>[company_name] is an industrial engineering and manufacturing solutions provider specialising in crane components and hydraulic systems. We design, machine, assemble and test the parts that keep heavy equipment lifting, moving and working.</p><p>From single replacement parts to fully engineered hydraulic systems, our team works from drawing to delivery with one goal: components that fit right, perform reliably and last under real industrial loads.</p>'],

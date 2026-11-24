@@ -17,6 +17,7 @@ const copy = (from, to) => { mkdirSync(dirname(join(root, to)), { recursive: tru
 // Fonts
 for (const w of [400, 500, 600, 700]) copy(`@fontsource/barlow/files/barlow-latin-${w}-normal.woff2`, `public/assets/fonts/barlow-latin-${w}-normal.woff2`);
 for (const w of [500, 600, 700]) copy(`@fontsource/barlow-condensed/files/barlow-condensed-latin-${w}-normal.woff2`, `public/assets/fonts/barlow-condensed-latin-${w}-normal.woff2`);
+for (const w of [600, 700]) copy(`@fontsource/playfair-display/files/playfair-display-latin-${w}-normal.woff2`, `public/assets/fonts/playfair-display-latin-${w}-normal.woff2`); // optional editorial headings
 
 // Quill
 copy('quill/dist/quill.js', 'public/assets/vendor/quill/quill.js');

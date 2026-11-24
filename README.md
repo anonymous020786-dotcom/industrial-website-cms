@@ -109,6 +109,16 @@ Set `'debug' => false` in production.
 
 ## Website experience
 
+- **Homepage building blocks** (Pages → Home), all editable:
+  - **Hero quick-link tiles:** up to 4. Links can be site paths, `https://`, `tel:` or `mailto:`; other
+    schemes are blocked.
+  - **Scrolling strip** of sectors you supply, or approved client names and logos. It pauses on hover and
+    stops for visitors who prefer reduced motion.
+  - **Client testimonials:** Admin → Testimonials. One can only be published after you tick that the
+    client agreed. The section stays hidden until at least one is published.
+- **Heading style:** Settings → Company & Branding. *Industrial* (condensed, uppercase) or *Editorial*
+  (self-hosted Playfair Display serif).
+
 - **Light / dark theme.** A toggle sits in the header, and each visitor's choice is remembered. In
   Settings → Company & Branding you can set the default (Light, Dark or Follow device) or hide the toggle.
 - **Scroll controls.** Floating up/down buttons with a reading-progress ring can be switched off in the

@@ -17,6 +17,7 @@ function admin_nav(): array
         ['Industries', 'admin/r/industries', 'factory', 'content'],
         ['Projects', 'admin/r/projects', 'briefcase-business', 'content'],
         ['Certificates', 'admin/r/certificates', 'award', 'content'],
+        ['Testimonials', 'admin/r/testimonials', 'message-square-quote', 'content'],
         ['Media Library', 'admin/media', 'images', 'content'],
         ['_', 'Insights'],
         ['Reports', 'admin/reports', 'chart-column', 'leads'],

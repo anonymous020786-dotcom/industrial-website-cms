@@ -44,7 +44,9 @@ $tagline = company('tagline', 'Precision Engineering | Reliable Hydraulic & Cran
   <link rel="alternate" type="application/rss+xml" title="<?= e($name) ?> Blog" href="<?= e(url('feed.xml')) ?>">
   <?php $themeDefault = in_array(setting('theme_default', 'light'), ['light', 'dark', 'system'], true) ? setting('theme_default', 'light') : 'light'; ?>
   <meta name="color-scheme" content="<?= $themeDefault === 'light' && !setting('theme_toggle', true) ? 'light' : 'light dark' ?>">
-  <script>(function(d,t){d.classList.add('js');try{t=localStorage.getItem('theme')}catch(e){}if(<?= setting('theme_toggle', true) ? 'true' : 'false' ?>===false)t=null;t=t||'<?= $themeDefault ?>';if(t==='dark'||(t==='system'&&matchMedia('(prefers-color-scheme: dark)').matches))d.classList.add('dark')})(document.documentElement)</script>
+  <?php $editorial = setting('heading_style', 'industrial') === 'editorial'; ?>
+  <?php if ($editorial): ?><link rel="preload" href="<?= e(url('assets/fonts/playfair-display-latin-700-normal.woff2')) ?>" as="font" type="font/woff2" crossorigin><?php endif ?>
+  <script>(function(d,t){d.classList.add('js'<?= $editorial ? ",'headings-editorial'" : '' ?>);try{t=localStorage.getItem('theme')}catch(e){}if(<?= setting('theme_toggle', true) ? 'true' : 'false' ?>===false)t=null;t=t||'<?= $themeDefault ?>';if(t==='dark'||(t==='system'&&matchMedia('(prefers-color-scheme: dark)').matches))d.classList.add('dark')})(document.documentElement)</script>
   <link rel="preload" href="<?= e(url('assets/fonts/barlow-latin-400-normal.woff2')) ?>" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="<?= e(url('assets/fonts/barlow-condensed-latin-700-normal.woff2')) ?>" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="<?= e(asset('css/style.css')) ?>">

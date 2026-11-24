@@ -87,6 +87,39 @@ function post_card(array $p, int $i = 0, bool $large = false): string
         . '</div></a></article>';
 }
 
+/** Link for editor-entered URLs: site paths, https://, tel: and mailto: only (no javascript: etc.). */
+function link_href(string $u): string
+{
+    $u = trim($u);
+    if (preg_match('~^(https?://|tel:|mailto:)~i', $u)) return $u;
+    if (str_starts_with($u, '#')) return $u;
+    if (preg_match('~^[a-z][a-z0-9+.-]*:~i', $u)) return url('');
+    return menu_href($u);
+}
+
+function testimonials_published(int $limit = 6): array
+{
+    try {
+        return db_all("SELECT t.*, p.slug AS project_slug FROM testimonials t LEFT JOIN projects p ON p.id = t.project_id AND p.status = 'published'
+            WHERE t.status = 'published' AND t.permission = 1 ORDER BY t.sort_order, t.id DESC LIMIT " . max(1, $limit));
+    } catch (Throwable) { return []; }
+}
+
+function testimonial_card(array $t, int $i = 0): string
+{
+    $who = array_filter([$t['role'] ?? null, $t['company'] ?? null]);
+    $stars = (int) ($t['rating'] ?? 0);
+    return '<figure class="quote-card" data-reveal' . reveal_delay($i) . '>'
+        . ($stars ? '<p class="quote-stars" aria-label="Rated ' . $stars . ' out of 5">' . str_repeat(icon('star', 'h-4 w-4'), $stars) . '</p>' : '')
+        . '<blockquote class="quote-text">' . e($t['quote']) . '</blockquote>'
+        . '<figcaption class="quote-by">'
+        . (!empty($t['photo']) ? '<span class="quote-avatar">' . img_tag($t['photo'], '', ['class' => 'h-full w-full object-cover', 'widths' => [480], 'sizes' => '48px']) . '</span>'
+            : '<span class="quote-avatar quote-initial" aria-hidden="true">' . e(mb_strtoupper(mb_substr((string) $t['author'], 0, 1))) . '</span>')
+        . '<span><span class="block font-semibold text-white">' . e($t['author']) . '</span>' . ($who ? '<span class="block text-sm text-white/70">' . e(implode(', ', $who)) . '</span>' : '')
+        . (!empty($t['project_slug']) ? '<a class="mt-1 inline-flex items-center gap-1 text-sm font-semibold text-safety hover:underline" href="' . e(url('projects/' . $t['project_slug'])) . '">Read the case study ' . icon('arrow-right', 'h-3.5 w-3.5') . '</a>' : '')
+        . '</span></figcaption></figure>';
+}
+
 function project_card(array $p, int $i = 0): string
 {
     $meta = array_filter([$p['industry'] ?? null, $p['location'] ?? null, !empty($p['completed_at']) ? date('Y', strtotime((string) $p['completed_at'])) : null]);

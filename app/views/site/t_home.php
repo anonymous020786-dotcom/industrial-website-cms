@@ -4,20 +4,36 @@ $products = products_all();
 $industries = industries_all();
 $caps = page_data(page_by_slug('manufacturing', false) ?? ['template' => 'manufacturing'])['capabilities'] ?? [];
 $latest = posts_query(['limit' => 3])['rows'];
+$tiles = array_slice(array_values(array_filter($data['hero_tiles'] ?? [], fn($t) => trim((string) ($t['label'] ?? '')) !== '')), 0, 4);
+$trust = array_values(array_filter($data['trust_items'] ?? [], fn($t) => trim((string) ($t['label'] ?? '')) !== '' || !empty($t['logo'])));
+$quotes = testimonials_published(6);
 ?>
 <section class="relative isolate flex min-h-[calc(100svh-108px)] items-end overflow-hidden bg-navy text-white lg:min-h-[740px]">
   <?= img_tag($page['hero_image'], $data['hero_image_alt'] ?? '', ['class' => 'absolute inset-0 -z-20 h-full w-full object-cover', 'widths' => [960, 1600, 2400], 'lazy' => false]) ?>
   <div class="hero-overlay absolute inset-0 -z-10" aria-hidden="true"></div>
   <div class="mx-auto w-full max-w-site px-4 pb-14 pt-24 sm:px-6 lg:px-8 lg:pb-20">
-    <div class="max-w-3xl">
+    <div class="grid items-end gap-10 lg:grid-cols-12">
+    <div class="lg:col-span-8">
       <?php if ($page['hero_eyebrow']): ?><p class="eyebrow eyebrow-light hero-in"><?= e($page['hero_eyebrow']) ?></p><?php endif ?>
       <?php [$h1a, $h1b] = array_pad(preg_split('~(?<=\.)\s+~', (string) $page['hero_title'], 2), 2, ''); ?>
-      <h1 class="hero-in mt-5 font-display text-[44px] font-bold uppercase leading-[0.95] tracking-tight sm:text-6xl lg:text-[84px]" style="--d:80ms"><?= e($h1a) ?><?php if ($h1b): ?><br><span class="text-safety"><?= e($h1b) ?></span><?php endif ?></h1>
+      <h1 class="hero-title hero-in mt-5 font-display text-[44px] font-bold uppercase leading-[0.95] tracking-tight sm:text-6xl lg:text-[68px] xl:text-[80px]" style="--d:80ms"><?= e($h1a) ?><?php if ($h1b): ?><br><span class="text-safety"><?= e($h1b) ?></span><?php endif ?></h1>
       <?php if ($page['hero_lead']): ?><p class="hero-in mt-6 max-w-xl text-lg leading-relaxed text-white/80 sm:text-xl" style="--d:160ms"><?= e($page['hero_lead']) ?></p><?php endif ?>
       <div class="hero-in mt-9 flex flex-col gap-3 sm:flex-row" style="--d:240ms">
         <a href="<?= e(url('products')) ?>" class="btn btn-primary btn-lg">Explore Our Products <?= icon('arrow-right', 'btn-arrow h-5 w-5') ?></a>
         <a href="<?= e(url('quote')) ?>" class="btn btn-ghost-light btn-lg">Request a Quote</a>
       </div>
+    </div>
+    <?php if ($tiles): ?>
+    <nav class="hero-in grid grid-cols-2 gap-3 lg:col-span-4" style="--d:300ms" aria-label="Quick links">
+      <?php foreach ($tiles as $t): ?>
+      <a href="<?= e(link_href((string) ($t['url'] ?? ''))) ?>" class="hero-tile"<?= str_starts_with((string) ($t['url'] ?? ''), 'tel:') ? ' data-track="phone"' : '' ?>>
+        <?= icon((string) ($t['icon'] ?? 'arrow-right'), 'h-5 w-5 text-safety') ?>
+        <span><?= e((string) $t['label']) ?></span>
+        <?= icon('arrow-up-right', 'hero-tile-arrow h-4 w-4') ?>
+      </a>
+      <?php endforeach ?>
+    </nav>
+    <?php endif ?>
     </div>
     <?php if (!empty($data['hero_trust'])): $trustIcons = ['crosshair', 'shield-check', 'drafting-compass', 'badge-check']; ?>
     <ul class="hero-in mt-14 grid border-t border-white/15 pt-6 sm:grid-cols-3 sm:gap-8" style="--d:320ms">
@@ -26,6 +42,23 @@ $latest = posts_query(['limit' => 3])['rows'];
     <?php endif ?>
   </div>
 </section>
+
+<?php if (!empty($data['trust_enabled']) && $trust): ?>
+<section class="trust-strip" aria-label="<?= e((string) ($data['trust_title'] ?? 'Sectors we supply')) ?>">
+  <div class="mx-auto flex max-w-site flex-col gap-4 px-4 py-6 sm:px-6 lg:flex-row lg:items-center lg:gap-10 lg:px-8">
+    <p class="trust-label shrink-0"><?= e((string) ($data['trust_title'] ?? '')) ?></p>
+    <div class="trust-viewport<?= count($trust) > 4 ? ' is-marquee' : '' ?>">
+      <?php foreach (count($trust) > 4 ? [false, true] : [false] as $dup): ?>
+      <ul class="trust-track"<?= $dup ? ' aria-hidden="true"' : '' ?>>
+        <?php foreach ($trust as $t): ?>
+        <li class="trust-item"><?php if (!empty($t['logo'])): ?><?= img_tag($t['logo'], $dup ? '' : (string) ($t['label'] ?? ''), ['class' => 'trust-logo', 'widths' => [480], 'sizes' => '160px']) ?><?php else: ?><?= icon((string) ($t['icon'] ?? 'dot'), 'h-4 w-4 text-safety') ?><?= e((string) $t['label']) ?><?php endif ?></li>
+        <?php endforeach ?>
+      </ul>
+      <?php endforeach ?>
+    </div>
+  </div>
+</section>
+<?php endif ?>
 
 <section class="section">
   <div class="mx-auto grid max-w-site items-center gap-12 px-4 sm:px-6 lg:grid-cols-12 lg:gap-16 lg:px-8">
@@ -96,6 +129,15 @@ $latest = posts_query(['limit' => 3])['rows'];
     <div class="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"><?php foreach ($industries as $i => $ind) echo industry_tile($ind, $i) ?></div>
   </div>
 </section>
+
+<?php if ($quotes): ?>
+<section class="section blueprint bg-navy text-white" id="testimonials">
+  <div class="mx-auto max-w-site px-4 sm:px-6 lg:px-8">
+    <?= section_head('Client Feedback', (string) ($data['testimonials_title'] ?? 'What Our Clients Say'), '', true) ?>
+    <div class="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-3"><?php foreach ($quotes as $i => $t) echo testimonial_card($t, $i) ?></div>
+  </div>
+</section>
+<?php endif ?>
 
 <section class="section">
   <div class="mx-auto grid max-w-site items-center gap-12 px-4 sm:px-6 lg:grid-cols-2 lg:gap-16 lg:px-8">

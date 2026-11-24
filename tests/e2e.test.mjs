@@ -39,6 +39,8 @@ test.after(async () => {
   sql("DELETE FROM leads WHERE email LIKE 'e2e+%@example.com'");
   sql("DELETE FROM projects WHERE slug LIKE 'e2e%'");
   sql("DELETE FROM certificates WHERE name LIKE 'e2e%'");
+  sql("DELETE FROM testimonials WHERE author LIKE 'e2e%'");
+  setSetting('heading_style', 'industrial');
   sql("DELETE FROM passkeys WHERE name LIKE 'e2e%'");
   sql('UPDATE users SET totp_secret = NULL, totp_enabled_at = NULL WHERE id = ?', [adminId()]);
   sql('DELETE FROM recovery_codes WHERE user_id = ?', [adminId()]);
@@ -234,6 +236,45 @@ test('certificates: valid ones shown on Quality page, expired ones hidden', asyn
   assert.doesNotMatch(q.text, /e2e Expired certificate/);
   const list = await admin.get('admin/r/certificates');
   assert.match(list.text, /Expired/);
+});
+
+/* ------------------------------------------------------------------ */
+test('home: quick-link tiles, sector strip, testimonials need permission, optional serif headings', async () => {
+  const c = new Client();
+  let home = await c.get('');
+  assert.equal((home.text.match(/class="hero-tile"/g) || []).length, 4, 'four quick-link tiles');
+  assert.match(home.text, /class="trust-strip"/);
+  assert.match(home.text, /trust-track" aria-hidden="true"/, 'duplicate marquee track hidden from screen readers');
+  assert.doesNotMatch(home.text, /id="testimonials"/, 'no testimonials section until one is published');
+
+  const base = { _token: csrf, quote: 'e2e They delivered the sheaves in nine days.', author: 'e2e Client', role: 'Maintenance Manager', company: 'E2E Port', rating: '5', photo: '', project_id: '', sort_order: '0' };
+  let r = await admin.post('admin/r/testimonials/new', { ...base, status: 'published', permission: '0' });
+  assert.equal(r.status, 200, 'publishing without permission is refused');
+  assert.match(r.text, /Confirm the client agreed/);
+  r = await admin.post('admin/r/testimonials/new', { ...base, status: 'published', permission: '1' });
+  assert.equal(r.status, 302);
+  home = await c.get('');
+  assert.match(home.text, /id="testimonials"/);
+  assert.match(home.text, /e2e They delivered the sheaves/);
+  assert.match(home.text, /aria-label="Rated 5 out of 5"/);
+
+  // Editor links: javascript: and other schemes are neutralised, tel: is allowed
+  const homeId = sql("SELECT id FROM pages WHERE slug = 'home'")[0].id;
+  const data = JSON.parse(sql('SELECT data FROM pages WHERE id = ?', [homeId])[0].data || '{}');
+  const saved = JSON.stringify(data);
+  data.hero_tiles = [{ icon: 'phone', label: 'Call us', url: 'tel:+440000' }, { icon: 'x', label: 'Bad link', url: 'javascript:alert(1)' }];
+  sql('UPDATE pages SET data = ? WHERE id = ?', [JSON.stringify(data), homeId]);
+  home = await c.get('');
+  assert.match(home.text, /href="tel:\+440000"/);
+  assert.doesNotMatch(home.text, /javascript:alert/);
+  sql('UPDATE pages SET data = ? WHERE id = ?', [saved, homeId]);
+
+  setSetting('heading_style', 'editorial');
+  assert.match((await c.get('')).text, /'headings-editorial'/);
+  setSetting('heading_style', 'industrial');
+  assert.doesNotMatch((await c.get('')).text, /'headings-editorial'/);
+  const font = await c.get('assets/fonts/playfair-display-latin-700-normal.woff2');
+  assert.equal(font.status, 200, 'serif font is self-hosted');
 });
 
 /* ------------------------------------------------------------------ */

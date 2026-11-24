@@ -202,7 +202,7 @@ function finish_install(): void
 /* Migrations for sites installed before newer columns existed.        */
 /* Portable across MySQL and MariaDB (checks information_schema).      */
 /* ------------------------------------------------------------------ */
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 6;
 
 function column_exists(string $table, string $column): bool
 {

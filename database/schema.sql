@@ -364,3 +364,19 @@ CREATE TABLE IF NOT EXISTS recovery_codes (
   KEY idx_recovery_user (user_id),
   CONSTRAINT fk_recovery_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Client testimonials (shown on the home page once published; publish only with the client's permission)
+CREATE TABLE IF NOT EXISTS testimonials (
+  id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  quote        TEXT NOT NULL,
+  author       VARCHAR(150) NOT NULL,
+  role         VARCHAR(150) NULL,
+  company      VARCHAR(190) NULL,
+  rating       TINYINT UNSIGNED NULL,
+  photo        VARCHAR(500) NULL,
+  project_id   INT UNSIGNED NULL,
+  permission   TINYINT(1) NOT NULL DEFAULT 0,
+  status       ENUM('draft','published') NOT NULL DEFAULT 'draft',
+  sort_order   INT NOT NULL DEFAULT 0,
+  created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

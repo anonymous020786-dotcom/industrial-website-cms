@@ -543,6 +543,22 @@ function resources(): array
                 'meta_description' => ['type' => 'textarea', 'label' => 'Meta description', 'rows' => 2, 'counter' => 160],
             ],
         ],
+        'testimonials' => [
+            'title' => 'Testimonials', 'singular' => 'Testimonial', 'table' => 'testimonials', 'perm' => 'content', 'order' => 'sort_order, id DESC',
+            'columns' => ['author' => 'Client', 'company' => 'Company', 'rating' => 'Rating', 'status' => 'Status', 'permission' => 'Permission'],
+            'fields' => [
+                'quote' => ['type' => 'textarea', 'label' => 'What the client said', 'rows' => 4, 'required' => true, 'counter' => 400, 'help' => 'Use the client’s own words. Short, specific quotes (a problem solved, a deadline met) are the most convincing.'],
+                'author' => ['type' => 'text', 'label' => 'Name', 'required' => true],
+                'role' => ['type' => 'text', 'label' => 'Job title', 'placeholder' => 'e.g. Maintenance Manager'],
+                'company' => ['type' => 'text', 'label' => 'Company', 'help' => 'Or a description such as “Port operator, Rotterdam” if the client prefers.'],
+                'rating' => ['type' => 'select', 'label' => 'Star rating (optional)', 'options' => ['5' => '★★★★★ 5', '4' => '★★★★ 4', '3' => '★★★ 3'], 'empty' => '— No stars —'],
+                'photo' => ['type' => 'image', 'label' => 'Photo or company logo (optional)'],
+                'project_id' => ['type' => 'select', 'label' => 'Related project (optional)', 'options' => fn() => array_column(db_all("SELECT id, title FROM projects ORDER BY title"), 'title', 'id'), 'empty' => '— None —'],
+                'permission' => ['type' => 'checkbox', 'label' => 'Permission', 'text' => 'The client has agreed that this quote, their name and company may be published', 'wide' => true],
+                'status' => ['type' => 'select', 'label' => 'Status', 'options' => ['draft' => 'Draft', 'published' => 'Published']],
+                'sort_order' => ['type' => 'number', 'label' => 'Display order', 'default' => 0],
+            ],
+        ],
         'certificates' => [
             'title' => 'Certificates', 'singular' => 'Certificate', 'table' => 'certificates', 'perm' => 'content', 'order' => 'sort_order, name',
             'columns' => ['name' => 'Certificate', 'standard' => 'Standard', 'issuer' => 'Issued by', 'expires_at' => 'Valid until', 'status' => 'Status'],
@@ -664,6 +680,12 @@ function admin_resource_edit(string $res, ?string $id = null): void
             $v['slug'] = unique_slug($r['table'], $v['slug'] ?: slugify((string) ($v['name'] ?? $v['title'] ?? 'item')), $row['id'] ?? null, $scope[0], $scope[1]);
         }
         if ($res === 'users') resource_user_rules($v, $errors, $row);
+        if ($res === 'testimonials') {
+            $v['permission'] = (int) ($v['permission'] ?? 0);
+            $v['rating'] = ($v['rating'] ?? '') !== '' && $v['rating'] !== null ? max(1, min(5, (int) $v['rating'])) : null;
+            $v['project_id'] = ($v['project_id'] ?? null) !== null && $v['project_id'] !== '' ? (int) $v['project_id'] : null;
+            if ($v['status'] === 'published' && !$v['permission']) $errors['permission'] = 'Confirm the client agreed to publication before publishing.';
+        }
         foreach (['category_id', 'industry_id'] as $fk) if (array_key_exists($fk, $v)) $v[$fk] = $v[$fk] !== null ? (int) $v[$fk] : null;
         foreach (['sort_order'] as $n) if (array_key_exists($n, $v)) $v[$n] = (int) $v[$n];
         foreach (['active'] as $b) if (array_key_exists($b, $v)) $v[$b] = (int) $v[$b];
