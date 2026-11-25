@@ -1454,6 +1454,12 @@ const mailFiles = () => {
   return readdirSync(dir).filter((f) => f.endsWith('.html')).sort().slice(-40).reverse().map((f) => readFileSync(join(dir, f), 'utf8'));
 };
 const findMail = (re) => mailFiles().find((h) => re.test(h));
+/** A published article the test owns (fresh installs ship every article as a draft). */
+const e2ePost = (slug) => {
+  sql('DELETE FROM posts WHERE slug = ?', [slug]);
+  sql("INSERT INTO posts (title, slug, excerpt, content, status, published_at, allow_comments) VALUES (?, ?, 'e2e excerpt', '<p>e2e article body.</p>', 'published', NOW() - INTERVAL 1 HOUR, 1)", ['e2e Article ' + slug, slug]);
+  return sql('SELECT id, slug, title FROM posts WHERE slug = ?', [slug])[0];
+};
 
 test('sharing: share bars with all networks and a short link, /s/ redirects and counts people (not preview bots), admin short links', async () => {
   sql("DELETE FROM short_links WHERE code LIKE 'e2e%' OR target LIKE '%e2e%'");
@@ -1491,8 +1497,8 @@ test('sharing: share bars with all networks and a short link, /s/ redirects and 
 });
 
 test('comments: moderated, trusted after first approval, spam filter, team replies with email, per-post switch, escaped', async () => {
-  const post = sql("SELECT id, slug, title FROM posts WHERE status = 'published' AND published_at <= NOW() ORDER BY id LIMIT 1")[0];
-  const cleanup = () => { sql("DELETE FROM comments WHERE email LIKE 'e2e+%' OR name LIKE 'E2E%' OR body LIKE '%e2e-%'"); sql('UPDATE posts SET allow_comments = 1 WHERE id = ?', [post.id]); };
+  const post = e2ePost('e2e-comments-article');
+  const cleanup = () => { sql("DELETE FROM comments WHERE email LIKE 'e2e+%' OR name LIKE 'E2E%' OR body LIKE '%e2e-%' OR post_id = ?", [post.id]); sql('UPDATE posts SET allow_comments = 1 WHERE id = ?', [post.id]); };
   cleanup();
   setSetting('comments_enabled', true);
   setSetting('comments_moderation', 'first');
@@ -1543,6 +1549,7 @@ test('comments: moderated, trusted after first approval, spam filter, team repli
     assert.equal(r.status, 422);
   } finally {
     cleanup();
+    sql('DELETE FROM posts WHERE id = ?', [post.id]);
   }
 });
 
@@ -1551,8 +1558,10 @@ test('newsletter: double opt-in, welcome, campaign with test, batch send, open/c
     sql("DELETE cs FROM campaign_sends cs JOIN subscribers s ON s.id = cs.subscriber_id WHERE s.email LIKE 'e2e+%'");
     sql("DELETE FROM campaigns WHERE subject LIKE 'e2e%'");
     sql("DELETE FROM subscribers WHERE email LIKE 'e2e+%'");
+    sql("DELETE FROM posts WHERE slug = 'e2e-newsletter-article'");
   };
   clean();
+  e2ePost('e2e-newsletter-article');
   setSetting('newsletter_enabled', true);
   setSetting('newsletter_double_optin', true);
   sql('DELETE FROM rate_limits');
