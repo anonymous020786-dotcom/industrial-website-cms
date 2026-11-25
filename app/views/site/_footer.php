@@ -42,6 +42,7 @@ $hours = setting('company_hours', []) ?: [];
           <li><a class="footer-link" href="<?= e(url('parts')) ?>">Find a part number</a></li>
           <li><a class="footer-link" href="<?= e(url('calculators')) ?>">Hydraulic calculators</a></li>
           <li><a class="footer-link" href="<?= e(url('downloads')) ?>">Downloads</a></li>
+          <?php if (reviews_enabled()): ?><li><a class="footer-link" href="<?= e(url('reviews')) ?>">Customer reviews</a></li><?php endif ?>
           <?php if (db_val("SELECT 1 FROM distributors WHERE status = 'published' LIMIT 1")): ?><li><a class="footer-link" href="<?= e(url('distributors')) ?>">Distributors</a></li><?php endif ?>
           <?php if (jobs_open()): ?><li><a class="footer-link" href="<?= e(url('careers')) ?>">Careers</a></li><?php endif ?>
         </ul>

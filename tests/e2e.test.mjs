@@ -1729,6 +1729,59 @@ test('analytics: cookie-free page views and visitors, sources, devices, skips ro
   sql("DELETE FROM page_hits WHERE path LIKE '/e2e%'");
 });
 
+test('reviews: moderated star reviews on product pages, verified customers, team reply, Google review stars, testimonial copy', async () => {
+  const clean = () => { sql("DELETE FROM reviews WHERE email LIKE 'e2e+%'"); sql("DELETE FROM leads WHERE email = 'e2e+buyer@example.com'"); sql("DELETE FROM testimonials WHERE author LIKE 'E2E Reviewer%'"); };
+  clean();
+  setSetting('reviews_enabled', true);
+  setSetting('reviews_moderation', 'all');
+  sql('DELETE FROM rate_limits');
+  const prod = sql("SELECT id, slug, name FROM products WHERE slug = 'hydraulic-cylinders'")[0];
+  const v = new Client();
+  const send = async (fields) => {
+    const page = await v.get('products/' + prod.slug);
+    await sleep(3200);
+    return v.post('reviews/submit', { form: 'review', _ft: formToken(page.text), product_id: String(prod.id), consent: '1', 'cf-turnstile-response': TS_TOKEN, title: 'e2e Great fit', fullName: 'E2E Reviewer', company: 'E2E Mills', ...fields });
+  };
+  try {
+    let page = await v.get('products/' + prod.slug);
+    assert.match(page.text, /id="write-review"/);
+    let r = await send({ rating: '6', body: 'Too high', email: 'e2e+rev@example.com' });
+    assert.equal(r.status, 422, 'rating must be 1–5');
+    r = await send({ rating: '5', body: 'Cylinders arrived in 9 days and fitted first time. e2e-review', email: 'e2e+rev@example.com' });
+    assert.equal(r.status, 302);
+    assert.match(r.location, /\?review=pending#reviews$/);
+    const rev = sql("SELECT * FROM reviews WHERE email = 'e2e+rev@example.com'")[0];
+    assert.deepEqual([rev.status, Number(rev.verified)], ['pending', 0]);
+    assert.doesNotMatch((await v.get('products/' + prod.slug)).text, /e2e-review/, 'hidden until approved');
+    r = await send({ rating: '4', body: 'Second review the same month e2e-dup', email: 'e2e+rev@example.com' });
+    assert.equal(r.status, 422, 'one review per product per month');
+
+    await admin.post(`admin/reviews-moderation/${rev.id}`, { _token: csrf, action: 'approve' });
+    await admin.post(`admin/reviews-moderation/${rev.id}`, { _token: csrf, action: 'reply', reply: 'Thank you! e2e-thanks' });
+    page = await v.get('products/' + prod.slug);
+    assert.match(page.text, /data-review[\s\S]*e2e-review[\s\S]*Reply from[\s\S]*e2e-thanks/);
+    assert.match(page.text, /"aggregateRating":\{"@type":"AggregateRating","ratingValue":[\d.]+,"reviewCount":\d+/);
+    assert.match(page.text, /href="#reviews"[^>]*>[\s\S]{0,4000}review/, 'stars link in the hero');
+    assert.match((await v.get('reviews')).text, /e2e-review/);
+
+    // Bought from us (won lead with the same email) → verified, and published at once in "verified" mode
+    sql("INSERT INTO leads (type, status, name, email, product, message) VALUES ('quote', 'won', 'E2E Buyer', 'e2e+buyer@example.com', 'Hydraulic Cylinders', 'x')");
+    setSetting('reviews_moderation', 'verified');
+    sql('DELETE FROM rate_limits');
+    await send({ rating: '4', body: 'Good quality, will order again. e2e-verified', email: 'e2e+buyer@example.com', fullName: 'E2E Reviewer Two' });
+    const vr = sql("SELECT status, verified FROM reviews WHERE email = 'e2e+buyer@example.com'")[0];
+    assert.deepEqual([vr.status, Number(vr.verified)], ['approved', 1]);
+    assert.match((await v.get('products/' + prod.slug)).text, /Verified customer/);
+
+    await admin.post(`admin/reviews-moderation/${rev.id}`, { _token: csrf, action: 'testimonial' });
+    assert.equal(sql("SELECT status FROM testimonials WHERE author = 'E2E Reviewer'")[0].status, 'draft', 'copied to testimonials as a draft');
+    assert.match((await admin.get('admin/reviews-moderation?status=approved')).text, new RegExp(`data-mod-review="${rev.id}"`));
+  } finally {
+    clean();
+    setSetting('reviews_moderation', 'all');
+  }
+});
+
 test('keep me signed in: survives a browser restart, rotates, is device-bound, detects stolen tokens, ends on sign-out', async () => {
   setSetting('remember_enabled', true);
   setSetting('remember_days', 30);

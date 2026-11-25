@@ -708,3 +708,15 @@ html.headings-editorial .section-title { font-size: clamp(2.1rem, 3.9vw, 3.3rem)
 .toast { position: fixed; left: 50%; bottom: 1.5rem; z-index: 60; transform: translate(-50%, 1rem); opacity: 0; padding: .7rem 1.1rem; background: #101D32; color: #fff; font-size: .9rem; font-weight: 600; box-shadow: 0 10px 30px rgb(0 0 0 / .2); transition: opacity .2s, transform .2s; pointer-events: none; }
 .toast.is-on { opacity: 1; transform: translate(-50%, 0); }
 .has-mobile-bar .toast { bottom: calc(5rem + env(safe-area-inset-bottom)); }
+
+/* Reviews */
+.stars { display: inline-flex; gap: .1rem; vertical-align: middle; }
+.star-empty { opacity: .45; }
+.review-verified { display: inline-flex; align-items: center; gap: .25rem; color: #15803d; font-weight: 600; }
+.star-input { display: inline-flex; flex-direction: row-reverse; gap: .2rem; }
+.star-input input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.star-input label { cursor: pointer; color: rgb(var(--text-rgb) / .25); transition: color .15s, transform .15s; }
+.star-input label:hover, .star-input label:hover ~ label, .star-input input:checked ~ label { color: #F28C28; }
+.star-input label:hover { transform: scale(1.1); }
+.star-input input:focus-visible + label { outline: 2px solid #174A78; outline-offset: 2px; }
+.star-input input:checked + label svg, .star-input input:checked ~ label svg { fill: currentColor; }

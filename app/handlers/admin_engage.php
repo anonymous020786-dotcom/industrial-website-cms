@@ -424,3 +424,49 @@ function admin_analytics(): void
     $actions = can('settings') ? '<a class="adm-btn adm-btn-light" href="' . e(url('admin/settings/integrations')) . '#analytics_enabled">' . icon('settings', 'h-4 w-4') . ' Settings</a>' : '';
     admin_render('Visitor analytics', 'engage/analytics', compact('a', 'range', 'from', 'to'), ['actions' => $actions, 'wide' => true]);
 }
+
+
+/* ------------------------------------------------------------------ */
+/* Customer reviews: moderation                                        */
+/* ------------------------------------------------------------------ */
+
+function admin_reviews_moderation(): void
+{
+    require_login('content');
+    $status = isset(REVIEW_STATUSES[$s = (string) query('status', 'pending')]) ? $s : 'pending';
+    $total = (int) db_val('SELECT COUNT(*) FROM reviews WHERE status = ?', [$status]);
+    $pager = paginate($total, 30, (int) query('page', 1));
+    $rows = db_all("SELECT r.*, p.name AS product_name, p.slug AS product_slug FROM reviews r LEFT JOIN products p ON p.id = r.product_id WHERE r.status = ? ORDER BY r.created_at " . ($status === 'pending' ? 'ASC' : 'DESC') . " LIMIT {$pager['per']} OFFSET {$pager['offset']}", [$status]);
+    $counts = array_column(db_all('SELECT status, COUNT(*) n FROM reviews GROUP BY status'), 'n', 'status');
+    $stats = reviews_stats(null);
+    admin_render('Customer reviews', 'engage/reviews', compact('rows', 'pager', 'counts', 'status', 'stats', 'total'), ['wide' => true]);
+}
+
+function admin_review_moderate(string $id): void
+{
+    $me = require_login('content');
+    csrf_check();
+    $r = db_one('SELECT r.*, p.name AS product_name FROM reviews r LEFT JOIN products p ON p.id = r.product_id WHERE r.id = ?', [(int) $id]);
+    if (!$r) abort(404);
+    $a = (string) input('action', '');
+    $label = $r['name'] . ' (' . $r['rating'] . '★' . ($r['product_name'] ? ', ' . $r['product_name'] : '') . ')';
+    switch ($a) {
+        case 'approve': db_update('reviews', ['status' => 'approved', 'approved_at' => now()], (int) $r['id']); $msg = 'Review published.'; break;
+        case 'reject': db_update('reviews', ['status' => 'rejected'], (int) $r['id']); $msg = 'Review rejected (not shown).'; break;
+        case 'verify': db_update('reviews', ['verified' => $r['verified'] ? 0 : 1], (int) $r['id']); $msg = $r['verified'] ? 'Verified badge removed.' : 'Marked as a verified customer.'; break;
+        case 'reply':
+            $reply = mb_substr(trim(str_replace("\r\n", "\n", (string) input('reply', ''))), 0, 2000);
+            db_update('reviews', ['reply' => $reply ?: null, 'replied_at' => $reply ? now() : null], (int) $r['id']);
+            $msg = $reply ? 'Reply saved — it shows under the review.' : 'Reply removed.';
+            break;
+        case 'testimonial':
+            db_insert('testimonials', ['quote' => mb_substr((string) $r['body'], 0, 1000), 'author' => $r['name'], 'company' => $r['company'], 'rating' => max(3, (int) $r['rating']), 'permission' => 1, 'status' => 'draft']);
+            $msg = 'Copied to Testimonials as a draft — shorten it and publish it there.';
+            break;
+        case 'delete': db_delete('reviews', (int) $r['id']); $msg = 'Review deleted.'; break;
+        default: abort(400);
+    }
+    content_log('review', (int) $r['id'], ['approve' => 'approved', 'reject' => 'rejected', 'delete' => 'deleted'][$a] ?? 'updated', $label, ucfirst($a));
+    flash('success', $msg);
+    back('admin/reviews-moderation');
+}

@@ -667,3 +667,24 @@ CREATE TABLE IF NOT EXISTS page_hits (
   KEY idx_page_hits_day (day, path),
   KEY idx_page_hits_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Customer reviews (moderated; product_id NULL = review of the company)
+CREATE TABLE IF NOT EXISTS reviews (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  product_id  INT UNSIGNED NULL,
+  rating      TINYINT UNSIGNED NOT NULL,
+  title       VARCHAR(150) NULL,
+  body        TEXT NOT NULL,
+  name        VARCHAR(120) NOT NULL,
+  company     VARCHAR(150) NULL,
+  email       VARCHAR(190) NULL,
+  verified    TINYINT(1) NOT NULL DEFAULT 0,
+  status      VARCHAR(20) NOT NULL DEFAULT 'pending',
+  reply       TEXT NULL,
+  replied_at  DATETIME NULL,
+  ip          VARCHAR(45) NULL,
+  approved_at DATETIME NULL,
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_reviews_product (product_id, status),
+  KEY idx_reviews_status (status, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

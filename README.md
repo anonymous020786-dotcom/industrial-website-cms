@@ -282,6 +282,22 @@ All of these are set up in Settings → Comments, Sharing & Newsletter.
   - Subscribers: add (with consent), CSV import (with consent), CSV export (administrators, step-up),
     unsubscribe, and delete all data.
 
+## Visitor analytics and reviews
+
+- **Analytics** (Admin → Analytics). Built in, with no cookies and no third parties.
+  - It counts page views and visitors. Visitors are a salted hash that changes every day.
+  - It shows sources (utm tags, search engines, social sites), devices, the top pages, the enquiry rate
+    and visitors online now.
+  - Robots, signed-in staff and Do Not Track browsers are skipped.
+  - The weekly report includes visitors and the most viewed pages.
+  - On/off and data retention are in Settings → Integrations.
+- **Customer reviews** (on product pages and at `/reviews`; moderate in Admin → Reviews).
+  - Visitors leave a 1–5 star rating with their review.
+  - Customers who bought from you (a won lead or an accepted quote with the same email) get a
+    "Verified customer" badge. They can be published automatically if you choose.
+  - The team can post public replies, and good reviews can be copied into Testimonials.
+  - Approved reviews add Google review stars (`aggregateRating`) to the product's structured data.
+
 ## Team workflow
 
 - **Content approval** (Settings → Workflow & Reports, off by default).

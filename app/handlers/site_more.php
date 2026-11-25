@@ -291,3 +291,57 @@ function site_newsletter_click(string $cid, string $token): void
     header('Location: ' . $url, true, 302);
     exit;
 }
+
+/* ------------------------------------------------------------------ */
+/* Customer reviews                                                    */
+/* ------------------------------------------------------------------ */
+
+function site_reviews(): void
+{
+    $s = reviews_stats(null);
+    $meta = ['title' => 'Customer reviews', 'description' => 'Reviews from engineers and buyers who ordered crane components and hydraulic products from ' . company('name') . '.',
+        'canonical' => abs_url('reviews'), 'crumbs' => [['label' => 'Reviews', 'url' => url('reviews')]]];
+    $hero = page_hero(['eyebrow' => 'Reviews', 'title' => 'Customer reviews', 'lead' => $s['count'] ? number_format($s['avg'], 1) . ' out of 5 from ' . $s['count'] . ' verified and published reviews.' : 'Honest feedback from the people who use our parts.', 'crumbs' => $meta['crumbs']]);
+    site_render($meta, $hero . view('site/_reviews', ['product' => null]));
+}
+
+function site_review_submit(): void
+{
+    $pid = ctype_digit((string) ($_POST['product_id'] ?? '')) && (int) $_POST['product_id'] > 0 ? (int) $_POST['product_id'] : null;
+    $prod = $pid ? (array_column(products_all(), null, 'id')[$pid] ?? null) : null;
+    if ($pid && !$prod) abort(404);
+    $backUrl = $prod ? 'products/' . $prod['slug'] : 'reviews';
+    $fail = function (string $msg) use ($backUrl) {
+        $meta = ['title' => 'Review not sent', 'description' => '', 'noindex' => true, 'crumbs' => []];
+        site_render($meta, '<section class="section"><div class="mx-auto max-w-2xl px-4"><h1 class="font-display text-4xl font-bold uppercase text-navy">Review not sent</h1><p class="mt-4 text-charcoal/80">' . e($msg)
+            . '</p><a class="btn btn-primary mt-8" href="' . e(url($backUrl) . '#write-review') . '">Back</a></div></section>', 422);
+        exit;
+    };
+    if (!reviews_enabled()) $fail('Reviews are not open at the moment.');
+    if (!empty($_POST['website'])) redirect($backUrl . '?review=pending#reviews');
+    if (!form_token_valid((string) ($_POST['_ft'] ?? ''))) $fail('The form expired or was sent too quickly. Please go back, wait a moment and try again.');
+    if (!turnstile_verify((string) ($_POST['cf-turnstile-response'] ?? ''))) $fail('The security check failed. Please try again.');
+    if (!rate_limit(ip_bucket('review'), 3, 3600)) $fail('Too many reviews from your connection. Please try again later.');
+    $rating = (int) ($_POST['rating'] ?? 0);
+    $v = fn($k, $max) => mb_substr(trim(str_replace("\r\n", "\n", (string) ($_POST[$k] ?? ''))), 0, $max);
+    $body = $v('body', 3000);
+    $email = mb_strtolower($v('email', 190));
+    if ($rating < 1 || $rating > 5) $fail('Please choose a star rating.');
+    if (mb_strlen($body) < 10) $fail('Please write a few words about your experience (at least 10 characters).');
+    if (mb_strlen($v('fullName', 120)) < 2) $fail('Please enter your name.');
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) $fail('Please enter a valid email address (it is not published).');
+    if (empty($_POST['consent'])) $fail('Please confirm that your review may be published.');
+    if (db_val("SELECT 1 FROM reviews WHERE email = ? AND COALESCE(product_id, 0) = ? AND created_at >= NOW() - INTERVAL 30 DAY", [$email, (int) $pid])) $fail('You already reviewed this recently — thank you!');
+    $spam = comment_spam_reason($body, $v('fullName', 120), $email);
+    $verified = review_is_verified($email);
+    $auto = setting('reviews_moderation', 'all') === 'verified' && $verified && !$spam;
+    $id = db_insert('reviews', ['product_id' => $pid, 'rating' => $rating, 'title' => $v('title', 150) ?: null, 'body' => $body, 'name' => $v('fullName', 120), 'company' => $v('company', 150) ?: null,
+        'email' => $email, 'verified' => (int) $verified, 'status' => $spam ? 'rejected' : ($auto ? 'approved' : 'pending'), 'ip' => client_ip(), 'approved_at' => $auto ? now() : null]);
+    if (!$spam && !$auto) {
+        foreach (db_all("SELECT * FROM users WHERE role IN ('admin', 'editor') AND active = 1") as $u) {
+            notify_user($u, 'review_pending', 'New ' . $rating . '-star review to approve', $v('fullName', 120) . ($prod ? ' reviewed ' . $prod['name'] : ' reviewed the company') . ': ' . mb_substr($body, 0, 140),
+                ['link' => 'admin/reviews-moderation?status=pending', 'category' => 'reviews', 'severity' => $rating <= 2 ? 'warning' : 'info']);
+        }
+    }
+    redirect($backUrl . '?review=pending#reviews');
+}

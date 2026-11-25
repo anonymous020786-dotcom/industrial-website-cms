@@ -20,6 +20,7 @@ $catalogue = (string) setting('catalogue_pdf', '');
     <div class="lg:col-span-5">
       <?php if ($cat): ?><p class="eyebrow hero-in"><?= e($cat) ?></p><?php endif ?>
       <h1 class="hero-in mt-4 font-display text-5xl font-bold uppercase leading-[0.95] tracking-tight text-navy sm:text-6xl" style="--d:80ms"><?= e($p['name']) ?></h1>
+      <?php $rs = reviews_stats((int) $p['id']); if ($rs['count']): ?><a href="#reviews" class="hero-in mt-4 inline-flex items-center gap-2 text-sm font-semibold text-navy hover:underline" style="--d:120ms"><span class="text-safety"><?= stars_html($rs['avg']) ?></span><?= e(number_format($rs['avg'], 1)) ?> · <?= $rs['count'] ?> review<?= $rs['count'] === 1 ? '' : 's' ?></a><?php endif ?>
       <p class="hero-in mt-5 text-lg leading-relaxed text-charcoal/75" style="--d:160ms"><?= e($p['summary']) ?></p>
       <ul class="hero-in mt-7 space-y-3" style="--d:200ms">
         <?php foreach (array_slice($p['features'], 0, 4) as $f): ?><li class="flex gap-3 text-charcoal/80"><?= icon('check', 'mt-0.5 h-5 w-5 shrink-0 text-safety') ?><?= e($f) ?></li><?php endforeach ?>
@@ -99,6 +100,8 @@ $catalogue = (string) setting('catalogue_pdf', '');
   </div>
 </section>
 <?php endif ?>
+
+<?php if (reviews_enabled() || reviews_stats((int) $p['id'])['count']): ?><?= view('site/_reviews', ['product' => $p]) ?><?php endif ?>
 
 <?php if ($projects): ?>
 <section id="projects" class="section">

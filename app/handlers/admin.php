@@ -6,6 +6,8 @@ function admin_nav(): array
 {
     $newLeads = can('leads') ? (int) db_val("SELECT COUNT(*) FROM leads WHERE status = 'new'") : 0;
     $newApplications = can('users') ? (int) db_val("SELECT COUNT(*) FROM leads WHERE type = 'job' AND status = 'new'") : 0;
+    $pendingReviewsC = 0;
+    if (can('content')) { try { $pendingReviewsC = (int) db_val("SELECT COUNT(*) FROM reviews WHERE status = 'pending'"); } catch (Throwable) {} }
     $pendingComments = 0;
     if (can('content')) { try { $pendingComments = (int) db_val("SELECT COUNT(*) FROM comments WHERE status = 'pending'"); } catch (Throwable) {} }
     $pendingReviews = 0;
@@ -20,6 +22,7 @@ function admin_nav(): array
         ['Pages', 'admin/pages', 'file-text', 'content'],
         ['Blog Posts', 'admin/posts', 'newspaper', 'content'],
         ['Comments', 'admin/comments', 'message-square', 'content', $pendingComments],
+        ['Reviews', 'admin/reviews-moderation', 'star', 'content', $pendingReviewsC],
         ['Categories', 'admin/r/categories', 'folder-tree', 'content'],
         ['Products', 'admin/r/products', 'package', 'content'],
         ['Product Categories', 'admin/r/product_categories', 'layers', 'content'],

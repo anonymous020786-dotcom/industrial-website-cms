@@ -153,7 +153,7 @@ function site_product(string $slug): void
         'section' => 'products',
         'crumbs' => [['label' => 'Products', 'url' => url('products')], ['label' => $p['name'], 'url' => product_url($p)]],
         'jsonld' => [['@context' => 'https://schema.org', '@type' => 'Product', 'name' => $p['name'], 'description' => $p['summary'],
-            'image' => image_abs_url($p['image']), 'category' => $cat, 'brand' => ['@type' => 'Brand', 'name' => company('name')]]],
+            'image' => image_abs_url($p['image']), 'category' => $cat, 'brand' => ['@type' => 'Brand', 'name' => company('name')]] + reviews_jsonld((int) $p['id'])],
     ];
     $meta['edit'] = ['Edit product', 'admin/r/products/' . $p['id'] . '/edit', 'content'];
     site_render($meta, view('site/product', ['p' => $p, 'cat' => $cat]));
@@ -213,7 +213,7 @@ function site_sitemap_xml(): void
     $projects = db_all("SELECT slug, updated_at FROM projects WHERE status = 'published'");
     if ($projects) $urls[] = [abs_url('projects'), null, '0.7'];
     foreach ($projects as $p) $urls[] = [abs_url('projects/' . $p['slug']), $p['updated_at'], '0.7'];
-    foreach (['service-request' => '0.6', 'parts' => '0.6', 'calculators' => '0.6', 'downloads' => '0.5'] as $u => $prio) $urls[] = [abs_url($u), null, $prio];
+    foreach (['service-request' => '0.6', 'parts' => '0.6', 'calculators' => '0.6', 'downloads' => '0.5', 'reviews' => '0.4'] as $u => $prio) $urls[] = [abs_url($u), null, $prio];
     if (db_val("SELECT 1 FROM distributors WHERE status = 'published' LIMIT 1")) $urls[] = [abs_url('distributors'), null, '0.5'];
     $jobs = jobs_open();
     if ($jobs) $urls[] = [abs_url('careers'), null, '0.5'];
