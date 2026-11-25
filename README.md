@@ -86,9 +86,21 @@ php app/cli.php install --db-name=industrial_cms --db-user=root --db-pass= \
 
 1. Run `npm run build` locally (the compiled CSS/JS are committed in `public/assets`).
 2. Create a MySQL database + user in your hosting panel.
-3. Upload the project. **Best:** point the domain's document root at `/public`.
-   If you cannot change the document root, upload everything into `public_html` — the root
-   `.htaccess` routes requests into `/public` and blocks `app/`, `database/`, etc.
+3. Upload the project, using one of these layouts:
+   - **Best on Hostinger/cPanel:** make the site its own website, not a subdomain folder. Then
+     put `app/`, `content/` and `database/` in `domains/<site>/`, **outside** the web root, and the
+     contents of `public/` in `domains/<site>/public_html/`. The app detects `public_html`
+     automatically, so code and config can never be served.
+   - **Document root you can change:** point it at `/public`.
+   - **Otherwise:** upload everything into `public_html`. The root `.htaccess` routes requests into
+     `/public` and blocks `app/`, `database/` and the like.
+
+   **Automatic deploys:** `.github/workflows/deploy.yml` (SSH or FTPS secrets) uses
+   `scripts/deploy-sync.sh`. Set the repository variable `DEPLOY_WEB_DIR=public_html` for the
+   first layout above.
+   - The config, `app/storage` (backups, logs), uploads and `.well-known` are never overwritten
+     or deleted.
+   - CI tests this on every push (`scripts/test-deploy-sync.sh`).
 4. Visit `https://your-domain/install`, enter the database details and create the admin account.
    The installer locks itself afterwards (`app/storage/installed.lock`).
 5. Make `public/uploads` and `app/storage` writable. Enable SSL, then uncomment the HTTPS

@@ -87,6 +87,9 @@ jobs:
           awk '/^\[/{skip = /this is expected/} !skip' app/storage/logs/php-error.log > unexpected-errors.log
           if [ -s unexpected-errors.log ]; then cat unexpected-errors.log; exit 1; fi
 
+      - name: Deploy script keeps server files (config, backups, uploads, SSL)
+        run: bash scripts/test-deploy-sync.sh
+
       - name: Logs on failure
         if: failure()
         run: |

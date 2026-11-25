@@ -7,6 +7,13 @@
 #   FTP / FTPS (shared hosting without SSH):
 #     DEPLOY_FTP_HOST, DEPLOY_FTP_USER, DEPLOY_FTP_PASSWORD, DEPLOY_PATH (remote folder, e.g. /public_html)
 #
+# Layout (repository variable DEPLOY_WEB_DIR, Settings → Secrets and variables → Actions → Variables):
+#   unset        the whole project goes into DEPLOY_PATH (document root = DEPLOY_PATH/public, or the
+#                root .htaccess routes into /public when the whole project sits in the web root)
+#   public_html  Hostinger/cPanel fixed document root (recommended): the code goes into DEPLOY_PATH
+#                (e.g. /home/u123/domains/demo.example.com) OUTSIDE the web root, and the contents of
+#                public/ go into DEPLOY_PATH/public_html. Uploads and .well-known are never touched.
+#
 # Never uploaded: app/config.php, app/storage/, public/uploads/, node_modules, tests, docs, .git*.
 # Database migrations run automatically over SSH (FTP: run `php app/cli.php migrate` or open /admin once).
 name: Deploy
@@ -34,6 +41,7 @@ jobs:
     env:
       SSH_HOST: ${{ secrets.DEPLOY_SSH_HOST }}
       FTP_HOST: ${{ secrets.DEPLOY_FTP_HOST }}
+      WEB_DIR: ${{ vars.DEPLOY_WEB_DIR }}
     steps:
       - name: Check configuration
         id: mode
@@ -46,22 +54,6 @@ jobs:
         if: steps.mode.outputs.method != 'none'
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
-
-      - name: Files to upload
-        if: steps.mode.outputs.method != 'none'
-        run: |
-          cat > .deployignore <<'EOF'
-          .git/
-          .github/
-          .deployignore
-          node_modules/
-          tests/
-          docs/
-          app/config.php
-          app/storage/
-          public/uploads/
-          .env
-          EOF
 
       - name: Deploy over SSH (rsync)
         if: steps.mode.outputs.method == 'ssh'
@@ -78,7 +70,8 @@ jobs:
           printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
           if [ -n "$KNOWN_HOSTS" ]; then printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts; else ssh-keyscan -p "$PORT" -H "$SSH_HOST" > ~/.ssh/known_hosts; fi
           SSH="ssh -p $PORT -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes"
-          rsync -az --delete --exclude-from=.deployignore -e "$SSH" ./ "$SSH_USER@$SSH_HOST:$DEPLOY_PATH/"
+          # Layout handling + what is never touched: scripts/deploy-sync.sh (tested in CI)
+          bash scripts/deploy-sync.sh "$SSH_USER@$SSH_HOST:$DEPLOY_PATH" "$WEB_DIR" "$SSH"
           $SSH "$SSH_USER@$SSH_HOST" "cd '$DEPLOY_PATH' && php app/cli.php migrate"
           rm -f ~/.ssh/deploy_key
 
@@ -92,7 +85,14 @@ jobs:
           set -euo pipefail
           sudo apt-get update -qq && sudo apt-get install -y -qq lftp
           EXCLUDES=$(sed 's#^#--exclude-glob #' .deployignore | sed 's#/$##' | tr '\n' ' ')
-          lftp -u "$FTP_USER","$FTP_PASSWORD" "$FTP_HOST" -e "set ftp:ssl-force true; set ssl:verify-certificate yes; mirror -R --only-newer --parallel=4 $EXCLUDES ./ '$DEPLOY_PATH'; quit"
+          if [ -n "$WEB_DIR" ]; then
+            case "$WEB_DIR" in *[!A-Za-z0-9_.-]*|.*) echo "::error::DEPLOY_WEB_DIR must be a plain folder name like public_html"; exit 1;; esac
+            lftp -u "$FTP_USER","$FTP_PASSWORD" "$FTP_HOST" -e "set ftp:ssl-force true; set ssl:verify-certificate yes; \
+              mirror -R --only-newer --parallel=4 $EXCLUDES --exclude-glob public --exclude-glob $WEB_DIR --exclude-glob .htaccess ./ '$DEPLOY_PATH'; \
+              mirror -R --only-newer --parallel=4 --exclude-glob uploads --exclude-glob .well-known --exclude-glob router.php ./public/ '$DEPLOY_PATH/$WEB_DIR'; quit"
+          else
+            lftp -u "$FTP_USER","$FTP_PASSWORD" "$FTP_HOST" -e "set ftp:ssl-force true; set ssl:verify-certificate yes; mirror -R --only-newer --parallel=4 $EXCLUDES ./ '$DEPLOY_PATH'; quit"
+          fi
 
       - name: Smoke test
         if: steps.mode.outputs.method != 'none' && vars.SITE_URL != ''
