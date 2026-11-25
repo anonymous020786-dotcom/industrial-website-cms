@@ -320,4 +320,45 @@
     form.addEventListener('input', update);
     setTimeout(update, 300);
   });
+
+  /* ---------------- Scroll up / down buttons with reading progress ---------------- */
+  const toTop = $('[data-scroll-up]');
+  const down = $('[data-scroll-down]');
+  if (toTop || down) {
+    const ring = $('.adm-scroll-ring .ring-fg');
+    const RING = 2 * Math.PI * 22;
+    const smooth = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+    const topbar = $('.adm-topbar');
+    let ticking = false;
+    const update = () => {
+      const y = window.scrollY;
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      const pct = max > 0 ? Math.min(1, Math.max(0, y / max)) : 0;
+      toTop?.classList.toggle('is-visible', y > 320);
+      // Offered on long pages until the last screen
+      down?.classList.toggle('is-visible', max > 600 && max - y > 400);
+      if (ring) ring.style.strokeDashoffset = String(RING * (1 - pct));
+      toTop?.setAttribute('aria-label', `Back to top (${Math.round(pct * 100)}% of the page)`);
+      ticking = false;
+    };
+    window.addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(update); } }, { passive: true });
+    window.addEventListener('resize', update, { passive: true });
+    new ResizeObserver(update).observe(document.body); // pages that grow (repeaters, tables) update the buttons
+    update();
+    toTop?.addEventListener('click', () => {
+      window.scrollTo({ top: 0, behavior: smooth });
+      $('.adm-main h1')?.setAttribute('tabindex', '-1');
+      $('.adm-main h1')?.focus({ preventScroll: true });
+    });
+    // Next card or section below the sticky top bar, or most of a screen if the next one is far
+    down?.addEventListener('click', () => {
+      const offset = (topbar?.offsetHeight || 64) + 12;
+      const next = $$('.adm-content > *, .adm-content .adm-card, .adm-content section')
+        .map((el) => el.getBoundingClientRect().top - offset)
+        .filter((t) => t > 24)
+        .sort((a, b) => a - b)[0];
+      const by = next === undefined ? window.innerHeight * 0.85 : Math.min(next, window.innerHeight * 0.9);
+      window.scrollBy({ top: by, behavior: smooth });
+    });
+  }
 })();

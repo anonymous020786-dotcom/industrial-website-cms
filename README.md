@@ -49,6 +49,13 @@ marketing integrations. It runs on any standard PHP host with no framework and n
   backup email, rate limiting, an audit log and CSP. See [SECURITY.md](SECURITY.md).
 - **Quality.**
   - Light and dark themes; WCAG 2.2 AA contrast; schema.org JSON-LD.
+  - **The admin has the same light/dark switch** (sun/moon in the top bar and on the sign-in
+    screens).
+    - One choice follows the person between the website and the admin.
+    - It's applied before the page draws, so there's no white flash, and without inline scripts, so
+      the admin's strict CSP stays.
+    - There are **scroll up/down buttons** with a reading-progress ring on long admin pages too
+      (Settings → Company & Branding → Scroll buttons).
   - Self-hosted fonts, icons and WebP photos; minified HTML, CSS and JS.
   - Lighthouse 100 for accessibility, best practices and SEO.
 - **No frameworks.** Plain PHP 8.1+, MySQL/MariaDB, pre-compiled Tailwind and vanilla JS. Node.js is

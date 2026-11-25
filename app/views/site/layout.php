@@ -42,7 +42,7 @@ $tagline = company('tagline', 'Precision Engineering | Reliable Hydraulic & Cran
   <meta name="twitter:card" content="summary_large_image">
   <?= view('site/_icons') ?>
   <link rel="alternate" type="application/rss+xml" title="<?= e($name) ?> Blog" href="<?= e(url('feed.xml')) ?>">
-  <?php $themeDefault = in_array(setting('theme_default', 'light'), ['light', 'dark', 'system'], true) ? setting('theme_default', 'light') : 'light'; ?>
+  <?php $themeDefault = theme_default(); ?>
   <meta name="color-scheme" content="<?= $themeDefault === 'light' && !setting('theme_toggle', true) ? 'light' : 'light dark' ?>">
   <?php $editorial = setting('heading_style', 'industrial') === 'editorial'; ?>
   <?php if ($editorial): ?><link rel="preload" href="<?= e(url('assets/fonts/playfair-display-latin-700-normal.woff2')) ?>" as="font" type="font/woff2" crossorigin><?php endif ?>

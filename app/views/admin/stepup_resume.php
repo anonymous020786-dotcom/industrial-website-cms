@@ -8,12 +8,13 @@ $inputs = function (array $data, string $prefix = '') use (&$inputs): string {
     return $h;
 };
 ?><!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme-default="<?= e(theme_default()) ?>">
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="robots" content="noindex, nofollow">
   <title>Continuing… · <?= e(company('name', 'Admin')) ?></title>
   <link rel="stylesheet" href="<?= e(asset('css/admin.css')) ?>">
   <link rel="stylesheet" href="<?= e(asset('css/tailwind.css')) ?>">
+  <?= admin_theme_head() ?>
 </head>
 <body class="adm-login" data-base="<?= e(base_path()) ?>">
   <main class="w-full max-w-md">

@@ -881,6 +881,37 @@ test('telegram: bot setup, connect, codes, one-tap approve/deny, trusted device 
 });
 
 /* ------------------------------------------------------------------ */
+test('admin theme switch and scroll buttons: applied before paint without inline scripts, follow settings', async () => {
+  const dash = await admin.get('admin');
+  const head = dash.text.split('</head>')[0];
+  assert.match(head, /<script src="[^"]*js\/theme-init\.js[^"]*"><\/script>/, 'theme script in <head>, not deferred');
+  assert.match(dash.text, /<html lang="en" data-theme-default="(light|dark|system)">/);
+  assert.match(dash.text, /data-theme-toggle/);
+  assert.match(dash.text, /data-scroll-up/);
+  assert.match(dash.text, /data-scroll-down/);
+  assert.doesNotMatch(dash.res.headers.get('content-security-policy') || '', /script-src[^;]*unsafe-inline/, 'CSP still blocks inline scripts');
+  assert.doesNotMatch(head.replace(/<script src="[^"]+"[^>]*><\/script>/g, ''), /<script/, 'no inline script in the admin head');
+  const js = await admin.get(head.match(/src="([^"]*theme-init\.js[^"]*)"/)[1].replace(/^\//, ''));
+  assert.equal(js.status, 200);
+  assert.match(js.text, /localStorage/);
+
+  const login = await new Client().get('admin/login');
+  assert.match(login.text, /theme-init\.js/);
+  assert.match(login.text, /class="adm-login-theme adm-theme-toggle" data-theme-toggle/);
+
+  setSetting('theme_default', 'dark');
+  setSetting('scroll_buttons', false);
+  try {
+    const d2 = await admin.get('admin');
+    assert.match(d2.text, /data-theme-default="dark"/, 'site default theme applies to the admin');
+    assert.doesNotMatch(d2.text, /data-scroll-up/, 'scroll buttons follow the setting');
+  } finally {
+    setSetting('theme_default', 'light');
+    setSetting('scroll_buttons', true);
+  }
+});
+
+/* ------------------------------------------------------------------ */
 test('keep me signed in: survives a browser restart, rotates, is device-bound, detects stolen tokens, ends on sign-out', async () => {
   setSetting('remember_enabled', true);
   setSetting('remember_days', 30);

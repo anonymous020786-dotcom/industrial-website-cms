@@ -12,16 +12,18 @@ $alerts = function () use ($flashes, $error) {
 };
 $devHint = fn($code) => $code ? '<div class="adm-flash adm-flash-info">' . icon('bug', 'h-5 w-5 shrink-0') . '<span><strong>Debug mode:</strong> the code is <code class="font-bold">' . e($code) . '</code>. Emails are also saved in Admin → Settings → System → Dev mailbox. This hint never appears when debug is off.</span></div>' : '';
 ?><!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme-default="<?= e(theme_default()) ?>">
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="robots" content="noindex, nofollow">
   <title><?= e($titles[$step] ?? 'Sign in') ?> · <?= e(company('name', 'Admin')) ?></title>
   <link rel="icon" href="<?= e(url('favicon.ico')) ?>" sizes="48x48"><link rel="icon" href="<?= e(url('favicon.svg')) ?>" type="image/svg+xml">
   <link rel="stylesheet" href="<?= e(asset('css/admin.css')) ?>">
   <link rel="stylesheet" href="<?= e(asset('css/tailwind.css')) ?>">
+  <?= admin_theme_head() ?>
   <?php if (!empty($turnstile)): ?><script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script><?php endif ?>
 </head>
 <body class="adm-login" data-base="<?= e(base_path()) ?>">
+  <?= admin_theme_button() ?>
   <main class="w-full max-w-md">
     <div class="mb-8 flex items-center justify-center gap-3">
       <svg class="h-10 w-10" viewBox="0 0 40 40" aria-hidden="true"><rect width="40" height="40" fill="#fff"/><path d="M9 30 L17 10 H23 L15 30 Z" fill="#F28C28"/><path d="M19 30 L27 10 H33 L25 30 Z" fill="#174A78"/></svg>

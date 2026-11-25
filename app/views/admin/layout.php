@@ -4,7 +4,7 @@ $user = current_user();
 $flashes = flashes();
 $path = request_path();
 ?><!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme-default="<?= e(theme_default()) ?>">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -15,6 +15,7 @@ $path = request_path();
   <link rel="stylesheet" href="<?= e(asset('vendor/quill/quill.snow.css')) ?>">
   <link rel="stylesheet" href="<?= e(asset('css/admin.css')) ?>">
   <link rel="stylesheet" href="<?= e(asset('css/tailwind.css')) ?>">
+  <?= admin_theme_head() ?>
 </head>
 <body class="adm-body" data-base="<?= e(base_path()) ?>">
 <?php if ($user): ?>
@@ -49,6 +50,7 @@ $path = request_path();
         <h1 class="truncate text-lg font-bold text-navy"><?= e($title) ?></h1>
       </div>
       <div class="flex items-center gap-2"><?= $actions ?></div>
+      <?= admin_theme_button('adm-icon-btn !h-10 !w-10 rounded-full') ?>
       <?php $unreadN = notifications_unread((int) $user['id']); ?>
       <a href="<?= e(url('admin/notifications')) ?>" class="adm-bell" aria-label="Notifications<?= $unreadN ? ' (' . $unreadN . ' unread)' : '' ?>" title="Notifications"><?= icon('bell', 'h-5 w-5') ?><?php if ($unreadN): ?><span class="adm-bell-count"><?= $unreadN > 99 ? '99+' : $unreadN ?></span><?php endif ?></a>
       <?php if (stepup_valid()): ?><span class="adm-verified" title="Sensitive actions confirmed for <?= (int) ceil(stepup_remaining() / 60) ?> more minute(s)"><?= icon('shield-check', 'h-4 w-4') ?><span class="hidden md:inline">Verified</span></span><?php endif ?>
@@ -105,6 +107,15 @@ $path = request_path();
   <div class="max-h-[65vh] overflow-y-auto p-5"><div class="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6" data-media-grid></div><p class="py-10 text-center text-sm text-charcoal/50" data-media-empty hidden>No images uploaded yet.</p></div>
 </dialog>
 <datalist id="lucide-icons"></datalist>
+<?php if (setting('scroll_buttons', true)): ?>
+<div class="adm-scroll">
+  <button type="button" class="adm-scroll-btn adm-scroll-down" data-scroll-down aria-label="Scroll down"><?= icon('chevron-down', 'h-5 w-5') ?></button>
+  <button type="button" class="adm-scroll-btn adm-scroll-up" data-scroll-up aria-label="Back to top">
+    <svg class="adm-scroll-ring" viewBox="0 0 48 48" aria-hidden="true"><circle class="ring-bg" cx="24" cy="24" r="22"/><circle class="ring-fg" cx="24" cy="24" r="22" stroke-dasharray="138.23" stroke-dashoffset="138.23"/></svg>
+    <?= icon('arrow-up', 'relative h-5 w-5') ?>
+  </button>
+</div>
+<?php endif ?>
 <?php else: ?>
 <?= $content ?>
 <?php endif ?>

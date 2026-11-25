@@ -272,3 +272,24 @@ function site_admin_user(): ?array
     if (empty($_COOKIE['ivadmin'])) return $u = null;
     try { return $u = current_user(); } catch (Throwable) { return $u = null; }
 }
+
+
+/** Default colour theme for people who have not chosen one: light | dark | system. */
+function theme_default(): string
+{
+    try { $t = (string) setting('theme_default', 'light'); } catch (Throwable) { return 'light'; }
+    return in_array($t, ['light', 'dark', 'system'], true) ? $t : 'light';
+}
+
+/** <head> snippet for admin pages: applies the saved theme before the first paint (no inline script under the CSP). */
+function admin_theme_head(): string
+{
+    return '<script src="' . e(asset('js/theme-init.js')) . '"></script>';
+}
+
+/** Round light/dark switch used on the admin sign-in screens. */
+function admin_theme_button(string $class = 'adm-login-theme'): string
+{
+    return '<button type="button" class="' . e($class) . ' adm-theme-toggle" data-theme-toggle aria-label="Switch to dark theme" aria-pressed="false">'
+        . icon('moon', 'icon-moon h-[18px] w-[18px]') . icon('sun', 'icon-sun h-[18px] w-[18px]') . '</button>';
+}

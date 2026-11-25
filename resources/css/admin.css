@@ -221,3 +221,114 @@ html .text-white\/35, html .text-white\/40, html .text-white\/50 { color: rgb(25
 .adm-spinner { display: inline-block; width: 1rem; height: 1rem; border: 2px solid rgba(23,74,120,.25); border-top-color: #174A78; border-radius: 9999px; animation: adm-spin .8s linear infinite; }
 @keyframes adm-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .adm-spinner { animation-duration: 2.4s; } }
+
+/* ==========================================================================
+   Dark theme (html.dark, set by theme-init.js before the first paint)
+   ========================================================================== */
+html.dark { color-scheme: dark; --d-bg: #0B1322; --d-surface: #111C2E; --d-surface-2: #16243A; --d-surface-3: #1C2D47; --d-line: rgba(255,255,255,.1);
+  --d-text: #E2E8F0; --d-muted: rgba(226,232,240,.74); --d-heading: #F1F5F9; --d-accent: #8DB8E6; }
+html:not(.dark) { color-scheme: light; }
+html.theme-anim, html.theme-anim *, html.theme-anim *::before { transition: background-color .3s, border-color .3s, color .3s !important; }
+@media (prefers-reduced-motion: reduce) { html.theme-anim, html.theme-anim * { transition: none !important; } }
+
+.dark .adm-body { background: var(--d-bg); color: var(--d-text); }
+.dark .adm-topbar { background: rgba(17,28,46,.92); border-color: var(--d-line); }
+.dark .adm-sidebar { background: #08101D; border-right: 1px solid var(--d-line); }
+.dark .adm-avatar { background: #2A4268; }
+.dark :is(.adm-card, .adm-user-menu, .adm-dialog, .adm-dropzone) { background: var(--d-surface); border-color: var(--d-line); color: var(--d-text); box-shadow: none; }
+.dark .adm-user summary:hover, .dark .adm-menu-item:hover, .dark .adm-icon-btn:hover, .dark .adm-bell:hover, .dark .pw-toggle:hover, .dark .adm-subnav:hover { background: rgba(255,255,255,.07); }
+.dark :is(.adm-menu-item, .adm-card-title, .adm-label, .adm-kpi-value, .adm-chart-val, .adm-bell, .adm-tab.is-active, .adm-tab:hover) { color: var(--d-heading); }
+.dark :is(.adm-subheading, .adm-link, .adm-details summary, .adm-chip) { color: var(--d-accent); }
+.dark :is(.adm-kpi-label, .adm-chart-label, .adm-help, .adm-counter, .adm-tab, .adm-subnav, .adm-repeater-handle, .turnstile-note, .adm-icon-btn, .pw-toggle, .adm-segment span) { color: var(--d-muted); }
+.dark .adm-subnav.is-active { background: rgba(242,140,40,.16); color: #fff; }
+.dark :is(.adm-subheading, .adm-tabs, .adm-table th, .adm-table td, .adm-repeater-row, .adm-chip, .adm-segment, .adm-serp) { border-color: var(--d-line); }
+.dark .adm-table th { background: var(--d-surface-2); color: var(--d-muted); }
+.dark .adm-table tbody tr:hover { background: rgba(255,255,255,.03); }
+.dark :is(.adm-kpi-icon, .adm-tab span, .adm-icon-preview, .adm-image-preview, .adm-media-item, .adm-timeline-dot) { background: var(--d-surface-3); color: var(--d-accent); }
+.dark .adm-timeline-dot { border-color: var(--d-surface); }
+.dark .adm-timeline::before { background: var(--d-line); }
+.dark .adm-repeater-row { background: var(--d-surface-2); }
+
+/* Forms */
+.dark .adm-input, .dark .adm-html-source { background: var(--d-surface-2); border-color: rgba(255,255,255,.16); color: var(--d-text); }
+.dark .adm-input::placeholder { color: rgba(226,232,240,.45); }
+.dark .adm-input:focus { border-color: var(--d-accent); box-shadow: 0 0 0 3px rgba(141,184,230,.2); }
+.dark .adm-input[readonly] { background: rgba(255,255,255,.04); color: var(--d-muted); }
+.dark .adm-check { color: var(--d-text); }
+.dark .adm-help code, .dark .adm-body code { background: rgba(255,255,255,.08); color: #F8D9B8; }
+.dark .adm-segment input:checked + span { background: var(--safety); color: var(--navy); }
+.dark .adm-error, .dark .adm-counter.is-over { color: #FCA5A5; }
+
+/* Buttons */
+.dark :is(.adm-btn-light, .adm-chip) { background: var(--d-surface-2); border-color: rgba(255,255,255,.16); color: var(--d-heading); }
+.dark .adm-btn-light:hover { border-color: rgba(255,255,255,.4); }
+.dark .adm-btn-danger { background: transparent; border-color: rgba(248,113,113,.45); color: #FCA5A5; }
+.dark .adm-btn-danger:hover { background: rgba(248,113,113,.1); }
+
+/* Flashes, banners, badges */
+.dark .adm-flash-success { background: rgba(16,185,129,.12); border-color: rgba(16,185,129,.35); color: #A7F3D0; }
+.dark .adm-flash-error { background: rgba(239,68,68,.12); border-color: rgba(239,68,68,.35); color: #FECACA; }
+.dark .adm-flash-info { background: rgba(59,130,246,.12); border-color: rgba(59,130,246,.35); color: #BFDBFE; }
+.dark .adm-maint-banner { background: rgba(242,140,40,.12); border-color: rgba(242,140,40,.45); color: #FBD3A9; }
+.dark .adm-maint-banner strong { color: #FDE3C7; }
+.dark .adm-verified { background: rgba(16,185,129,.14); color: #6EE7B7; }
+.dark .adm-dropzone.is-over { background: rgba(242,140,40,.1); }
+.dark .adm-dialog::backdrop { background: rgba(0,0,0,.7); }
+.dark .adm-spinner { border-color: rgba(141,184,230,.25); border-top-color: var(--d-accent); }
+
+/* Quill editor */
+.dark .ql-toolbar.ql-snow { background: var(--d-surface-2); border-color: rgba(255,255,255,.16); }
+.dark .ql-container.ql-snow { border-color: rgba(255,255,255,.16); color: var(--d-text); }
+.dark .ql-snow .ql-stroke { stroke: #CBD5E1; }
+.dark .ql-snow .ql-fill { fill: #CBD5E1; }
+.dark .ql-snow .ql-picker, .dark .ql-html-toggle { color: #CBD5E1; }
+.dark .ql-snow .ql-picker-options { background: var(--d-surface-2); border-color: var(--d-line); }
+.dark .ql-editor h2, .dark .ql-editor h3 { color: var(--d-heading); }
+.dark .ql-snow .ql-editor a { color: var(--d-accent); }
+.dark .ql-editor.ql-blank::before { color: rgba(226,232,240,.45); }
+
+/* Tailwind colour utilities used in admin views */
+.dark :is(.adm-body, .adm-login) .bg-white { background-color: var(--d-surface); }
+.dark :is(.adm-body, .adm-login) :is(.bg-mist, .hover\:bg-mist:hover, [class*="bg-mist/"]) { background-color: rgba(255,255,255,.06); }
+.dark :is(.adm-body, .adm-login) .bg-navy { background-color: #2A4268; }
+.dark :is(.adm-body, .adm-login) :is(.text-navy, .hover\:text-navy:hover) { color: var(--d-heading); }
+.dark :is(.adm-body, .adm-login) :is(.text-steel, .hover\:text-steel:hover) { color: var(--d-accent); }
+.dark :is(.adm-body, .adm-login) [class*="text-charcoal"] { color: var(--d-muted); }
+.dark :is(.adm-body, .adm-login) :is([class*="border-black"], .border-charcoal) { border-color: var(--d-line); }
+.dark :is(.adm-body, .adm-login) [class*="divide-black"] > :not(:first-child) { border-color: var(--d-line); }
+.dark :is(.adm-body, .adm-login) [class*="bg-black/"] { background-color: var(--d-line); }
+.dark :is(.adm-body, .adm-login) :is(.border-steel, .hover\:border-steel:hover) { border-color: var(--d-accent); }
+.dark .adm-content .text-safety, .dark .adm-login .adm-card .text-safety { color: #F5A65B; }
+.dark :is(.adm-body, .adm-login) :is(.bg-gray-100, .bg-gray-200) { background-color: rgba(255,255,255,.09); }
+.dark :is(.adm-body, .adm-login) :is(.text-gray-500, .text-gray-700) { color: #CBD5E1; }
+.dark :is(.adm-body, .adm-login) :is(.bg-emerald-50, .bg-emerald-100) { background-color: rgba(16,185,129,.15); }
+.dark :is(.adm-body, .adm-login) :is(.text-emerald-600, .text-emerald-700, .text-emerald-800) { color: #6EE7B7; }
+.dark :is(.adm-body, .adm-login) :is(.bg-red-50, .bg-red-100) { background-color: rgba(239,68,68,.15); }
+.dark :is(.adm-body, .adm-login) :is(.text-red-600, .text-red-700, .text-red-800, .\!text-red-700) { color: #FCA5A5 !important; }
+.dark :is(.adm-body, .adm-login) :is(.bg-amber-50, .bg-amber-100) { background-color: rgba(245,158,11,.14); }
+.dark :is(.adm-body, .adm-login) :is(.text-amber-600, .text-amber-700, .text-amber-800, .text-amber-900) { color: #FCD34D; }
+.dark :is(.adm-body, .adm-login) .border-amber-300 { border-color: rgba(245,158,11,.45); }
+.dark :is(.adm-body, .adm-login) :is(.bg-sky-50, .bg-sky-100, [class*="bg-sky-50/"]) { background-color: rgba(14,165,233,.14); }
+.dark :is(.adm-body, .adm-login) :is(.text-sky-700, .text-sky-800, .text-sky-900) { color: #7DD3FC; }
+.dark :is(.adm-body, .adm-login) .border-sky-200 { border-color: rgba(14,165,233,.35); }
+.dark :is(.adm-body, .adm-login) .bg-blue-100 { background-color: rgba(59,130,246,.18); }
+.dark :is(.adm-body, .adm-login) .text-blue-800 { color: #93C5FD; }
+
+/* Theme switch + scroll buttons */
+.adm-theme-toggle .icon-sun, .dark .adm-theme-toggle .icon-moon { display: none; }
+.dark .adm-theme-toggle .icon-sun { display: block; }
+.adm-login-theme { position: fixed; top: 1rem; right: 1rem; display: grid; place-items: center; width: 2.5rem; height: 2.5rem; border-radius: 999px; color: rgba(255,255,255,.8); border: 1px solid rgba(255,255,255,.2); }
+.adm-login-theme:hover { color: #fff; border-color: rgba(255,255,255,.5); }
+.adm-scroll { position: fixed; right: 1.25rem; bottom: 1.25rem; z-index: 25; display: flex; flex-direction: column; align-items: center; gap: .5rem; pointer-events: none; }
+.adm-scroll-btn { display: grid; place-items: center; border-radius: 999px; cursor: pointer; opacity: 0; transform: translateY(8px); transition: opacity .2s, transform .2s, background-color .15s; pointer-events: none; }
+.adm-scroll-btn.is-visible { opacity: 1; transform: none; pointer-events: auto; }
+.adm-scroll-down { width: 2.25rem; height: 2.25rem; background: #fff; color: var(--navy); border: 1px solid rgba(16,29,50,.18); box-shadow: 0 8px 20px -12px rgba(16,29,50,.5); }
+.adm-scroll-up { position: relative; width: 2.9rem; height: 2.9rem; background: var(--navy); color: #fff; box-shadow: 0 10px 24px -12px rgba(16,29,50,.6); }
+.adm-scroll-btn:hover { background: var(--safety); color: var(--navy); border-color: var(--safety); }
+.adm-scroll-ring { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+.adm-scroll-ring circle { fill: none; stroke-width: 2.5; }
+.adm-scroll-ring .ring-bg { stroke: rgba(255,255,255,.18); }
+.adm-scroll-ring .ring-fg { stroke: var(--safety); stroke-linecap: round; transition: stroke-dashoffset .1s linear; }
+.dark .adm-scroll-down { background: var(--d-surface-2); color: var(--d-heading); border-color: rgba(255,255,255,.16); }
+.dark .adm-scroll-up { background: #24395A; }
+@media print { .adm-scroll, .adm-theme-toggle { display: none; } }
