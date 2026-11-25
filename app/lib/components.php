@@ -217,7 +217,7 @@ function form_field(array $o): string
     $desc = ' aria-describedby="err-' . $id . '"';
     $control = match ($type) {
         'select' => '<select id="' . $id . '" name="' . $id . '"' . $req . $desc . '><option value="">Select an option</option>' . ($o['options'] ?? '') . '</select>',
-        'textarea' => '<textarea id="' . $id . '" name="' . $id . '" rows="' . (int) ($o['rows'] ?? 5) . '"' . $req . $ph . $desc . '></textarea>',
+        'textarea' => '<textarea id="' . $id . '" name="' . $id . '" rows="' . (int) ($o['rows'] ?? 5) . '"' . $req . $ph . $desc . '>' . e((string) ($o['value'] ?? '')) . '</textarea>',
         default => '<input id="' . $id . '" name="' . $id . '" type="' . e($type) . '"' . $req . $ac . $ph . $desc . (($type === 'number') ? ' min="1"' : '') . (isset($o['value']) && $o['value'] !== '' ? ' value="' . e((string) $o['value']) . '"' : '') . '>',
     };
     if (!empty($o['error'])) $o['error_html'] = e((string) $o['error']);

@@ -49,6 +49,31 @@
     });
   }
 
+  /* ---------------- Engineering calculators: live results from the server (one set of formulas) ---------------- */
+  $$('form[data-calc]').forEach((form) => {
+    const out = $('[data-out]', form);
+    const quote = $('[data-quote-link]', form);
+    let timer;
+    const run = async () => {
+      const url = form.action.split('#')[0] + '?' + new URLSearchParams(new FormData(form)).toString();
+      try {
+        const r = await fetch(url, { headers: { Accept: 'application/json' } });
+        const j = await r.json();
+        out.innerHTML = '';
+        if (!j.results.length) { const p = document.createElement('p'); p.className = 'py-3 text-sm text-red-700'; p.textContent = 'Check the values (the rod must be smaller than the bore).'; out.append(p); }
+        j.results.forEach(([label, value]) => {
+          const row = document.createElement('div'); row.className = 'flex items-baseline justify-between gap-4 py-2.5';
+          const dt = document.createElement('dt'); dt.className = 'text-sm text-charcoal/75'; dt.textContent = label;
+          const dd = document.createElement('dd'); dd.className = 'text-right font-display text-xl font-bold text-navy'; dd.textContent = value;
+          row.append(dt, dd); out.append(row);
+        });
+        if (quote && j.quote) quote.href = j.quote;
+      } catch { /* keep the last result */ }
+    };
+    form.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(run, 250); });
+    form.addEventListener('submit', (e) => { e.preventDefault(); run(); });
+  });
+
   /* ---------------- Light / dark theme ---------------- */
   function initTheme() {
     const btn = $('#theme-toggle');

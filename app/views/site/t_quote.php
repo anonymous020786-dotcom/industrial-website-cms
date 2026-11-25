@@ -41,7 +41,7 @@ $sent = !empty($_GET['sent']);
             <?= form_field(['id' => 'quantity', 'label' => 'Quantity', 'type' => 'number', 'placeholder' => 'e.g. 4']) ?>
             <?= form_field(['id' => 'requiredBy', 'label' => 'Required By', 'type' => 'date']) ?>
             <?= form_field(['id' => 'partNumber', 'label' => 'Part / Drawing Number', 'full' => true, 'placeholder' => 'If available']) ?>
-            <?= form_field(['id' => 'message', 'label' => 'Technical Details', 'type' => 'textarea', 'required' => true, 'full' => true, 'rows' => 6, 'placeholder' => 'Dimensions, operating pressure, load, material, application, condition of existing part…']) ?>
+            <?= form_field(['id' => 'message', 'label' => 'Technical Details', 'type' => 'textarea', 'required' => true, 'full' => true, 'rows' => 6, 'placeholder' => 'Dimensions, operating pressure, load, material, application, condition of existing part…', 'value' => mb_substr((string) query('specs', ''), 0, 1000)]) ?>
           </div>
         </fieldset>
         <fieldset class="form-step">

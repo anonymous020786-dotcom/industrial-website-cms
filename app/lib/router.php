@@ -22,6 +22,7 @@ function routes(): array
         ['GET', '/download/datasheet/{slug}', 'site_datasheet', 'site_extra'],
         ['GET|POST', '/q/{token}', 'site_quote_view', 'site_extra'],
         ['GET', '/service-request', 'site_service_request', 'site_extra'],
+        ['GET', '/calculators', 'site_calculators', 'site_extra'],
         ['GET', '/service-request/track/{token}', 'site_service_track', 'site_extra'],
         ['GET', '/q/{token}/pdf', 'site_quote_pdf', 'site_extra'],
         ['GET|POST', '/catalogue', 'site_catalogue', 'site_extra'],

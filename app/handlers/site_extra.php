@@ -248,3 +248,24 @@ function site_service_track(string $token): void
     header('Referrer-Policy: no-referrer');
     site_render($meta, view('site/service_track', compact('lead', 'updates')));
 }
+
+
+/* ------------------------------------------------------------------ */
+/* Engineering calculators                                             */
+/* ------------------------------------------------------------------ */
+
+function site_calculators(): void
+{
+    $calcs = calculators();
+    $active = isset($calcs[$c = (string) query('c', '')]) ? $c : '';
+    $values = [];
+    if ($active) foreach ($calcs[$active]['inputs'] as $k => $def) $values[$k] = is_numeric(query($k)) ? (float) query($k) : $def[2];
+    $results = $active ? calc_run($active, $values) : [];
+    if ($active && wants_json()) {
+        $prod = array_column(products_all(), null, 'slug')[$calcs[$active]['product']] ?? null;
+        json_response(['results' => $results, 'quote' => url('quote') . '?' . http_build_query(['product' => $prod['name'] ?? '', 'specs' => calc_summary($active, $values, $results)])]);
+    }
+    $meta = ['title' => 'Hydraulic calculators — cylinder force, speed and pump power', 'description' => 'Free hydraulic calculators: cylinder push and pull force, extend and retract speed, pump motor power and cylinder bore sizing.',
+        'canonical' => abs_url('calculators'), 'noindex' => $active !== '', 'crumbs' => [['label' => 'Calculators', 'url' => url('calculators')]]];
+    site_render($meta, view('site/calculators', compact('meta', 'active', 'values', 'results')));
+}

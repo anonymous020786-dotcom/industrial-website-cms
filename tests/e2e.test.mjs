@@ -1081,6 +1081,27 @@ test('service requests: urgent breakdown alerts the team, customer gets a refere
 });
 
 /* ------------------------------------------------------------------ */
+test('calculators: correct hydraulic results, works without JavaScript, prefills a quote request', async () => {
+  const c = new Client();
+  const page = await c.get('calculators');
+  assert.equal(page.status, 200);
+  for (const id of ['force', 'speed', 'power', 'sizing']) assert.match(page.text, new RegExp(`data-calc="${id}"`));
+  const j = async (q) => JSON.parse((await c.get('calculators?' + q, { Accept: 'application/json' })).text);
+  assert.deepEqual((await j('c=force&bore=80&rod=45&pressure=160')).results[0], ['Push force', '80.4 kN (8.20 t)']);
+  assert.deepEqual((await j('c=speed&bore=80&rod=45&flow=20&stroke=500')).results[0], ['Extend speed', '66.3 mm/s']);
+  assert.match((await j('c=power&flow=40&pressure=200&efficiency=85')).results[0][1], /^15\.69 kW/);
+  const sizing = await j('c=sizing&load=10&pressure=160&factor=1.25');
+  assert.deepEqual(sizing.results[1], ['Recommended standard bore', '100 mm']);
+  assert.deepEqual((await j('c=force&bore=40&rod=50&pressure=160')).results, [], 'rod larger than bore is rejected');
+  // Without JavaScript the GET form shows the result; the quote link carries the numbers into the quote form
+  const nojs = await c.get('calculators?c=force&bore=100&rod=56&pressure=200');
+  assert.match(nojs.text, /157\.1 kN/);
+  const q = await c.get(sizing.quote.replace(/^\//, ''));
+  assert.match(q.text, /Cylinder sizing calculator — load to lift 10 tonnes/);
+  assert.match(q.text, /<option value="Hydraulic Cylinders" selected>/);
+});
+
+/* ------------------------------------------------------------------ */
 test('keep me signed in: survives a browser restart, rotates, is device-bound, detects stolen tokens, ends on sign-out', async () => {
   setSetting('remember_enabled', true);
   setSetting('remember_days', 30);
