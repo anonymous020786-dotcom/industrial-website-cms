@@ -111,3 +111,17 @@ function site_career(string $slug): void
         'crumbs' => [['label' => 'Careers', 'url' => url('careers')], ['label' => $job['title'], 'url' => url('careers/' . $job['slug'])]]];
     site_render($meta, view('site/career', compact('meta', 'job', 'open')), $open || $job['status'] === 'draft' ? 200 : 410);
 }
+
+/* ------------------------------------------------------------------ */
+/* Site search                                                         */
+/* ------------------------------------------------------------------ */
+
+function site_search_page(): void
+{
+    $q = mb_substr(trim((string) query('q', '')), 0, 100);
+    $found = $q !== '' ? site_search($q) : ['results' => [], 'parts' => [], 'suggestion' => null];
+    if ($q !== '' && rate_limit(ip_bucket('search-log'), 120, 3600)) db_insert('events', ['type' => $found['results'] || $found['parts'] ? 'search' : 'search_empty', 'page' => mb_substr($q, 0, 500)]);
+    $meta = ['title' => $q !== '' ? 'Search: ' . $q : 'Search', 'description' => 'Search products, part numbers, articles, projects, downloads and jobs.',
+        'canonical' => abs_url('search'), 'noindex' => true, 'crumbs' => [['label' => 'Search', 'url' => url('search')]]];
+    site_render($meta, view('site/search', compact('meta', 'q') + $found));
+}

@@ -24,6 +24,7 @@ function routes(): array
         ['GET', '/service-request', 'site_service_request', 'site_extra'],
         ['GET', '/calculators', 'site_calculators', 'site_extra'],
         ['GET', '/parts', 'site_parts', 'site_more'],
+        ['GET', '/search', 'site_search_page', 'site_more'],
         ['GET', '/downloads', 'site_downloads', 'site_more'],
         ['GET', '/download/file/{id}', 'site_download_file', 'site_more'],
         ['GET', '/distributors', 'site_distributors', 'site_more'],

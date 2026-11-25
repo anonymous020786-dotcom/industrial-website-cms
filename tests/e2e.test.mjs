@@ -1281,6 +1281,36 @@ test('careers: openings with JobPosting data, CV required, applications admin-on
   cleanupMore();
 });
 
+test('site search: ranks products first, highlights words, finds part numbers, jobs and downloads, suggests spelling fixes, escapes input', async () => {
+  cleanupMore();
+  const c = new Client();
+  let r = await c.get('search?q=' + encodeURIComponent('hydraulic cylinders'));
+  assert.equal(r.status, 200);
+  assert.match(r.text, /<meta name="robots" content="noindex/);
+  const first = r.text.match(/data-search-hit="([^"]+)"[\s\S]*?href="([^"]+)"/);
+  assert.deepEqual([first[1], first[2]], ['Product', '/products/hydraulic-cylinders']);
+  assert.match(r.text, /<mark>Hydraulic<\/mark> <mark>Cylinders<\/mark>/);
+
+  r = await c.get('search?q=' + encodeURIComponent('hydralic cilinder'));
+  assert.match(r.text, /data-search-suggestion>Did you mean <a[^>]*href="\/search\?q=hydraulic%20cylinders?"/);
+
+  await admin.post('admin/r/part_refs/new', { _token: csrf, ref_number: 'e2e-QZ-7781', brand: 'E2E OEM', product_id: '', our_part: '', notes: '', status: 'published' });
+  await admin.post('admin/r/jobs/new', { _token: csrf, title: 'e2e CNC Machinist', slug: 'e2e-cnc-machinist', department: 'Production', location: 'Pune', job_type: 'Full-time', closes_at: '', summary: 'Operate e2equartz lathes.', description: '', status: 'published', sort_order: '0' });
+  await admin.post('admin/r/downloads/new', { _token: csrf, title: 'e2e Quartz lathe manual', category: 'Manuals', file: '/uploads/none.pdf', description: '', gated: '0', status: 'published', sort_order: '0' });
+  r = await c.get('search?q=e2eqz7781');
+  assert.match(r.text, /data-search-parts[\s\S]*e2e-QZ-7781/);
+  r = await c.get('search?q=e2equartz');
+  assert.match(r.text, /data-search-hit="Job opening"[\s\S]*careers\/e2e-cnc-machinist/);
+  r = await c.get('search?q=' + encodeURIComponent('e2e quartz manual'));
+  assert.match(r.text, /data-search-hit="Download · Manuals"/);
+
+  r = await c.get('search?q=' + encodeURIComponent('<script>alert(1)</script> zzqx'));
+  assert.doesNotMatch(r.text, /<script>alert\(1\)/);
+  assert.match(r.text, /data-search-empty/);
+  assert.match((await c.get('')).text, /class="header-search"[^>]*aria-label="Search"/, 'search button in the header');
+  cleanupMore();
+});
+
 test('keep me signed in: survives a browser restart, rotates, is device-bound, detects stolen tokens, ends on sign-out', async () => {
   setSetting('remember_enabled', true);
   setSetting('remember_days', 30);

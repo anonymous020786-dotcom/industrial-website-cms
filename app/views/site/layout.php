@@ -118,6 +118,7 @@ $tagline = company('tagline', 'Precision Engineering | Reliable Hydraulic & Cran
     </nav>
     <div class="flex items-center gap-3">
       <a href="<?= e(url('quote')) ?>#items" class="rfq-link" data-rfq-link hidden aria-label="Quote list"><?= icon('clipboard-list', 'h-[18px] w-[18px]') ?><span class="rfq-count" data-rfq-count>0</span></a>
+      <a href="<?= e(url('search')) ?>" class="header-search" aria-label="Search" title="Search"><?= icon('search', 'h-[18px] w-[18px]') ?></a>
       <?php if (setting('theme_toggle', true)): ?>
       <button id="theme-toggle" type="button" class="theme-toggle" aria-label="Switch to dark theme" title="Switch theme"><?= icon('moon', 'icon-moon h-[18px] w-[18px]') ?><?= icon('sun', 'icon-sun h-[18px] w-[18px]') ?></button>
       <?php endif ?>
@@ -130,6 +131,7 @@ $tagline = company('tagline', 'Precision Engineering | Reliable Hydraulic & Cran
 
   <div id="mobile-menu" class="mobile-menu xl:hidden" hidden>
     <nav aria-label="Mobile" class="px-4 pb-8 pt-2 sm:px-6">
+      <form method="get" action="<?= e(url('search')) ?>" role="search" class="mobile-search"><label class="sr-only" for="m-search">Search</label><input id="m-search" type="search" name="q" placeholder="Search products, part numbers…" autocomplete="off"><button aria-label="Search"><?= icon('search', 'h-5 w-5') ?></button></form>
       <ul class="divide-y divide-black/5">
         <?php foreach ($menu as $item): $active = menu_active($item['url'] ?? ''); ?>
         <li>
