@@ -140,14 +140,15 @@ function updater_run(bool $force = false): string
         file_put_contents($manifestFile, json_encode(array_keys($plan), JSON_UNESCAPED_SLASHES));
         if (function_exists('opcache_reset')) @opcache_reset();
 
-        // 4) Database changes, record and alert
-        require_once APP_DIR . '/lib/seed.php';
-        $migrations = run_migrations();
+        // 4) Database changes — in a fresh PHP process, because this one may already have the previous
+        //    release's migration code loaded — then clear the web server's code cache
+        $migrations = updater_migrate();
+        $cache = updater_refresh_web_cache();
         setting_set('deployed_sha', $sha);
         setting_set('update_error', '');
         setting_set('deployed_at', now());
         $msg = 'updated ' . ($current !== '' ? substr($current, 0, 7) . ' → ' : 'to ') . substr($sha, 0, 7) . " ({$changed} file(s) changed, {$removed} removed"
-            . ($migrations ? ', database: ' . implode(', ', $migrations) : '') . ')';
+            . ($migrations ? ', database: ' . implode(', ', $migrations) : '') . ', web cache: ' . $cache . ')';
         notify_admins('site_updated', 'Website updated to ' . substr($sha, 0, 7),
             'The website was updated automatically from ' . $c['repo'] . ' (' . $c['branch'] . '): ' . $msg . '. Only versions that passed all automated tests are installed.',
             ['severity' => 'info', 'category' => 'system', 'email' => false, 'link' => 'admin/settings/system']);
@@ -162,5 +163,40 @@ function updater_run(bool $force = false): string
         @rmdir($work);
         flock($fh, LOCK_UN);
         fclose($fh);
+    }
+}
+
+
+/** Run the newly installed migrations. Prefers a new PHP process (sees the new code); falls back to this one. */
+function updater_migrate(): array
+{
+    $disabled = array_map('trim', explode(',', (string) ini_get('disable_functions')));
+    if (PHP_SAPI === 'cli' && function_exists('proc_open') && !in_array('proc_open', $disabled, true) && is_file(PHP_BINARY)) {
+        $p = @proc_open([PHP_BINARY, APP_DIR . '/cli.php', 'migrate'], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, APP_ROOT);
+        if (is_resource($p)) {
+            $out = (string) stream_get_contents($pipes[1]);
+            $err = (string) stream_get_contents($pipes[2]);
+            fclose($pipes[1]); fclose($pipes[2]);
+            $code = proc_close($p);
+            if ($code !== 0) throw new RuntimeException('Database update failed: ' . mb_substr(trim($err ?: $out), 0, 250));
+            settings_all(true); // the other process changed schema_version
+            return preg_match('~^Applied: (.+)$~m', $out, $m) ? array_map('trim', explode(',', $m[1])) : [];
+        }
+    }
+    require_once APP_DIR . '/lib/seed.php';
+    return run_migrations(); // if this is the previous release's code, web requests finish the job (schema_catch_up)
+}
+
+/** Ask the web server to drop its cached PHP code (see public/refresh-cache.php). Never throws. */
+function updater_refresh_web_cache(): string
+{
+    try {
+        $token = bin2hex(random_bytes(32));
+        file_put_contents(STORAGE_DIR . '/refresh.token', $token . '|' . (time() + 120), LOCK_EX);
+        $res = trim(updater_http(abs_url('refresh-cache.php?t=' . $token)));
+        return $res !== '' ? $res : 'unknown';
+    } catch (Throwable $e) {
+        @unlink(STORAGE_DIR . '/refresh.token');
+        return 'not cleared (' . $e->getMessage() . ')';
     }
 }

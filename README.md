@@ -32,6 +32,14 @@ marketing integrations. It runs on any standard PHP host with no framework and n
   - Product datasheets, and a PDF catalogue that can ask for details first (each download becomes a lead).
   - Project case studies and verified certificates that hide themselves after expiry.
   - A lead attribution report by source, campaign and landing page.
+- **Sales, service and resources.**
+  - Quotation builder: PDF, email with the PDF attached, and online acceptance by the customer.
+  - Breakdown and service requests with a reference number and a private tracking page.
+  - Hydraulic calculators, a part-number finder with a "find me this part" request, a downloads
+    centre, a distributor network and careers with CV applications.
+  - Site-wide search with spelling suggestions.
+- **Team workflow.** Optional approval of editors' changes, an activity log of who changed what, and
+  a weekly owner report by email and Telegram.
 - **Operations.**
   - Redirect manager with a 404 log; changed URLs get 301s automatically.
   - Automatic image optimisation to WebP.
@@ -107,6 +115,10 @@ php app/cli.php install --db-name=industrial_cms --db-user=root --db-pass= \
      same layout. Config, backups, uploads and `.well-known` are never touched.
    - Files deleted from the repo are removed, database migrations run, and admins get a "Website
      updated" alert.
+   - Migrations run in a fresh PHP process, so they always use the new release's code. Afterwards
+     the updater clears the web server's PHP code cache (OPcache) through `refresh-cache.php` and a
+     one-time token. Visitors never get a mix of old cached files and new ones.
+   - If a database step is still missing, the first web request applies it (under a lock).
    - Manually: `php app/cli.php update --check` or `php app/cli.php update`. Status is under
      Settings → System.
    - Only the server config can turn this on, so an admin login can't point the site at other code.
@@ -190,6 +202,59 @@ Set `'debug' => false` in production.
   - A 12-month trend, click and download counts, and CSV export. UTM tags come from the visitor's
     landing URL.
 
+## Sales, service and resources
+
+- **Quotations** (Admin → Quotes, or "Create quote" on a lead).
+  - Line items, discounts and tax are worked out on the server; numbers run Q-2026-0001…
+  - Send by email with the PDF attached and a private link. The customer views the quote, downloads
+    the PDF, and accepts it by typing their name, or declines it with a reason.
+  - Accepting marks the lead *won* and alerts its owner. Defaults (tax, validity, terms, bank
+    details) are in Settings → Quotes.
+- **Breakdown & service requests** (`/service-request`).
+  - Urgency, equipment, site location and photos. Urgent breakdowns alert the team at once (email
+    and Telegram).
+  - The customer gets a reference (SR-00001) and a private tracking link. Status changes and messages
+    posted from the lead page appear there and are emailed.
+- **Hydraulic calculators** (`/calculators`).
+  - Cylinder force, speed, pump power and bore sizing. They work without JavaScript.
+  - "Request a quote with these numbers" fills in the quote form.
+- **Part-number finder** (`/parts`, Admin → Part numbers).
+  - Map customer, competitor or old part numbers to your products. Spaces, dashes and dots are
+    ignored.
+  - Unknown numbers lead to a "find me this part" request with a photo or drawing. Missed searches are
+    counted in the weekly report.
+- **Downloads centre** (`/downloads`, Admin → Downloads).
+  - Brochures, manuals, CAD, certificates and datasheets, grouped by category, with download counts.
+  - Any file can ask for details first; it uses the same one-form-per-device gate as the catalogue.
+- **Distributors** (`/distributors`, Admin → Distributors). Listed by region, with a filter, map links
+  and a "Become a distributor" application form.
+- **Careers** (`/careers`, Admin → Job openings / Applications).
+  - Openings carry JobPosting data for Google Jobs and hide themselves after the closing date (old
+    links answer 410).
+  - Applications need a CV (PDF or Word). Only administrators see them, and they are kept out of the
+    sales leads. Settings → Workflow & Reports can copy them to an HR inbox.
+- **Search** (`/search`, the magnifier in the header). Products, part numbers, pages, articles, projects,
+  downloads and open jobs, with "did you mean" for misspellings. Searches with no results are logged.
+
+## Team workflow
+
+- **Content approval** (Settings → Workflow & Reports, off by default).
+  - When on, editors' changes to live pages and posts, and anything they publish, wait in
+    **Approvals**. The live version stays unchanged.
+  - Administrators see a word-level diff, then either *Approve & publish* or *Send back* with a note.
+    The editor is notified and keeps editing their pending version.
+  - Bulk publish and restoring old revisions can't be used to skip approval.
+- **Activity** (Admin → Activity). Who created, changed, deleted, restored, sent or approved which
+  page, post, product, quote or other item, and when. It can be filtered by person, section and action.
+- **Weekly owner report** (Settings → Workflow & Reports; preview and "Send now" under Reports). It
+  covers:
+  - enquiries with a trend, quotes sent, won and open, and service requests
+  - follow-ups waiting and the pages bringing enquiries
+  - part numbers and searches with no results
+  - errors, backup age and cron health
+
+  It goes to the chosen recipients by email and as a short Telegram summary.
+
 ## Redirects, images, backups and automation
 
 - **Redirects & 404s** (Admin → Redirects & 404s).
@@ -213,6 +278,7 @@ Set `'debug' => false` in production.
   - the daily lead follow-up email: overdue and due-today follow-ups, plus new leads not contacted
     within 24 h; each salesperson gets only their own leads
   - backups and certificate warnings
+  - the weekly owner report (on the chosen day and hour)
   - the Trash purge and old-log clean-up
 
   The admin shows a warning if cron stops running.
@@ -230,8 +296,10 @@ Replace the stock photos with your own photography before launch.
 | Role | Access |
 |---|---|
 | Administrator | Everything, incl. settings, integrations and users |
-| Editor | Pages, blog, categories, products, industries, media |
-| Sales | Dashboard and leads |
+| Editor | Pages, blog, categories, products, industries, media, downloads, part numbers, distributors, job openings (publishing can require approval) |
+| Sales | Dashboard, leads and quotations |
+
+Job applications, content approvals and the activity log are for administrators only.
 
 ## Admin sign-in & account security
 
@@ -442,6 +510,10 @@ npm test        # end-to-end suite against http://localhost:8000 (BASE_URL, ADMI
   - Telegram, against a fake Bot API: bot setup, connecting, codes, Approve / Deny, the trusted-device
     skip, the email fallback, lead alerts and `/stop`
   - error pages (404 suggestions, 405, 419, JSON errors, a 500 with its reference in the error log)
+  - quotations (PDF, email, online acceptance), service requests and tracking, calculators
+  - the part finder, downloads centre, distributors, careers and CV applications, and site search
+  - content approval with diffs, the activity log, and the weekly report (including its cron schedule)
+  - deploy safety: an unfinished database upgrade is completed by the next request
   - maintenance mode: 503 and Retry-After, the team and preview-link bypass, the IP allow-list, the
     schedule, and the code needed to switch it
 

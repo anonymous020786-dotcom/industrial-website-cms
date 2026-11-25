@@ -1436,6 +1436,17 @@ test('weekly owner report: figures, needs-attention list, preview, send now, onc
   }
 });
 
+test('deploy safety: the site finishes an unfinished database upgrade itself; cache refresh needs a one-time token', async () => {
+  const target = Number(getSetting('schema_version'));
+  setSetting('schema_version', target - 1);
+  const r = await new Client().get('');
+  assert.equal(r.status, 200);
+  assert.equal(Number(getSetting('schema_version')), target, 'migrations ran on the first request');
+  assert.equal((await new Client().get('refresh-cache.php?t=' + 'a'.repeat(64))).status, 404);
+  const out = php(['-r', "require 'app/bootstrap.php'; echo updater_refresh_web_cache(), '|', is_file(STORAGE_DIR . '/refresh.token') ? 'left' : 'used';"]).trim();
+  assert.match(out, /^(cache cleared|no code cache)\|used$/, out);
+});
+
 test('keep me signed in: survives a browser restart, rotates, is device-bound, detects stolen tokens, ends on sign-out', async () => {
   setSetting('remember_enabled', true);
   setSetting('remember_days', 30);

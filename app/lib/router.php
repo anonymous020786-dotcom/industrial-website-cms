@@ -189,6 +189,8 @@ function app_run(): void
 
     if (!is_installed() && $path !== '/install') redirect('install');
 
+    if (is_installed() && defined('SCHEMA_VERSION') && (int) setting('schema_version', 0) < SCHEMA_VERSION) schema_catch_up();
+
     // Maintenance mode: visitors get the maintenance page (admins and allowed IPs pass through)
     if (is_installed()) maintenance_gate($path, $method);
 
@@ -213,5 +215,26 @@ function app_run(): void
         }
         send_security_headers(str_starts_with($path, '/admin'));
         error_respond($e->status, $e->getMessage(), $e->options);
+    }
+}
+
+
+/**
+ * The code is newer than the database (e.g. an update installed files but its database step did not run):
+ * apply the migrations once, under a lock so concurrent requests don't run them twice.
+ */
+function schema_catch_up(): void
+{
+    $fh = @fopen(STORAGE_DIR . '/migrate.lock', 'c');
+    if (!$fh || !flock($fh, LOCK_EX | LOCK_NB)) return;
+    try {
+        require_once APP_DIR . '/lib/seed.php';
+        $changes = run_migrations();
+        if ($changes) error_log('schema catch-up applied: ' . implode(', ', $changes));
+    } catch (Throwable $e) {
+        error_log('schema catch-up failed: ' . $e->getMessage());
+    } finally {
+        flock($fh, LOCK_UN);
+        fclose($fh);
     }
 }

@@ -43,6 +43,15 @@ Include steps to reproduce and the affected version. You will get a reply within
 - Uploaded images are re-encoded (metadata/GPS removed); PDFs are verified by file signature
 - Backups are stored outside the web root and downloads require re-entering the password
 - `app/`, `database/` and dotfiles are not web-accessible
+- Quotation links, service-tracking links and gated-download access use long random tokens or HMACs.
+  The service-tracking page sends `Referrer-Policy: no-referrer`, and decisions on quotes are rate-limited and recorded
+  with name, time and IP address.
+- Job applications (CVs) are personal data: they are stored privately with the other lead files, can be
+  opened only by administrators, and only PDF and Word files are accepted.
+- Content approval runs on the server: editors can't publish live content through bulk actions or
+  revision restore. Every content change is written to the activity log.
+- `refresh-cache.php` (after automatic updates) only acts on a single-use, two-minute token written by
+  the updater into `app/storage`. Any other request gets a 404.
 
 ## Before going live
 
