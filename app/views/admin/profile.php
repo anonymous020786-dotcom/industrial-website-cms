@@ -1,6 +1,6 @@
 <?php
 /** @var string $tgLinkUrl @var array $devices @var string $currentDevice @var array $user @var array $errors @var array $old @var array $events @var ?string $pendingEmail @var ?string $pendingBackup @var ?string $devCode
- *  @var array $passkeys @var bool $totpOn @var ?string $totpPending @var ?array $recoveryOnce @var int $recoveryLeft */
+ *  @var array $passkeys @var bool $totpOn @var ?string $totpPending @var ?array $recoveryOnce @var int $recoveryExportLeft @var int $recoveryLeft */
 $err = fn($k) => isset($errors[$k]) ? '<p class="adm-error">' . e($errors[$k]) . '</p>' : '';
 $val = fn($k, $d = '') => e((string) ($old[$k] ?? $d));
 $codeInput = fn($name = 'code') => '<input class="adm-input max-w-[12rem] text-center font-mono text-xl tracking-[0.4em]" name="' . $name . '" inputmode="numeric" maxlength="7" autocomplete="one-time-code" required aria-label="6-digit code">';
@@ -14,7 +14,7 @@ $labels = [
     'session_timeout' => 'Session timed out', 'login_locked' => 'Sign-in locked',
     'passkey_added' => 'Passkey added', 'passkey_removed' => 'Passkey removed', 'passkey_login' => 'Signed in with a passkey', 'passkey_failed' => 'Passkey check failed',
     'totp_enabled' => 'Authenticator app enabled', 'totp_disabled' => 'Authenticator app turned off', 'totp_failed' => 'Wrong authenticator code',
-    'recovery_code_used' => 'Recovery code used', 'recovery_codes_regenerated' => 'New recovery codes', 'backup_downloaded' => 'Backup downloaded',
+    'recovery_code_used' => 'Recovery code used', 'recovery_codes_downloaded' => 'Recovery codes downloaded', 'recovery_codes_regenerated' => 'New recovery codes', 'backup_downloaded' => 'Backup downloaded',
     'login_remembered' => 'Signed in (kept signed in)', 'device_trusted' => 'Device trusted for codes', 'device_untrusted' => 'Stopped trusting a device', 'device_removed' => 'Device removed', 'signout_everywhere' => 'Signed out of all other devices', 'remember_token_mismatch' => 'Blocked an invalid sign-in token',
     'telegram_linked' => 'Connected Telegram', 'telegram_unlinked' => 'Disconnected Telegram', 'telegram_approved' => 'Approved a sign-in in Telegram', 'telegram_denied' => 'Blocked a sign-in in Telegram',
     'login_telegram_approval' => 'Signed in (approved in Telegram)', 'telegram_2fa_on' => 'Turned on Telegram sign-in code', 'telegram_2fa_off' => 'Turned off Telegram sign-in code',
@@ -195,12 +195,27 @@ $transportLabel = fn(?string $t) => str_contains((string) $t, 'internal') ? 'Thi
       <?= $totpOn ? '<span class="adm-badge bg-emerald-100 text-emerald-800">On</span>' : '<span class="adm-badge bg-gray-200 text-gray-700">Off</span>' ?>
     </div>
 
+<?php $exportButtons = function () { ob_start(); ?>
+      <div class="mt-3 flex flex-wrap items-center gap-2">
+        <span class="text-sm font-semibold text-amber-900">Download:</span>
+        <?php foreach (['txt' => ['Text (.txt)', 'file-text'], 'csv' => ['CSV', 'file-spreadsheet'], 'xlsx' => ['Excel (.xlsx)', 'sheet']] as $fmt => [$lbl, $ic]): ?>
+        <form method="post" action="<?= e(url('admin/2fa/recovery/download')) ?>"><?= csrf_field() ?><input type="hidden" name="format" value="<?= $fmt ?>"><button class="adm-btn adm-btn-light adm-btn-sm"><?= icon($ic, 'h-3.5 w-3.5') ?> <?= $lbl ?></button></form>
+        <?php endforeach ?>
+        <form method="post" action="<?= e(url('admin/2fa/recovery/forget')) ?>" class="ml-auto"><?= csrf_field() ?><button class="adm-btn adm-btn-primary adm-btn-sm"><?= icon('check', 'h-3.5 w-3.5') ?> Done, I’ve saved them</button></form>
+      </div>
+    <?php return (string) ob_get_clean(); }; ?>
     <?php if ($recoveryOnce): ?>
     <div class="rounded-lg border-2 border-amber-300 bg-amber-50 p-4">
       <p class="font-semibold text-amber-900"><?= icon('triangle-alert', 'mr-1 inline h-4 w-4') ?> Save these recovery codes now — they will not be shown again</p>
       <p class="mt-1 text-sm text-amber-900">Each code works once, if you lose your phone. Store them in a password manager or print them.</p>
       <ol class="mt-3 grid grid-cols-2 gap-2 font-mono text-sm sm:grid-cols-5"><?php foreach ($recoveryOnce as $c): ?><li class="rounded bg-white px-2 py-1 text-center"><?= e($c) ?></li><?php endforeach ?></ol>
       <button type="button" class="adm-btn adm-btn-light adm-btn-sm mt-3" data-copy="<?= e(implode("\n", $recoveryOnce)) ?>"><?= icon('copy', 'h-3.5 w-3.5') ?> Copy all</button>
+      <?= $exportButtons() ?>
+    </div>
+    <?php elseif ($recoveryExportLeft > 0): ?>
+    <div class="rounded-lg border border-amber-300 bg-amber-50 p-4">
+      <p class="text-sm text-amber-900"><?= icon('clock', 'mr-1 inline h-4 w-4') ?> Your new recovery codes can still be downloaded for <?= (int) ceil($recoveryExportLeft / 60) ?> more minute<?= ceil($recoveryExportLeft / 60) == 1 ? '' : 's' ?>.</p>
+      <?= $exportButtons() ?>
     </div>
     <?php endif ?>
 

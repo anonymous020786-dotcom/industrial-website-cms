@@ -64,6 +64,8 @@ function routes(): array
         ['POST', '/admin/2fa/confirm', 'admin_totp_confirm', 'admin_security'],
         ['POST', '/admin/2fa/disable', 'admin_totp_disable', 'admin_security'],
         ['POST', '/admin/2fa/recovery', 'admin_recovery_regenerate', 'admin_security'],
+        ['POST', '/admin/2fa/recovery/download', 'admin_recovery_download', 'admin_security'],
+        ['POST', '/admin/2fa/recovery/forget', 'admin_recovery_forget', 'admin_security'],
 
         // Tools: redirects, reports, backups, cron
         ['GET', '/admin/redirects', 'admin_redirects', 'admin_tools'],

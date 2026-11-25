@@ -489,6 +489,7 @@ function admin_profile(): void
         'totpOn' => totp_enabled_for($row),
         'totpPending' => isset($_SESSION['totp_pending']) && time() - (int) $_SESSION['totp_pending']['at'] <= 900 ? $_SESSION['totp_pending']['secret'] : null,
         'recoveryOnce' => (function () { $c = $_SESSION['recovery_codes_once'] ?? null; unset($_SESSION['recovery_codes_once']); return $c; })(),
+        'recoveryExportLeft' => (function () { $x = $_SESSION['recovery_export'] ?? null; return is_array($x) ? max(0, (int) $x['until'] - time()) : 0; })(),
         'recoveryLeft' => recovery_codes_left($uid),
         'devices' => db_all('SELECT * FROM known_devices WHERE user_id = ? ORDER BY last_seen DESC LIMIT 30', [$uid]),
         'tgLinkUrl' => (int) ($_SESSION['telegram_link_until'] ?? 0) > time() ? (string) ($_SESSION['telegram_link_url'] ?? '') : '',

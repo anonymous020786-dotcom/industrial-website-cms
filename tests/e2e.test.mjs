@@ -398,7 +398,41 @@ test('authenticator app: setup with QR secret, code required at sign-in, recover
   prof = await admin.get('admin/profile');
   const codes = [...prof.text.matchAll(/<li class="rounded bg-white px-2 py-1 text-center">([a-z0-9]{5}-[a-z0-9]{5})<\/li>/g)].map((m) => m[1]);
   assert.equal(codes.length, 10, 'ten recovery codes shown once');
-  assert.doesNotMatch((await admin.get('admin/profile')).text, new RegExp(codes[0]), 'not shown again');
+  const later = await admin.get('admin/profile');
+  assert.doesNotMatch(later.text, new RegExp(codes[0]), 'not shown again');
+  assert.match(later.text, /can still be downloaded for \d+ more minute/, 'download reminder while the window is open');
+
+  // Download the codes as TXT, CSV (Excel-safe, UTF-8 BOM) and a real .xlsx
+  const dl = async (format) => admin.req('admin/2fa/recovery/download', { method: 'POST', body: new URLSearchParams({ _token: csrf, format }), headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+  const txt = await dl('txt');
+  assert.equal(txt.status, 200);
+  assert.match(txt.headers.get('content-disposition') || '', /attachment; filename="recovery-codes-.+\.txt"/);
+  assert.match(txt.headers.get('cache-control') || '', /no-store/);
+  const txtBody = await txt.text();
+  for (const code of codes) assert.ok(txtBody.includes(code), 'txt has ' + code);
+  assert.match(txtBody, new RegExp(` 1\\. ${codes[0]}`));
+  const csvRes = await dl('csv');
+  assert.match(csvRes.headers.get('content-type') || '', /text\/csv/);
+  const csvBytes = Buffer.from(await csvRes.arrayBuffer());
+  assert.deepEqual([...csvBytes.subarray(0, 3)], [0xef, 0xbb, 0xbf], 'UTF-8 BOM for Excel');
+  const csvLines = csvBytes.toString('utf8').slice(1).trim().split(/\r?\n/);
+  assert.equal(csvLines[0], '#,"Recovery code",Account,Site,Created');
+  assert.equal(csvLines.length, 11);
+  assert.ok(csvLines[1].startsWith(`1,${codes[0]},`));
+  const xlsx = await dl('xlsx');
+  assert.match(xlsx.headers.get('content-type') || '', /spreadsheetml\.sheet/);
+  const xbuf = Buffer.from(await xlsx.arrayBuffer());
+  assert.equal(xbuf.subarray(0, 2).toString(), 'PK', 'xlsx is a zip package');
+  const sheet = php(['-r', '$z=new ZipArchive;$f=tempnam(sys_get_temp_dir(),"x");file_put_contents($f,base64_decode($argv[1]));$z->open($f);echo $z->getFromName("xl/worksheets/sheet1.xml") ? "SHEET:" . $z->getFromName("xl/worksheets/sheet1.xml") : "NO SHEET";', xbuf.toString('base64')]);
+  for (const code of codes) assert.ok(sheet.includes(`<t xml:space="preserve">${code}</t>`), 'xlsx has ' + code);
+  assert.ok(sql("SELECT id FROM auth_events WHERE event = 'recovery_codes_downloaded' AND user_id = ?", [adminId()]).length >= 3, 'downloads are logged');
+  // "Done, I've saved them" ends the download window; other sessions never had one
+  const stranger = await new Client().post('admin/2fa/recovery/download', { _token: 'x', format: 'txt' });
+  assert.equal(stranger.status, 302, 'signed-out browsers are sent to sign in');
+  assert.match(stranger.location, /admin\/login/);
+  await admin.post('admin/2fa/recovery/forget', { _token: csrf });
+  const gone = await dl('txt');
+  assert.equal(gone.status, 302, 'no download after "Done"');
 
   // Password alone is no longer enough
   const c = new Client();
