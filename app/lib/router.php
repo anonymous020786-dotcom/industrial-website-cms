@@ -11,6 +11,7 @@ function routes(): array
         // Public
         ['POST', '/lead', 'site_lead_submit', 'site'],
         ['POST', '/track', 'site_track', 'site'],
+        ['POST', '/hit', 'site_hit', 'site'],
         ['GET', '/sitemap.xml', 'site_sitemap_xml', 'site'],
         ['GET', '/robots.txt', 'site_robots', 'site'],
         ['GET', '/feed.xml', 'site_feed', 'site'],
@@ -131,6 +132,7 @@ function routes(): array
         ['POST', '/admin/reviews/{id}/decide', 'admin_review_decide', 'admin_workflow'],
         ['GET', '/admin/activity', 'admin_activity', 'admin_workflow'],
         ['GET', '/admin/links', 'admin_links', 'admin_engage'],
+        ['GET', '/admin/analytics', 'admin_analytics', 'admin_engage'],
         ['GET', '/admin/palette.json', 'admin_palette_json', 'admin_engage'],
         ['GET', '/admin/comments', 'admin_comments', 'admin_engage'],
         ['GET', '/admin/newsletter', 'admin_newsletter', 'admin_engage'],

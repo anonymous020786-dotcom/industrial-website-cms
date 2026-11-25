@@ -64,6 +64,10 @@ function settings_tabs(): array
             'form_success_text' => ['type' => 'textarea', 'label' => 'Form success message', 'rows' => 2],
         ]],
         'integrations' => ['Integrations', 'plug', [
+            'h_own' => ['type' => 'heading', 'label' => 'Built-in visitor analytics', 'help' => 'Page views, visitors, sources and devices in <strong>Analytics</strong> — no cookies, no third parties, no personal data (visitors are counted with a hash that changes every day), so no consent banner is needed for it.'],
+            'analytics_enabled' => ['type' => 'checkbox', 'label' => 'Visitor analytics', 'text' => 'Count page views with the built-in analytics', 'default' => true, 'wide' => true],
+            'analytics_respect_dnt' => ['type' => 'checkbox', 'label' => 'Do Not Track', 'text' => 'Skip visitors whose browser sends Do Not Track / Global Privacy Control', 'default' => true, 'wide' => true],
+            'analytics_keep_days' => ['type' => 'number', 'label' => 'Keep page views for (days)', 'default' => 395],
             'h_an' => ['type' => 'heading', 'label' => 'Analytics & tracking', 'help' => 'These load only after visitors accept cookies (if the cookie banner is enabled).'],
             'ga4_id' => ['type' => 'text', 'label' => 'Google Analytics 4 — Measurement ID', 'placeholder' => 'G-XXXXXXXXXX'],
             'gtm_id' => ['type' => 'text', 'label' => 'Google Tag Manager — Container ID', 'placeholder' => 'GTM-XXXXXXX'],

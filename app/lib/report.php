@@ -47,6 +47,9 @@ function weekly_report_data(?int $end = null): array
         'service_open' => $n("SELECT COUNT(*) FROM leads WHERE type = 'service' AND status <> 'spam' AND COALESCE(service_status, 'received') NOT IN ('resolved', 'closed')"),
         'applications' => $n("SELECT COUNT(*) FROM leads WHERE type = 'job' AND created_at >= ? AND created_at < ?", $w),
         'downloads' => $n("SELECT COUNT(*) FROM events WHERE type IN ('datasheet', 'catalogue', 'download') AND created_at >= ? AND created_at < ?", $w),
+        'views' => (int) db_val('SELECT COUNT(*) FROM page_hits WHERE created_at >= ? AND created_at < ?', $w),
+        'visitors' => (int) db_val('SELECT COUNT(DISTINCT day, visitor) FROM page_hits WHERE created_at >= ? AND created_at < ?', $w),
+        'viewed_pages' => db_all('SELECT path AS page, COUNT(*) n FROM page_hits WHERE created_at >= ? AND created_at < ? GROUP BY path ORDER BY n DESC LIMIT 5', $w),
         'top_pages' => db_all("SELECT source_page AS page, COUNT(*) n FROM leads WHERE created_at >= ? AND created_at < ? AND status <> 'spam' AND type <> 'job' AND source_page <> '' GROUP BY source_page ORDER BY n DESC LIMIT 5", $w),
         'missed_parts' => $top('part_missing'),
         'missed_searches' => $top('search_empty'),
@@ -98,6 +101,8 @@ function weekly_report_html(array $d): string
         . ($types !== '' ? '<p style="font-size:13px;color:#374151">Enquiries by type: ' . e($types) . ($d['high'] ? ' · <b style="color:#b91c1c">' . $d['high'] . ' high priority</b>' : '') . '</p>' : '')
         . ($warn ? '<h3 style="margin:22px 0 6px;font-size:15px;color:#b45309">Needs attention</h3><ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.7;color:#374151">' . implode('', array_map(fn($x) => '<li>' . e($x) . '</li>', $warn)) . '</ul>'
             : '<p style="font-size:13px;color:#166534">✔ Nothing needs your attention — backups, scheduled jobs and follow-ups are all on track.</p>')
+        . ($d['views'] ? '<p style="font-size:13px;color:#374151;margin-top:14px">Website: <b>' . number_format($d['visitors']) . '</b> visitors, <b>' . number_format($d['views']) . '</b> page views.</p>' : '')
+        . $list('Most viewed pages', $d['viewed_pages'], fn($r) => e((string) $r['page']))
         . $list('Pages bringing enquiries', $d['top_pages'], fn($r) => e(report_path((string) $r['page'])))
         . $list('Part numbers people could not find', $d['missed_parts'], fn($r) => '<span style="font-family:monospace">' . e((string) $r['page']) . '</span> — consider adding a cross-reference')
         . $list('Searches with no results', $d['missed_searches'], fn($r) => '“' . e((string) $r['page']) . '”')
@@ -110,7 +115,8 @@ function weekly_report_telegram(array $d): string
     $lines = ['📊 <b>Weekly report — ' . e(date('j M', strtotime($d['from']))) . ' to ' . e(date('j M', strtotime($d['to']) - 1)) . '</b>', '',
         '📥 Enquiries: <b>' . $d['leads'] . '</b> (' . e(report_trend($d['leads'], $d['leads_prev'])) . ')',
         '📄 Quotes sent: <b>' . $d['quotes_sent'] . '</b> · won: <b>' . $d['quotes_won'] . '</b>' . ($d['quotes_won'] ? ' (' . e($d['quotes_won_value']) . ')' : ''),
-        '🛠 Service requests: <b>' . $d['service_new'] . '</b> · open: ' . $d['service_open']];
+        '🛠 Service requests: <b>' . $d['service_new'] . '</b> · open: ' . $d['service_open'],
+        '👀 Visitors: <b>' . number_format($d['visitors']) . '</b> · page views: ' . number_format($d['views'])];
     $warn = array_filter([
         $d['uncontacted'] ? $d['uncontacted'] . ' uncontacted > 24 h' : '', $d['overdue'] ? $d['overdue'] . ' overdue follow-ups' : '',
         $d['pending_reviews'] ? $d['pending_reviews'] . ' approvals waiting' : '', $d['errors'] ? $d['errors'] . ' new errors' : '',

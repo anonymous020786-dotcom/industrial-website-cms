@@ -41,6 +41,7 @@ function admin_nav(): array
         ['Job openings', 'admin/r/jobs', 'briefcase', 'content'],
         ['Applications', 'admin/careers/applications', 'user-round-check', 'users', $newApplications],
         ['_', 'Insights'],
+        ['Analytics', 'admin/analytics', 'chart-line', 'leads'],
         ['Reports', 'admin/reports', 'chart-column', 'leads'],
         ['Redirects & 404s', 'admin/redirects', 'route', 'settings'],
         ['Error log', 'admin/errors', 'bug', 'settings', $openErrors],

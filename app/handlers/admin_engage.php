@@ -408,3 +408,19 @@ function admin_palette_json(): void
     }
     json_response(['results' => $out]);
 }
+
+
+/* ------------------------------------------------------------------ */
+/* Visitor analytics                                                   */
+/* ------------------------------------------------------------------ */
+
+function admin_analytics(): void
+{
+    require_login('leads');
+    $range = in_array($r = (string) query('range', '30'), ['7', '30', '90', '365'], true) ? (int) $r : 30;
+    $to = date('Y-m-d');
+    $from = date('Y-m-d', strtotime("-" . ($range - 1) . " days"));
+    $a = analytics_summary($from, $to);
+    $actions = can('settings') ? '<a class="adm-btn adm-btn-light" href="' . e(url('admin/settings/integrations')) . '#analytics_enabled">' . icon('settings', 'h-4 w-4') . ' Settings</a>' : '';
+    admin_render('Visitor analytics', 'engage/analytics', compact('a', 'range', 'from', 'to'), ['actions' => $actions, 'wide' => true]);
+}

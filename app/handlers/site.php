@@ -182,6 +182,14 @@ function site_lead_submit(): void
     site_render($meta, '<section class="section"><div class="mx-auto max-w-2xl px-4"><h1 class="section-title">Please check your enquiry</h1><p class="mt-4">' . e($msg) . '</p><ul class="mt-4 list-disc pl-6 text-red-700">' . $list . '</ul><a class="btn btn-primary mt-8" href="' . e(url($back)) . '">Go back to the form</a></div></section>', 422);
 }
 
+/** Page-view beacon for the built-in analytics (always answers 204). */
+function site_hit(): void
+{
+    try { analytics_record($_POST); } catch (Throwable $e) { error_log('analytics: ' . $e->getMessage()); }
+    header('Cache-Control: no-store');
+    http_response_code(204);
+}
+
 function site_track(): void
 {
     $type = (string) ($_POST['type'] ?? '');

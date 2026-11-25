@@ -56,7 +56,7 @@ $tagline = company('tagline', 'Precision Engineering | Reliable Hydraulic & Cran
   <?= integrations_head() ?>
 
 </head>
-<body class="bg-white font-sans text-charcoal antialiased<?= setting('tawk_property_id') && setting('tawk_widget_id') ? ' has-chat' : '' ?>" data-theme-default="<?= e($themeDefault) ?>" data-base="<?= e(base_path()) ?>" data-consent-required="<?= consent_required() ? '1' : '0' ?>">
+<body class="bg-white font-sans text-charcoal antialiased<?= setting('tawk_property_id') && setting('tawk_widget_id') ? ' has-chat' : '' ?>" data-theme-default="<?= e($themeDefault) ?>" data-base="<?= e(base_path()) ?>"<?= analytics_enabled() && empty($meta['noindex']) && !site_admin_user() ? ' data-analytics="1"' : '' ?> data-consent-required="<?= consent_required() ? '1' : '0' ?>">
 <a href="#main" class="skip-link">Skip to content</a>
 <?php if (($adminUser = site_admin_user()) && setting('admin_bar', true)): ?><?= view('site/_adminbar', ['user' => $adminUser, 'edit' => $meta['edit'] ?? null]) ?><?php endif ?>
 <?php if (maintenance_active()): ?><div class="maint-notice" role="status"><?= icon('construction', 'h-4 w-4') ?> <span>Maintenance mode is on — visitors see the <a href="<?= e(url('?maintenance_preview=1')) ?>">maintenance page</a>.</span></div><?php endif ?>

@@ -1703,6 +1703,32 @@ test('ui: admin command palette searches records by permission; phone contact ba
   }
 });
 
+test('analytics: cookie-free page views and visitors, sources, devices, skips robots/team/Do-Not-Track, admin dashboard', async () => {
+  sql("DELETE FROM page_hits WHERE path LIKE '/e2e%'");
+  sql('DELETE FROM rate_limits');
+  const hit = (c, p, ua, extra = {}, r = '') => c.post('hit', { p, r, w: /iPhone/.test(ua) ? '390' : '1440' }, { 'User-Agent': ua, ...extra });
+  const phone = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Mobile/15E148';
+  const pc = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130';
+  const a = new Client();
+  assert.match((await a.get('')).text, /data-analytics="1"/, 'beacon on public pages');
+  assert.doesNotMatch((await admin.get('')).text, /data-analytics="1"/, 'not for the team');
+  assert.equal((await hit(a, '/e2e-page?utm_source=linkedin', phone)).status, 204);
+  await hit(a, '/e2e-page', phone);
+  await hit(new Client(), '/e2e-other', pc, {}, 'https://www.google.com/search?q=x');
+  await hit(a, '/e2e-page', 'Googlebot/2.1 (+http://www.google.com/bot.html)');
+  await hit(a, '/e2e-page', pc, { DNT: '1' });
+  await hit(admin, '/e2e-page', pc);
+  await hit(a, '/admin/leads', pc);
+  const rows = sql("SELECT path, source, device FROM page_hits WHERE path LIKE '/e2e%' ORDER BY id");
+  assert.deepEqual(rows.map((r) => [r.path, r.source, r.device]), [['/e2e-page', 'linkedin', 'mobile'], ['/e2e-page', null, 'mobile'], ['/e2e-other', 'Google', 'desktop']]);
+  assert.equal(sql("SELECT COUNT(DISTINCT visitor) n FROM page_hits WHERE path = '/e2e-page'")[0].n, 1, 'same visitor counted once');
+  const dash = await admin.get('admin/analytics?range=7');
+  assert.equal(dash.status, 200);
+  assert.match(dash.text, /data-top-page="\/e2e-page"/);
+  assert.match(dash.text, /linkedin<\/span><strong>/);
+  sql("DELETE FROM page_hits WHERE path LIKE '/e2e%'");
+});
+
 test('keep me signed in: survives a browser restart, rotates, is device-bound, detects stolen tokens, ends on sign-out', async () => {
   setSetting('remember_enabled', true);
   setSetting('remember_days', 30);

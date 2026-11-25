@@ -654,3 +654,16 @@ CREATE TABLE IF NOT EXISTS campaign_sends (
   PRIMARY KEY (campaign_id, subscriber_id),
   KEY idx_campaign_sends_pending (campaign_id, sent_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Cookie-free visitor analytics (one row per page view; visitor = daily-salted hash, not personal data)
+CREATE TABLE IF NOT EXISTS page_hits (
+  id         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  day        DATE NOT NULL,
+  path       VARCHAR(255) NOT NULL,
+  source     VARCHAR(120) NULL,
+  device     VARCHAR(10) NOT NULL DEFAULT 'desktop',
+  visitor    CHAR(16) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_page_hits_day (day, path),
+  KEY idx_page_hits_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

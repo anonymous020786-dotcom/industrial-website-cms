@@ -512,6 +512,14 @@
 
   /* ---------------- Click tracking (anonymous, no cookies) ---------------- */
   function initTracking() {
+    // Built-in analytics: one beacon per page view (no cookies; skipped for Do Not Track)
+    if (document.body.dataset.analytics === '1' && navigator.sendBeacon && navigator.doNotTrack !== '1') {
+      const hit = new FormData();
+      hit.append('p', location.pathname + location.search);
+      hit.append('r', document.referrer);
+      hit.append('w', String(window.innerWidth));
+      navigator.sendBeacon(`${base}/hit`, hit);
+    }
     document.addEventListener('click', (e) => {
       const a = e.target.closest('[data-track]');
       if (!a || !navigator.sendBeacon) return;
