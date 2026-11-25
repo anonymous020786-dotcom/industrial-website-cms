@@ -158,6 +158,7 @@ function settings_tabs(): array
         'community' => ['Comments, Sharing & Newsletter', 'messages-square', [
             'h_share' => ['type' => 'heading', 'label' => 'Share buttons', 'help' => 'WhatsApp, LinkedIn, Facebook, X, Telegram, Reddit, email, copy link and the phone’s share sheet on articles, products, projects and jobs. Shared links carry utm tags, so visits show up in Reports by network.'],
             'share_enabled' => ['type' => 'checkbox', 'label' => 'Sharing', 'text' => 'Show share buttons', 'default' => true, 'wide' => true],
+            'mobile_bar' => ['type' => 'checkbox', 'label' => 'Mobile contact bar', 'text' => 'On phones, show a bar with Call, WhatsApp, Service and Get a quote at the bottom of the screen', 'default' => true, 'wide' => true],
             'share_short_links' => ['type' => 'checkbox', 'label' => 'Short links', 'text' => 'Copy-link uses a short link (/s/abc123) with click counts', 'default' => true, 'wide' => true],
             'h_com' => ['type' => 'heading', 'label' => 'Blog comments', 'help' => 'Moderate in <strong>Comments</strong>. Each post can also switch comments off (post editor → Organise).'],
             'comments_enabled' => ['type' => 'checkbox', 'label' => 'Comments', 'text' => 'Allow comments on blog articles', 'default' => true, 'wide' => true],

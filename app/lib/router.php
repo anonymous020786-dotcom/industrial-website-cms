@@ -131,6 +131,7 @@ function routes(): array
         ['POST', '/admin/reviews/{id}/decide', 'admin_review_decide', 'admin_workflow'],
         ['GET', '/admin/activity', 'admin_activity', 'admin_workflow'],
         ['GET', '/admin/links', 'admin_links', 'admin_engage'],
+        ['GET', '/admin/palette.json', 'admin_palette_json', 'admin_engage'],
         ['GET', '/admin/comments', 'admin_comments', 'admin_engage'],
         ['GET', '/admin/newsletter', 'admin_newsletter', 'admin_engage'],
         ['GET|POST', '/admin/newsletter/new', 'admin_campaign_edit', 'admin_engage'],

@@ -174,6 +174,15 @@ $tagline = company('tagline', 'Precision Engineering | Reliable Hydraulic & Cran
 </div>
 <?php endif ?>
 <?= whatsapp_button() ?>
+<?php if (setting('mobile_bar', true)): $mbPhone = company('phone_href') ?: preg_replace('~[^\d+]~', '', company('phone')); $mbWa = whatsapp_link(); ?>
+<nav class="mobile-bar" aria-label="Quick contact" data-mobile-bar>
+  <?php if ($mbPhone): ?><a href="tel:<?= e($mbPhone) ?>" data-track="phone"><?= icon('phone', 'h-5 w-5') ?><span>Call</span></a><?php endif ?>
+  <?php if ($mbWa): ?><a href="<?= e($mbWa) ?>" target="_blank" rel="noopener" data-track="whatsapp"><?= icon('message-circle', 'h-5 w-5') ?><span>WhatsApp</span></a><?php endif ?>
+  <a href="<?= e(url('service-request')) ?>"><?= icon('wrench', 'h-5 w-5') ?><span>Service</span></a>
+  <a href="<?= e(url('quote')) ?>" class="is-primary"><?= icon('file-pen-line', 'h-5 w-5') ?><span>Get a quote</span></a>
+</nav>
+<?php endif ?>
+<div class="toast" role="status" aria-live="polite" data-toast hidden></div>
 
 <?php if (consent_required()): ?>
 <div id="cookie-banner" class="cookie-banner" role="dialog" aria-modal="false" aria-labelledby="cookie-title" aria-describedby="cookie-text" hidden>

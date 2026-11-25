@@ -577,7 +577,19 @@
     $$('img').forEach((img) => { if (img.complete && img.naturalWidth === 0 && img.getAttribute('src')) apply(img); });
   }
 
+  /* Small confirmation message at the bottom of the screen */
+  let toastTimer;
+  function toast(text) {
+    const t = $('[data-toast]');
+    if (!t) return;
+    t.textContent = text; t.hidden = false;
+    requestAnimationFrame(() => t.classList.add('is-on'));
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { t.classList.remove('is-on'); setTimeout(() => (t.hidden = true), 250); }, 2200);
+  }
+
   function initMisc() {
+    if ($('[data-mobile-bar]')) document.documentElement.classList.add('has-mobile-bar');
     $$('[data-print]').forEach((b) => b.addEventListener('click', () => window.print()));
     // Newsletter sign-up
     $$('form[data-newsletter]').forEach((f) => {
@@ -629,7 +641,7 @@
       });
     });
     $$('[data-copy]').forEach((b) => b.addEventListener('click', async () => {
-      try { await navigator.clipboard.writeText(b.dataset.copy); b.classList.add('is-copied'); setTimeout(() => b.classList.remove('is-copied'), 1500); } catch { /* ignore */ }
+      try { await navigator.clipboard.writeText(b.dataset.copy); b.classList.add('is-copied'); setTimeout(() => b.classList.remove('is-copied'), 1500); toast('Link copied'); } catch { toast('Copy failed — press and hold to copy the address'); }
     }));
   }
 

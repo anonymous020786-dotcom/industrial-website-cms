@@ -1675,6 +1675,25 @@ test('hiring: job details on the page, pipeline stages with candidate emails fro
   }
 });
 
+test('ui: admin command palette searches records by permission; phone contact bar and toast on the site', async () => {
+  sql("DELETE FROM leads WHERE email = 'e2e+palette@example.com'");
+  sql("INSERT INTO leads (type, status, name, company, email, product, message) VALUES ('quote', 'new', 'E2E Palette Person', 'E2E Palette Works', 'e2e+palette@example.com', 'Hydraulic Cylinders', 'x')");
+  try {
+    const dash = await admin.get('admin');
+    assert.match(dash.text, /data-palette-open/);
+    assert.match(dash.text, /<dialog class="adm-palette"/);
+    const r = await admin.get('admin/palette.json?q=E2E+Palette', { Accept: 'application/json' });
+    const j = JSON.parse(r.text);
+    assert.ok(j.results.some((x) => x.group === 'Leads' && x.title === 'E2E Palette Person' && /\/admin\/leads\/\d+$/.test(x.url)));
+    assert.equal((await new Client().get('admin/palette.json?q=E2E', { Accept: 'application/json' })).status, 401, 'signed-in staff only');
+    const home = await new Client().get('');
+    assert.match(home.text, /data-mobile-bar[\s\S]*Get a quote/);
+    assert.match(home.text, /data-toast/);
+  } finally {
+    sql("DELETE FROM leads WHERE email = 'e2e+palette@example.com'");
+  }
+});
+
 test('keep me signed in: survives a browser restart, rotates, is device-bound, detects stolen tokens, ends on sign-out', async () => {
   setSetting('remember_enabled', true);
   setSetting('remember_days', 30);

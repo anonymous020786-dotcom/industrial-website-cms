@@ -374,3 +374,37 @@ function admin_subscriber_action(string $id): void
     content_log('subscriber', (int) $s['id'], $a === 'delete' ? 'deleted' : 'updated', (string) $s['email'], ucfirst($a));
     back('admin/subscribers');
 }
+
+
+/* ------------------------------------------------------------------ */
+/* Command palette search (Ctrl+K)                                     */
+/* ------------------------------------------------------------------ */
+
+function admin_palette_json(): void
+{
+    require_login();
+    $q = trim((string) query('q', ''));
+    $out = [];
+    if (mb_strlen($q) >= 2) {
+        $like = '%' . addcslashes($q, '%_\\') . '%';
+        $add = function (string $group, string $icon, array $rows, callable $title, callable $sub, callable $link) use (&$out) {
+            foreach ($rows as $r) $out[] = ['group' => $group, 'icon' => icon($icon, 'h-4 w-4'), 'title' => $title($r), 'sub' => $sub($r), 'url' => url($link($r))];
+        };
+        if (can('leads')) {
+            $add('Leads', 'inbox', db_all("SELECT id, name, company, email, product, type FROM leads WHERE type <> 'job' AND status <> 'spam' AND (name LIKE ? OR company LIKE ? OR email LIKE ? OR phone LIKE ? OR product LIKE ?) ORDER BY id DESC LIMIT 6", array_fill(0, 5, $like)),
+                fn($r) => (string) $r['name'], fn($r) => trim(($r['company'] ?: $r['email']) . ' · ' . $r['product'], ' ·'), fn($r) => 'admin/leads/' . $r['id']);
+            $add('Quotes', 'file-text', db_all('SELECT id, number, customer_name, company FROM quotes WHERE number LIKE ? OR customer_name LIKE ? OR company LIKE ? ORDER BY id DESC LIMIT 5', array_fill(0, 3, $like)),
+                fn($r) => (string) $r['number'], fn($r) => trim($r['customer_name'] . ' · ' . $r['company'], ' ·'), fn($r) => 'admin/quotes/' . $r['id'] . '/edit');
+        }
+        if (can('content')) {
+            $add('Posts', 'newspaper', db_all('SELECT id, title, status FROM posts WHERE deleted_at IS NULL AND title LIKE ? ORDER BY updated_at DESC LIMIT 5', [$like]), fn($r) => (string) $r['title'], fn($r) => ucfirst((string) $r['status']), fn($r) => 'admin/posts/' . $r['id'] . '/edit');
+            $add('Pages', 'file-text', db_all('SELECT id, title, slug FROM pages WHERE deleted_at IS NULL AND title LIKE ? LIMIT 5', [$like]), fn($r) => (string) $r['title'], fn($r) => '/' . $r['slug'], fn($r) => 'admin/pages/' . $r['id'] . '/edit');
+            $add('Products', 'package', db_all('SELECT id, name FROM products WHERE name LIKE ? LIMIT 5', [$like]), fn($r) => (string) $r['name'], fn($r) => 'Product', fn($r) => 'admin/r/products/' . $r['id'] . '/edit');
+        }
+        if (can('users')) {
+            $add('Applications', 'user-round-check', db_all("SELECT l.id, l.name, j.title FROM leads l LEFT JOIN jobs j ON j.id = l.job_id WHERE l.type = 'job' AND (l.name LIKE ? OR l.email LIKE ?) ORDER BY l.id DESC LIMIT 4", [$like, $like]),
+                fn($r) => (string) $r['name'], fn($r) => (string) ($r['title'] ?: 'Application'), fn($r) => 'admin/leads/' . $r['id']);
+        }
+    }
+    json_response(['results' => $out]);
+}

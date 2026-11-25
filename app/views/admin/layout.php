@@ -51,6 +51,7 @@ $path = request_path();
         <?php if ($crumbs): ?><nav class="flex items-center gap-1 text-xs text-charcoal/50" aria-label="Breadcrumb"><?php foreach ($crumbs as [$l, $u]): ?><a class="hover:text-navy" href="<?= e(url($u)) ?>"><?= e($l) ?></a><?= icon('chevron-right', 'h-3 w-3') ?><?php endforeach ?></nav><?php endif ?>
         <h1 class="truncate text-lg font-bold text-navy"><?= e($title) ?></h1>
       </div>
+      <button type="button" class="adm-palette-btn" data-palette-open aria-label="Search and jump (Ctrl+K)" title="Search and jump (Ctrl+K)"><?= icon('search', 'h-4 w-4') ?><span class="hidden xl:inline">Search…</span><kbd class="hidden xl:inline">Ctrl K</kbd></button>
       <div class="flex items-center gap-2"><?= $actions ?></div>
       <?= admin_theme_button('adm-icon-btn !h-10 !w-10 rounded-full') ?>
       <?php $unreadN = notifications_unread((int) $user['id']); ?>
@@ -124,5 +125,12 @@ $path = request_path();
 <script src="<?= e(asset('vendor/quill/quill.js')) ?>" defer></script>
 <script src="<?= e(asset('js/admin.js')) ?>" defer></script>
 <script src="<?= e(asset('js/pwtoggle.js')) ?>" defer></script>
+<dialog class="adm-palette" data-palette aria-label="Search and jump">
+  <div class="adm-palette-box">
+    <div class="adm-palette-input"><?= icon('search', 'h-5 w-5 text-charcoal/50') ?><input type="search" placeholder="Go to a page, or search leads, quotes, posts, products…" autocomplete="off" data-palette-q aria-label="Search"><kbd>Esc</kbd></div>
+    <ul class="adm-palette-list" role="listbox" data-palette-list></ul>
+    <p class="adm-palette-foot"><kbd>↑</kbd><kbd>↓</kbd> to move · <kbd>Enter</kbd> to open · <kbd>Ctrl</kbd><kbd>K</kbd> anywhere</p>
+  </div>
+</dialog>
 </body>
 </html>

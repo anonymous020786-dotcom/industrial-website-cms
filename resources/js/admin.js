@@ -439,6 +439,53 @@
     sel.addEventListener('change', () => { edited = false; fill(); });
   }
 
+  // Command palette: Ctrl+K / Cmd+K — jump to any admin page, or search records
+  const pal = document.querySelector('[data-palette]');
+  if (pal && pal.showModal) {
+    const input = pal.querySelector('[data-palette-q]');
+    const list = pal.querySelector('[data-palette-list]');
+    const pages = [...document.querySelectorAll('.adm-sidebar a.adm-nav-link')].map((a) => ({ group: 'Go to', title: a.textContent.trim().replace(/\s+\d+$/, ''), url: a.href, icon: a.querySelector('svg')?.outerHTML || '' }));
+    let items = []; let active = 0; let timer; let seq = 0;
+    const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const render = () => {
+      let group = '';
+      list.innerHTML = items.length ? items.map((it, i) => (it.group !== group ? `<li class="adm-palette-group">${esc(group = it.group)}</li>` : '')
+        + `<li role="option" aria-selected="${i === active}" class="adm-palette-item${i === active ? ' is-active' : ''}" data-i="${i}">${it.icon}<span class="min-w-0 flex-1"><span class="block truncate font-semibold">${esc(it.title)}</span>${it.sub ? `<span class="block truncate text-xs opacity-60">${esc(it.sub)}</span>` : ''}</span></li>`).join('')
+        : '<li class="adm-palette-empty">No matches</li>';
+      list.querySelector('.is-active')?.scrollIntoView({ block: 'nearest' });
+    };
+    const update = () => {
+      const q = input.value.trim().toLowerCase();
+      const local = pages.filter((p) => !q || p.title.toLowerCase().includes(q)).slice(0, q ? 6 : 12);
+      items = local; active = 0; render();
+      clearTimeout(timer);
+      if (q.length < 2) return;
+      const my = ++seq;
+      timer = setTimeout(async () => {
+        try {
+          const r = await fetch(`${document.body.dataset.base || ''}/admin/palette.json?q=${encodeURIComponent(q)}`, { headers: { Accept: 'application/json' } });
+          const j = await r.json();
+          if (my !== seq) return;
+          items = local.concat(j.results); render();
+        } catch { /* keep local results */ }
+      }, 180);
+    };
+    const open = () => { if (!pal.open) { pal.showModal(); input.value = ''; update(); input.focus(); } };
+    const go = () => { const it = items[active]; if (it) location.href = it.url; };
+    document.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); pal.open ? pal.close() : open(); }
+    });
+    document.querySelectorAll('[data-palette-open]').forEach((b) => b.addEventListener('click', open));
+    input.addEventListener('input', update);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowDown') { e.preventDefault(); active = Math.min(items.length - 1, active + 1); render(); }
+      if (e.key === 'ArrowUp') { e.preventDefault(); active = Math.max(0, active - 1); render(); }
+      if (e.key === 'Enter') { e.preventDefault(); go(); }
+    });
+    list.addEventListener('click', (e) => { const li = e.target.closest('[data-i]'); if (li) { active = Number(li.dataset.i); go(); } });
+    pal.addEventListener('click', (e) => { if (e.target === pal) pal.close(); });
+  }
+
   // Copy a value (short links, codes) to the clipboard
   document.addEventListener('click', async (e) => {
     const b = e.target.closest('[data-copy-text]');

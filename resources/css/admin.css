@@ -359,3 +359,24 @@ html.theme-anim, html.theme-anim *, html.theme-anim *::before { transition: back
 .review-diff ins, .review-ins { background: #dcfce7; color: #166534; text-decoration: none; }
 html.dark .review-diff del, html.dark .review-del { background: rgb(127 29 29 / .45); color: #fecaca; }
 html.dark .review-diff ins, html.dark .review-ins { background: rgb(20 83 45 / .5); color: #bbf7d0; }
+
+/* Command palette */
+.adm-palette-btn { display: inline-flex; align-items: center; gap: .5rem; height: 2.5rem; padding: 0 .75rem; border: 1px solid rgb(0 0 0 / .12); border-radius: .5rem; font-size: .85rem; color: rgb(37 43 53 / .65); background: rgb(255 255 255 / .6); }
+.adm-palette-btn:hover { border-color: rgb(0 0 0 / .25); color: #101D32; }
+.adm-palette-btn kbd, .adm-palette kbd { font: 600 .7rem/1 ui-monospace, monospace; padding: .2rem .35rem; border: 1px solid rgb(0 0 0 / .15); border-radius: .25rem; background: rgb(0 0 0 / .03); }
+.adm-palette { width: min(640px, calc(100vw - 2rem)); margin: 10vh auto auto; padding: 0; border: 0; border-radius: .9rem; background: transparent; }
+.adm-palette::backdrop { background: rgb(16 29 50 / .45); backdrop-filter: blur(2px); }
+.adm-palette-box { background: #fff; border-radius: .9rem; overflow: hidden; box-shadow: 0 25px 60px rgb(0 0 0 / .3); }
+.adm-palette-input { display: flex; align-items: center; gap: .75rem; padding: .9rem 1rem; border-bottom: 1px solid rgb(0 0 0 / .08); }
+.adm-palette-input input { flex: 1; border: 0; outline: none; font-size: 1rem; background: transparent; color: inherit; }
+.adm-palette-list { max-height: 55vh; overflow-y: auto; padding: .4rem; }
+.adm-palette-group { padding: .6rem .7rem .3rem; font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; color: rgb(37 43 53 / .5); }
+.adm-palette-item { display: flex; align-items: center; gap: .75rem; padding: .55rem .7rem; border-radius: .5rem; cursor: pointer; color: #101D32; }
+.adm-palette-item.is-active { background: #174A78; color: #fff; }
+.adm-palette-empty { padding: 1.5rem; text-align: center; font-size: .9rem; color: rgb(37 43 53 / .55); }
+.adm-palette-foot { padding: .55rem 1rem; border-top: 1px solid rgb(0 0 0 / .08); font-size: .72rem; color: rgb(37 43 53 / .55); }
+html.dark .adm-palette-btn { background: var(--d-surface-2); border-color: var(--d-line); color: rgb(255 255 255 / .7); }
+html.dark .adm-palette-box { background: var(--d-surface); color: #e5e7eb; }
+html.dark .adm-palette-item { color: #e5e7eb; }
+html.dark .adm-palette-input, html.dark .adm-palette-foot { border-color: var(--d-line); }
+html.dark .adm-palette kbd, html.dark .adm-palette-btn kbd { border-color: var(--d-line); background: rgb(255 255 255 / .05); }

@@ -50,6 +50,11 @@ Include steps to reproduce and the affected version. You will get a reply within
   opened only by administrators, and only PDF and Word files are accepted.
 - Content approval runs on the server: editors can't publish live content through bulk actions or
   revision restore. Every content change is written to the activity log.
+- Newsletter: double opt-in by default; tracked clicks only redirect when the HMAC signature matches;
+  unsubscribe needs a POST (mail scanners only GET), including the RFC 8058 one-click POST. Exports
+  need administrator rights and step-up confirmation.
+- Comments: plain text only (escaped, `nofollow ugc` links). Staff comments from the website need the
+  CSRF token. The spam filter and rate limits run on the server.
 - `refresh-cache.php` (after automatic updates) only acts on a single-use, two-minute token written by
   the updater into `app/storage`. Any other request gets a 404.
 

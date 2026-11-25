@@ -38,6 +38,8 @@ marketing integrations. It runs on any standard PHP host with no framework and n
   - Hydraulic calculators, a part-number finder with a "find me this part" request, a downloads
     centre, a distributor network and careers with CV applications.
   - Site-wide search with spelling suggestions.
+- **Audience.** Share buttons for every major network with short links, moderated blog comments, and a
+  newsletter with double opt-in, campaigns, open and click statistics, and one-click unsubscribe.
 - **Team workflow.** Optional approval of editors' changes, an activity log of who changed what, and
   a weekly owner report by email and Telegram.
 - **Operations.**
@@ -56,6 +58,9 @@ marketing integrations. It runs on any standard PHP host with no framework and n
   one-time-code confirmation before sensitive actions, in-app and email security alerts, password reset,
   backup email, rate limiting, an audit log and CSP. See [SECURITY.md](SECURITY.md).
 - **Quality.**
+  - On phones, a contact bar (Call, WhatsApp, Service, Get a quote) sits at the bottom of the screen.
+  - The admin has a **Ctrl+K command palette** that jumps to any page and searches leads, quotes, posts,
+    pages, products and applications.
   - Light and dark themes; WCAG 2.2 AA contrast; schema.org JSON-LD.
   - **The admin has the same light/dark switch** (sun/moon in the top bar and on the sign-in
     screens).
@@ -233,8 +238,49 @@ Set `'debug' => false` in production.
     links answer 410).
   - Applications need a CV (PDF or Word). Only administrators see them, and they are kept out of the
     sales leads. Settings → Workflow & Reports can copy them to an HR inbox.
+  - Hiring pipeline: New → Screening → Interview → Offer → Hired / Not selected, with counts per stage.
+    Each stage has an editable email template for the candidate, and every change is kept on the
+    application's timeline.
+  - Openings can show experience, salary, number of positions and work place (on site, hybrid, remote or
+    field). Admins see applicant counts in the jobs list.
 - **Search** (`/search`, the magnifier in the header). Products, part numbers, pages, articles, projects,
   downloads and open jobs, with "did you mean" for misspellings. Searches with no results are logged.
+
+## Sharing, comments and newsletter
+
+All of these are set up in Settings → Comments, Sharing & Newsletter.
+
+- **Share buttons** appear on articles, products, projects and job openings:
+  - WhatsApp, LinkedIn, Facebook, X, Telegram, Reddit, email, copy link, and the phone's own share sheet
+  - Shared links carry `utm_source=<network>`, so visits show up in Reports.
+- **Short links** (`/s/abc123`, Admin → Short links).
+  - Every page gets one automatically for "copy link".
+  - Create your own for flyers, QR codes and messages, e.g. `/s/expo2026`.
+  - Clicks are counted, but link-preview robots (WhatsApp, LinkedIn, Slack…) are not.
+  - Shares per network and the most shared pages are shown for the last 30 days.
+- **Blog comments** (Admin → Comments).
+  - Replies are one level deep. Team replies get a badge.
+  - Comment text is escaped, and links get `nofollow ugc`.
+  - Moderation modes:
+    - approve everything by hand
+    - trust a person after their first approved comment (default)
+    - publish at once
+  - Spam filter: too many links, blocked words, repeat spammers. Signed form token, honeypot,
+    Turnstile and rate limits.
+  - Each post can switch comments off. Comments can also close automatically after N days.
+  - The moderation queue has bulk actions and "Reply as the team", which emails the commenter.
+- **Newsletter** (Admin → Newsletter / Subscribers).
+  - The sign-up form is in the footer and the blog sidebar. It uses double opt-in and sends a welcome
+    email. It never reveals whether an address was already on the list.
+  - Campaigns: rich text plus an optional "latest articles" block, a live preview and a test send. Send
+    now or schedule.
+  - Delivery runs in batches every time cron runs (Settings → batch size).
+  - Open and click tracking. Click redirects are HMAC-signed, so the site can't be used as an open
+    redirect.
+  - Every email has the company address, an unsubscribe link and RFC 8058 `List-Unsubscribe` /
+    one-click headers (Gmail and Yahoo require them for bulk senders).
+  - Subscribers: add (with consent), CSV import (with consent), CSV export (administrators, step-up),
+    unsubscribe, and delete all data.
 
 ## Team workflow
 
