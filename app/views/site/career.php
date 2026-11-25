@@ -10,6 +10,7 @@
         <?php endforeach ?>
       </dl>
       <div class="article mt-6"><?= $job['description'] ? sanitize_html($job['description']) : '<p>' . e((string) $job['summary']) . '</p>' ?></div>
+      <?php if ($open): ?><div class="mt-10"><?= share_bar('/careers/' . $job['slug'], $job['title'] . ' — ' . company('name'), 'Share this job') ?></div><?php endif ?>
     </article>
     <div class="lg:col-span-5" id="apply">
       <?php if (!$open && $job['status'] === 'published'): ?>

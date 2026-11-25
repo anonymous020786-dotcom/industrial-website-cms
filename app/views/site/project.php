@@ -44,6 +44,7 @@ $facts = array_filter(['Client' => $p['client'], 'Industry' => $p['industry'], '
         <p class="mt-3 text-sm leading-relaxed text-white/75">Share your drawings, part numbers or duty conditions and an engineer will come back with a solution.</p>
         <a href="<?= e(url('quote')) ?>" class="btn btn-primary mt-6 w-full justify-center">Request a Quote <?= icon('arrow-right', 'btn-arrow h-4 w-4') ?></a>
       </div>
+      <div class="border border-black/10 p-6"><?= share_bar('/projects/' . $p['slug'], $p['title'], 'Share this project') ?></div>
       <?php if ($products): ?>
       <div class="border border-black/10 p-6">
         <h2 class="text-xs font-bold uppercase tracking-[0.18em] text-charcoal/60">Products supplied</h2>

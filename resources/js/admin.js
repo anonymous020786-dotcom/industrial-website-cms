@@ -425,4 +425,11 @@
     qForm.addEventListener('change', recalc);
     recalc();
   }
+
+  // Copy a value (short links, codes) to the clipboard
+  document.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-copy-text]');
+    if (!b) return;
+    try { await navigator.clipboard.writeText(b.dataset.copyText); b.classList.add('is-copied'); b.title = 'Copied'; setTimeout(() => b.classList.remove('is-copied'), 1500); } catch { /* ignore */ }
+  });
 })();

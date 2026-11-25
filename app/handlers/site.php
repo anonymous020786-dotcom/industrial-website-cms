@@ -131,6 +131,7 @@ function site_blog_post(string $slug): void
             'author' => ['@type' => 'Organization', 'name' => company('name')],
             'publisher' => ['@type' => 'Organization', 'name' => company('name')],
             'mainEntityOfPage' => $url,
+            'commentCount' => comment_count((int) $post['id']),
         ]],
     ];
     if ($faqLd) $meta['jsonld'][] = $faqLd;
@@ -184,7 +185,7 @@ function site_lead_submit(): void
 function site_track(): void
 {
     $type = (string) ($_POST['type'] ?? '');
-    if (in_array($type, ['whatsapp', 'phone', 'email'], true) && rate_limit(ip_bucket('track'), 30, 600)) {
+    if (in_array($type, ['whatsapp', 'phone', 'email', 'share'], true) && rate_limit(ip_bucket('track'), 30, 600)) {
         db_insert('events', ['type' => $type, 'page' => mb_substr((string) ($_POST['page'] ?? ''), 0, 500)]);
     }
     http_response_code(204);

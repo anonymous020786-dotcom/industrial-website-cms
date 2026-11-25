@@ -574,3 +574,83 @@ CREATE TABLE IF NOT EXISTS content_reviews (
   KEY idx_content_reviews_status (status, created_at),
   KEY idx_content_reviews_entity (entity, entity_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Short links (/s/{code}) used by share buttons and created by hand in the admin
+CREATE TABLE IF NOT EXISTS short_links (
+  id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  code          VARCHAR(32) NOT NULL,
+  target        VARCHAR(1000) NOT NULL,
+  title         VARCHAR(255) NULL,
+  auto          TINYINT(1) NOT NULL DEFAULT 0,
+  clicks        INT UNSIGNED NOT NULL DEFAULT 0,
+  last_click_at DATETIME NULL,
+  created_by    INT UNSIGNED NULL,
+  created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_short_links_code (code),
+  KEY idx_short_links_target (target(191))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Blog comments (moderated)
+CREATE TABLE IF NOT EXISTS comments (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  post_id     INT UNSIGNED NOT NULL,
+  parent_id   INT UNSIGNED NULL,
+  user_id     INT UNSIGNED NULL,
+  name        VARCHAR(120) NOT NULL,
+  email       VARCHAR(190) NULL,
+  body        TEXT NOT NULL,
+  status      VARCHAR(20) NOT NULL DEFAULT 'pending',
+  spam_reason VARCHAR(190) NULL,
+  ip          VARCHAR(45) NULL,
+  user_agent  VARCHAR(255) NULL,
+  approved_at DATETIME NULL,
+  approved_by INT UNSIGNED NULL,
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_comments_post (post_id, status, created_at),
+  KEY idx_comments_status (status, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Newsletter: subscribers (double opt-in), campaigns and per-recipient delivery/open/click
+CREATE TABLE IF NOT EXISTS subscribers (
+  id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  email           VARCHAR(190) NOT NULL,
+  name            VARCHAR(150) NULL,
+  status          VARCHAR(20) NOT NULL DEFAULT 'pending',
+  token           CHAR(40) NOT NULL,
+  source          VARCHAR(60) NULL,
+  ip              VARCHAR(45) NULL,
+  confirmed_at    DATETIME NULL,
+  unsubscribed_at DATETIME NULL,
+  created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_subscribers_email (email),
+  UNIQUE KEY uq_subscribers_token (token),
+  KEY idx_subscribers_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS campaigns (
+  id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  subject      VARCHAR(190) NOT NULL,
+  preheader    VARCHAR(190) NULL,
+  body         MEDIUMTEXT NULL,
+  latest_posts TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  status       VARCHAR(20) NOT NULL DEFAULT 'draft',
+  scheduled_at DATETIME NULL,
+  started_at   DATETIME NULL,
+  sent_at      DATETIME NULL,
+  recipients   INT UNSIGNED NOT NULL DEFAULT 0,
+  created_by   INT UNSIGNED NULL,
+  created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  KEY idx_campaigns_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS campaign_sends (
+  campaign_id   INT UNSIGNED NOT NULL,
+  subscriber_id INT UNSIGNED NOT NULL,
+  sent_at       DATETIME NULL,
+  error         VARCHAR(255) NULL,
+  opened_at     DATETIME NULL,
+  clicked_at    DATETIME NULL,
+  PRIMARY KEY (campaign_id, subscriber_id),
+  KEY idx_campaign_sends_pending (campaign_id, sent_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

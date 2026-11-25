@@ -125,3 +125,166 @@ function site_search_page(): void
         'canonical' => abs_url('search'), 'noindex' => true, 'crumbs' => [['label' => 'Search', 'url' => url('search')]]];
     site_render($meta, view('site/search', compact('meta', 'q') + $found));
 }
+
+/* ------------------------------------------------------------------ */
+/* Short links                                                         */
+/* ------------------------------------------------------------------ */
+
+function site_short_link(string $code): void
+{
+    $link = short_code_valid($code) ? db_one('SELECT * FROM short_links WHERE code = ?', [$code]) : null;
+    if (!$link) abort(404);
+    $ua = (string) ($_SERVER['HTTP_USER_AGENT'] ?? '');
+    // Count people, not link-preview robots (WhatsApp, Slack, LinkedIn… fetch the link once to build a preview)
+    if (!preg_match('~bot|crawl|spider|preview|facebookexternalhit|whatsapp|slack|telegram|linkedin|embedly|curl|wget~i', $ua) && rate_limit(ip_bucket('s-' . $link['id']), 3, 3600)) {
+        db_query('UPDATE short_links SET clicks = clicks + 1, last_click_at = NOW() WHERE id = ?', [(int) $link['id']]);
+    }
+    $to = str_starts_with((string) $link['target'], '/') ? abs_url(ltrim((string) $link['target'], '/')) : (string) $link['target'];
+    header('Cache-Control: no-store');
+    header('X-Robots-Tag: noindex');
+    header('Location: ' . $to, true, 301);
+    exit;
+}
+
+/* ------------------------------------------------------------------ */
+/* Blog comments                                                       */
+/* ------------------------------------------------------------------ */
+
+function site_comment_submit(string $slug): void
+{
+    $post = db_one('SELECT p.* FROM posts p WHERE p.slug = ? AND ' . POST_VISIBLE, [$slug]);
+    if (!$post) abort(404);
+    $back = fn(string $state, ?int $id = null) => redirect('blog/' . $post['slug'] . '?comment=' . $state . '#' . ($id ? 'comment-' . $id : 'comments'));
+    $fail = function (string $msg) use ($post) {
+        $meta = ['title' => 'Comment not posted', 'description' => '', 'noindex' => true, 'crumbs' => []];
+        site_render($meta, '<section class="section"><div class="mx-auto max-w-2xl px-4"><h1 class="font-display text-4xl font-bold uppercase text-navy">Comment not posted</h1><p class="mt-4 text-charcoal/80">' . e($msg)
+            . '</p><a class="btn btn-primary mt-8" href="' . e(url('blog/' . $post['slug']) . '#comment-form') . '">Back to the article</a></div></section>', 422);
+        exit;
+    };
+    if (!comments_open($post)) $fail('Comments are closed for this article.');
+    if (!empty($_POST['website'])) $back('pending'); // honeypot: pretend it worked
+
+    $staff = site_admin_user();
+    if ($staff) csrf_check();
+    else {
+        if (!form_token_valid((string) ($_POST['_ft'] ?? ''))) $fail('The form expired or was sent too quickly. Please go back, wait a moment and try again.');
+        if (!turnstile_verify((string) ($_POST['cf-turnstile-response'] ?? ''))) $fail('The security check failed. Please try again.');
+    }
+    if (!rate_limit(ip_bucket('comment'), 5, 600)) $fail('Too many comments in a short time. Please wait a few minutes.');
+
+    $body = trim(str_replace("\r\n", "\n", (string) ($_POST['comment'] ?? '')));
+    $name = $staff ? (string) $staff['name'] : mb_substr(trim((string) ($_POST['fullName'] ?? '')), 0, 120);
+    $email = $staff ? (string) $staff['email'] : mb_strtolower(mb_substr(trim((string) ($_POST['email'] ?? '')), 0, 190));
+    if (!$staff && mb_strlen($name) < 2) $fail('Please enter your name.');
+    if (!$staff && !filter_var($email, FILTER_VALIDATE_EMAIL)) $fail('Please enter a valid email address (it is not published).');
+    if (!$staff && empty($_POST['consent'])) $fail('Please confirm that your name and comment may be published.');
+    if (mb_strlen($body) < 3) $fail('Please write a comment.');
+    if (mb_strlen($body) > 5000) $fail('Comments can be up to 5,000 characters.');
+
+    // Replies attach to the top-level comment (one level of threading)
+    $parent = null;
+    if (ctype_digit((string) ($_POST['parent_id'] ?? ''))) {
+        $parent = db_one("SELECT id, parent_id FROM comments WHERE id = ? AND post_id = ? AND status = 'approved'", [(int) $_POST['parent_id'], (int) $post['id']]);
+        if ($parent && $parent['parent_id']) $parent['id'] = $parent['parent_id'];
+    }
+    $spam = $staff ? null : comment_spam_reason($body, $name, $email);
+    $status = $staff ? 'approved' : ($spam ? 'spam' : comment_initial_status($email));
+    $id = db_insert('comments', ['post_id' => (int) $post['id'], 'parent_id' => $parent['id'] ?? null, 'user_id' => $staff['id'] ?? null, 'name' => $name, 'email' => $email ?: null,
+        'body' => $body, 'status' => $status, 'spam_reason' => $spam, 'ip' => client_ip(), 'user_agent' => mb_substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255),
+        'approved_at' => $status === 'approved' ? now() : null, 'approved_by' => $staff['id'] ?? null]);
+
+    if (!$staff && !empty($_POST['newsletter']) && function_exists('newsletter_subscribe')) newsletter_subscribe($email, $name, 'comment');
+    if ($status === 'pending' && setting('comments_notify', true)) {
+        foreach (db_all("SELECT * FROM users WHERE role IN ('admin', 'editor') AND active = 1") as $u) {
+            notify_user($u, 'comment_pending', 'New comment to approve', $name . ' commented on “' . $post['title'] . '”: ' . mb_substr($body, 0, 140), ['link' => 'admin/comments?status=pending', 'category' => 'reviews']);
+        }
+    }
+    $status === 'approved' ? $back('posted', $id) : $back('pending');
+}
+
+/* ------------------------------------------------------------------ */
+/* Newsletter (public)                                                 */
+/* ------------------------------------------------------------------ */
+
+function newsletter_page(string $title, string $html, int $status = 200): never
+{
+    $meta = ['title' => $title, 'description' => '', 'noindex' => true, 'crumbs' => []];
+    header('Referrer-Policy: no-referrer');
+    site_render($meta, '<section class="section"><div class="mx-auto max-w-2xl px-4 text-center sm:px-6" data-newsletter-page><span class="mx-auto grid h-16 w-16 place-items-center bg-navy text-safety">' . icon('mail-check', 'h-8 w-8') . '</span>'
+        . '<h1 class="mt-6 font-display text-4xl font-bold uppercase tracking-wide text-navy">' . e($title) . '</h1>' . $html . '</div></section>', $status);
+    exit;
+}
+
+function site_newsletter_subscribe(): void
+{
+    $json = wants_json();
+    $reply = function (bool $ok, string $msg, int $code = 200) use ($json) {
+        if ($json) json_response(['ok' => $ok, 'message' => $msg], $code);
+        newsletter_page($ok ? 'Almost there' : 'Subscription not completed', '<p class="mt-4 text-lg text-charcoal/80">' . e($msg) . '</p><a class="btn btn-primary mt-8" href="' . e(url('')) . '">Back to the website</a>', $code);
+    };
+    if (!newsletter_enabled()) $reply(false, 'The newsletter is not available right now.', 404);
+    if (!empty($_POST['website'])) $reply(true, 'Thank you! Please check your inbox to confirm.'); // honeypot
+    if (!form_token_valid((string) ($_POST['_ft'] ?? ''))) $reply(false, 'The form expired. Please refresh the page and try again.', 422);
+    if (!rate_limit(ip_bucket('newsletter'), 5, 3600)) $reply(false, 'Too many attempts. Please try again later.', 429);
+    $src = preg_match('~^[a-z]{2,20}$~', (string) ($_POST['source'] ?? '')) ? (string) $_POST['source'] : 'website';
+    $r = newsletter_subscribe((string) ($_POST['email'] ?? ''), (string) ($_POST['name'] ?? ''), $src);
+    match ($r) {
+        'invalid' => $reply(false, 'Please enter a valid email address.', 422),
+        'subscribed' => $reply(true, 'Thank you — you are subscribed.'),
+        default => $reply(true, 'Thank you! Please check your inbox and click the link to confirm your subscription.'), // also for 'already': no list disclosure
+    };
+}
+
+function site_newsletter_confirm(string $token): void
+{
+    $sub = newsletter_by_token($token);
+    if (!$sub) newsletter_page('Link not valid', '<p class="mt-4 text-charcoal/80">This confirmation link is not valid. Please subscribe again.</p>', 404);
+    if ($sub['status'] !== 'subscribed') {
+        db_update('subscribers', ['status' => 'subscribed', 'confirmed_at' => now(), 'unsubscribed_at' => null], (int) $sub['id']);
+        newsletter_send_welcome(['status' => 'subscribed'] + $sub);
+    }
+    newsletter_page('You are subscribed', '<p class="mt-4 text-lg text-charcoal/80">Thank you for confirming. The next issue goes to <strong>' . e((string) $sub['email']) . '</strong>.</p><a class="btn btn-primary mt-8" href="' . e(url('blog')) . '">Read the latest articles</a>');
+}
+
+/** GET shows a confirm button (mail scanners follow links); POST unsubscribes — also the RFC 8058 one-click POST from mail apps. */
+function site_newsletter_unsubscribe(string $token): void
+{
+    $sub = newsletter_by_token($token);
+    if (!$sub) newsletter_page('Link not valid', '<p class="mt-4 text-charcoal/80">This unsubscribe link is not valid.</p>', 404);
+    if (is_post()) {
+        if ($sub['status'] !== 'unsubscribed') {
+            db_update('subscribers', ['status' => 'unsubscribed', 'unsubscribed_at' => now()], (int) $sub['id']);
+            content_log('subscriber', (int) $sub['id'], 'updated', (string) $sub['email'], 'Unsubscribed');
+        }
+        if (($_POST['List-Unsubscribe'] ?? '') === 'One-Click') { http_response_code(200); echo "Unsubscribed\n"; exit; }
+        newsletter_page('You are unsubscribed', '<p class="mt-4 text-lg text-charcoal/80"><strong>' . e((string) $sub['email']) . '</strong> will not receive the newsletter any more.</p>'
+            . '<p class="mt-6 text-sm text-charcoal/60">Changed your mind? <a class="font-semibold text-steel underline" href="' . e(url('newsletter/confirm/' . $sub['token'])) . '">Subscribe again</a>.</p>');
+    }
+    if ($sub['status'] === 'unsubscribed') newsletter_page('Already unsubscribed', '<p class="mt-4 text-charcoal/80">' . e((string) $sub['email']) . ' is not on the list.</p>');
+    newsletter_page('Unsubscribe?', '<p class="mt-4 text-lg text-charcoal/80">Stop sending the newsletter to <strong>' . e((string) $sub['email']) . '</strong>?</p>'
+        . '<form method="post" class="mt-8"><button class="btn btn-primary">' . icon('mail-x', 'h-4 w-4') . ' Yes, unsubscribe me</button></form>');
+}
+
+/** Open tracking pixel. */
+function site_newsletter_open(string $cid, string $token): void
+{
+    $sub = newsletter_by_token($token);
+    if ($sub && ctype_digit($cid)) db_query('UPDATE campaign_sends SET opened_at = COALESCE(opened_at, NOW()) WHERE campaign_id = ? AND subscriber_id = ?', [(int) $cid, (int) $sub['id']]);
+    header('Content-Type: image/gif');
+    header('Cache-Control: no-store, private');
+    echo base64_decode('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7');
+    exit;
+}
+
+/** Click tracking: only signed links redirect (prevents an open redirect). */
+function site_newsletter_click(string $cid, string $token): void
+{
+    $url = b64url_decode((string) query('u', ''));
+    $sig = (string) query('s', '');
+    if (!ctype_digit($cid) || !preg_match('~^https?://~i', $url) || !hash_equals(campaign_sig((int) $cid, $token, $url), $sig)) abort(404);
+    $sub = newsletter_by_token($token);
+    if ($sub) db_query('UPDATE campaign_sends SET clicked_at = COALESCE(clicked_at, NOW()), opened_at = COALESCE(opened_at, NOW()) WHERE campaign_id = ? AND subscriber_id = ?', [(int) $cid, (int) $sub['id']]);
+    header('Cache-Control: no-store');
+    header('Location: ' . $url, true, 302);
+    exit;
+}

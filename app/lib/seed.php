@@ -247,10 +247,11 @@ function run_migrations(): array
             'service_status' => 'VARCHAR(20) NULL AFTER track_token',
             'location' => 'VARCHAR(190) NULL AFTER service_status',
             'job_id' => 'INT UNSIGNED NULL AFTER location',          // careers applications
+            'stage' => 'VARCHAR(20) NULL AFTER job_id',               // hiring pipeline for job applications
         ],
         'products' => ['datasheet' => 'VARCHAR(500) NULL AFTER specs'],
         'media' => ['variants' => 'TEXT NULL AFTER alt'],
-        'posts' => ['deleted_at' => 'DATETIME NULL AFTER views'],
+        'posts' => ['deleted_at' => 'DATETIME NULL AFTER views', 'allow_comments' => 'TINYINT(1) NOT NULL DEFAULT 1 AFTER noindex'],
         'pages' => ['deleted_at' => 'DATETIME NULL AFTER is_system'],
         'login_otps' => [
             'purpose' => "VARCHAR(30) NOT NULL DEFAULT 'login' AFTER user_id",

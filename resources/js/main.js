@@ -579,6 +579,55 @@
 
   function initMisc() {
     $$('[data-print]').forEach((b) => b.addEventListener('click', () => window.print()));
+    // Newsletter sign-up
+    $$('form[data-newsletter]').forEach((f) => {
+      f.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const msg = $('[data-newsletter-msg]', f);
+        const btn = $('button[type="submit"]', f);
+        btn.disabled = true;
+        try {
+          const r = await fetch(f.action, { method: 'POST', body: new FormData(f), headers: { Accept: 'application/json' } });
+          const j = await r.json();
+          msg.textContent = j.message; msg.hidden = false; msg.classList.toggle('is-error', !j.ok);
+          if (j.ok) { f.classList.add('is-done'); f.elements.email.value = ''; }
+        } catch { msg.textContent = 'Something went wrong. Please try again.'; msg.hidden = false; msg.classList.add('is-error'); }
+        btn.disabled = false;
+      });
+    });
+    // Comments: "Reply" puts the form in reply mode
+    const cForm = $('#comment-form');
+    if (cForm) {
+      const parent = $('[data-reply-parent]', cForm);
+      const info = $('[data-reply-info]', cForm);
+      document.addEventListener('click', (e) => {
+        const r = e.target.closest('[data-reply-to]');
+        if (r) {
+          parent.value = r.dataset.replyTo;
+          $('[data-reply-label]', cForm).textContent = r.dataset.replyName;
+          info.hidden = false;
+          cForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          setTimeout(() => $('#comment', cForm)?.focus(), 400);
+        }
+        if (e.target.closest('[data-reply-cancel]')) { parent.value = ''; info.hidden = true; }
+      });
+    }
+    // Share bar: the phone's own share sheet where available, and anonymous per-network counts
+    $$('[data-share]').forEach((bar) => {
+      const native = $('[data-share-native]', bar);
+      if (native && navigator.share) {
+        native.hidden = false;
+        native.addEventListener('click', () => navigator.share({ title: bar.dataset.shareTitle, url: bar.dataset.shareUrl }).catch(() => {}));
+      }
+      bar.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-share-net], [data-copy], [data-share-native]');
+        if (!b || !navigator.sendBeacon) return;
+        const fd = new FormData();
+        fd.append('type', 'share');
+        fd.append('page', (b.dataset.shareNet || (b.dataset.copy ? 'copy' : 'native')) + '|' + location.pathname);
+        navigator.sendBeacon(`${base}/track`, fd);
+      });
+    });
     $$('[data-copy]').forEach((b) => b.addEventListener('click', async () => {
       try { await navigator.clipboard.writeText(b.dataset.copy); b.classList.add('is-copied'); setTimeout(() => b.classList.remove('is-copied'), 1500); } catch { /* ignore */ }
     }));

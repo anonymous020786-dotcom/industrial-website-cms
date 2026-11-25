@@ -200,6 +200,7 @@ function post_schema(): array
         'meta_description' => ['type' => 'textarea', 'label' => 'Meta description', 'rows' => 3, 'counter' => 160, 'attrs' => 'data-seo-desc'],
         'canonical_url' => ['type' => 'url', 'label' => 'Canonical URL', 'help' => 'Only if this article was first published elsewhere.'],
         'noindex' => ['type' => 'checkbox', 'label' => 'Search engines', 'text' => 'Hide from search engines (noindex)'],
+        'allow_comments' => ['type' => 'checkbox', 'label' => 'Comments', 'text' => 'Allow comments on this post', 'default' => true],
     ];
 }
 
@@ -248,6 +249,7 @@ function admin_post_edit(?string $id = null): void
         $v['category_id'] = $v['category_id'] !== null ? (int) $v['category_id'] : null;
         $v['author_id'] = $v['author_id'] !== null ? (int) $v['author_id'] : null;
         $v['noindex'] = (int) $v['noindex'];
+        $v['allow_comments'] = (int) ($v['allow_comments'] ?? 1);
         $v['status'] = $v['status'] ?: 'draft';
         if ($v['status'] === 'published' && !$v['published_at']) $v['published_at'] = now();
         if ($v['status'] === 'scheduled') {

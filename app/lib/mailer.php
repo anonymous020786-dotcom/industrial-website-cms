@@ -7,7 +7,7 @@ declare(strict_types=1);
 
 /** @return true|string  true on success, error message on failure */
 /** @param array $attachments list of ['name' => 'file.pdf', 'type' => 'application/pdf', 'data' => bytes] */
-function send_mail(string|array $to, string $subject, string $html, ?string $replyTo = null, array $attachments = []): bool|string
+function send_mail(string|array $to, string $subject, string $html, ?string $replyTo = null, array $attachments = [], array $extraHeaders = []): bool|string
 {
     $to = array_values(array_filter(array_map('trim', is_array($to) ? $to : explode(',', $to)), fn($a) => filter_var($a, FILTER_VALIDATE_EMAIL)));
     if (!$to) return 'No valid recipient address.';
@@ -28,6 +28,8 @@ function send_mail(string|array $to, string $subject, string $html, ?string $rep
         'Content-Type: multipart/alternative; boundary="' . $boundary . '"',
     ];
     if ($replyTo && filter_var($replyTo, FILTER_VALIDATE_EMAIL)) $headers[] = 'Reply-To: ' . $replyTo;
+    // Extra headers (e.g. List-Unsubscribe for newsletters); names checked, no line breaks in values
+    foreach ($extraHeaders as $k => $v) if (preg_match('~^[A-Za-z][A-Za-z0-9-]{1,40}$~', (string) $k) && !preg_match('~[\r\n]~', (string) $v)) $headers[] = $k . ': ' . $v;
     $body = "--{$boundary}\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n" . chunk_split(base64_encode($text))
         . "--{$boundary}\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n" . chunk_split(base64_encode($html))
         . "--{$boundary}--\r\n";
@@ -48,7 +50,8 @@ function send_mail(string|array $to, string $subject, string $html, ?string $rep
     if (config('debug') || config('mail_log')) {
         $dir = STORAGE_DIR . '/mail';
         @mkdir($dir, 0775, true);
-        $meta = '<!-- to: ' . e(implode(', ', $to)) . ' | subject: ' . e($subject) . ' | ' . date('c') . ($attachments ? ' | attachments: ' . e(implode(', ', array_column($attachments, 'name'))) : '') . ' -->';
+        $meta = '<!-- to: ' . e(implode(', ', $to)) . ' | subject: ' . e($subject) . ' | ' . date('c') . ($attachments ? ' | attachments: ' . e(implode(', ', array_column($attachments, 'name'))) : '')
+            . ($extraHeaders ? ' | ' . e(implode(' | ', array_map(fn($k, $v) => $k . ': ' . $v, array_keys($extraHeaders), $extraHeaders))) : '') . ' -->';
         @file_put_contents($dir . '/' . date('Ymd-His') . '-' . bin2hex(random_bytes(3)) . '.html', $meta . "\n" . $html);
         foreach (array_slice(glob($dir . '/*.html') ?: [], 0, -200) as $old) @unlink($old); // keep the newest 200
         if ($host === '' && config('debug')) return true; // no SMTP locally: treat the saved copy as delivered

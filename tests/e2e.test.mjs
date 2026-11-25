@@ -1447,6 +1447,191 @@ test('deploy safety: the site finishes an unfinished database upgrade itself; ca
   assert.match(out, /^(cache cleared|no code cache)\|used$/, out);
 });
 
+/* ------------------------------------------------------------------ */
+const BROWSER = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0) e2e-human' };
+const mailFiles = () => {
+  const dir = join(ROOT, 'app/storage/mail');
+  return readdirSync(dir).filter((f) => f.endsWith('.html')).sort().slice(-40).reverse().map((f) => readFileSync(join(dir, f), 'utf8'));
+};
+const findMail = (re) => mailFiles().find((h) => re.test(h));
+
+test('sharing: share bars with all networks and a short link, /s/ redirects and counts people (not preview bots), admin short links', async () => {
+  sql("DELETE FROM short_links WHERE code LIKE 'e2e%' OR target LIKE '%e2e%'");
+  const c = new Client();
+  const page = await c.get('products/hydraulic-cylinders');
+  for (const net of ['whatsapp', 'linkedin', 'facebook', 'x', 'telegram', 'reddit', 'email']) assert.match(page.text, new RegExp(`data-share-net="${net}"`), net);
+  assert.match(page.text, /href="https:\/\/wa\.me\/\?text=Hydraulic%20Cylinders%20http[^"]*utm_source%3Dwhatsapp/);
+  const code = page.text.match(/data-copy="http[^"]*\/s\/([a-z0-9]{6})"/)[1];
+  const before = Number(sql('SELECT clicks FROM short_links WHERE code = ?', [code])[0].clicks);
+  sql('DELETE FROM rate_limits');
+  let r = await c.get('s/' + code, { 'User-Agent': 'WhatsApp/2.23 preview' });
+  assert.equal(r.status, 301);
+  assert.equal(new URL(r.location).pathname, '/products/hydraulic-cylinders');
+  assert.equal(Number(sql('SELECT clicks FROM short_links WHERE code = ?', [code])[0].clicks), before, 'link-preview robots are not counted');
+  await c.get('s/' + code, BROWSER);
+  assert.equal(Number(sql('SELECT clicks FROM short_links WHERE code = ?', [code])[0].clicks), before + 1);
+  assert.equal((await c.get('s/nope-not-here')).status, 404);
+
+  r = await admin.post('admin/links/save', { _token: csrf, target: 'javascript:alert(1)', code: 'e2e-bad', title: '' });
+  assert.equal(sql("SELECT COUNT(*) n FROM short_links WHERE code = 'e2e-bad'")[0].n, 0, 'unsafe targets refused');
+  await admin.post('admin/links/save', { _token: csrf, target: BASE + '/quote?product=Hydraulic+Cylinders', code: 'e2e-expo', title: 'e2e Expo flyer' });
+  const link = sql("SELECT * FROM short_links WHERE code = 'e2e-expo'")[0];
+  assert.equal(link.target, '/quote?product=Hydraulic+Cylinders', 'own-site URLs stored as paths');
+  await admin.post('admin/links/save', { _token: csrf, target: '/contact', code: 'e2e-expo', title: '' });
+  assert.equal(sql("SELECT COUNT(*) n FROM short_links WHERE code = 'e2e-expo'")[0].n, 1, 'codes are unique');
+  r = await c.get('s/e2e-expo', BROWSER);
+  assert.equal(new URL(r.location).pathname + new URL(r.location).search, '/quote?product=Hydraulic+Cylinders');
+  const list = await admin.get('admin/links?kind=manual');
+  assert.match(list.text, /data-short-link="e2e-expo"/);
+  await c.post('track', { type: 'share', page: 'linkedin|/products/hydraulic-cylinders' });
+  assert.match((await admin.get('admin/links')).text, /LinkedIn<\/span><strong>\d+/);
+  await admin.post(`admin/links/${link.id}/delete`, { _token: csrf });
+  assert.equal((await c.get('s/e2e-expo')).status, 404);
+  sql("DELETE FROM events WHERE type = 'share' AND page LIKE '%hydraulic-cylinders'");
+});
+
+test('comments: moderated, trusted after first approval, spam filter, team replies with email, per-post switch, escaped', async () => {
+  const post = sql("SELECT id, slug, title FROM posts WHERE status = 'published' AND published_at <= NOW() ORDER BY id LIMIT 1")[0];
+  const cleanup = () => { sql("DELETE FROM comments WHERE email LIKE 'e2e+%' OR name LIKE 'E2E%' OR body LIKE '%e2e-%'"); sql('UPDATE posts SET allow_comments = 1 WHERE id = ?', [post.id]); };
+  cleanup();
+  setSetting('comments_enabled', true);
+  setSetting('comments_moderation', 'first');
+  sql('DELETE FROM rate_limits');
+  const v = new Client();
+  const submit = async (fields) => {
+    const page = await v.get('blog/' + post.slug);
+    await sleep(3200);
+    return v.post(`blog/${post.slug}/comment`, { form: 'comment', _ft: formToken(page.text), consent: '1', 'cf-turnstile-response': TS_TOKEN, parent_id: '', fullName: 'E2E Reader', email: 'e2e+reader@example.com', ...fields });
+  };
+  try {
+    let r = await submit({ comment: 'Great article e2e-one <script>alert(1)</script>, what grease do you use?' });
+    assert.equal(r.status, 302);
+    assert.match(r.location, /\?comment=pending#comments$/);
+    const c1 = sql("SELECT * FROM comments WHERE email = 'e2e+reader@example.com' ORDER BY id DESC LIMIT 1")[0];
+    assert.equal(c1.status, 'pending');
+    assert.doesNotMatch((await v.get('blog/' + post.slug)).text, /e2e-one/, 'pending comments are hidden');
+    assert.ok(sql("SELECT id FROM notifications WHERE event = 'comment_pending'").length, 'moderators alerted');
+
+    const mod = await admin.get('admin/comments?status=pending');
+    assert.match(mod.text, new RegExp(`data-mod-comment="${c1.id}"`));
+    await admin.post(`admin/comments/${c1.id}/action`, { _token: csrf, action: 'approve' });
+    let page = await v.get('blog/' + post.slug);
+    assert.match(page.text, /e2e-one &lt;script&gt;alert\(1\)&lt;\/script&gt;/, 'shown and escaped');
+    assert.match(page.text, /"commentCount":\d+/);
+
+    r = await submit({ comment: 'Follow-up from the same reader e2e-two.' });
+    assert.match(r.location, /\?comment=posted#comment-\d+$/, 'trusted after the first approved comment');
+
+    r = await submit({ email: 'e2e+spam@example.com', fullName: 'E2E Spammer', comment: 'e2e-spam http://a.example http://b.example http://c.example' });
+    assert.equal(sql("SELECT status FROM comments WHERE email = 'e2e+spam@example.com'")[0].status, 'spam');
+
+    // Team reply from the moderation screen: published, threaded, the reader gets an email
+    await admin.post(`admin/comments/${c1.id}/reply`, { _token: csrf, reply: 'Thanks! We use lithium EP2 grease. e2e-reply' });
+    page = await v.get('blog/' + post.slug);
+    assert.match(page.text, /comment comment-reply[\s\S]*team<\/span>[\s\S]*e2e-reply/);
+    if (DEBUG) assert.ok(findMail(/Reply to your comment/), 'reply email');
+
+    // Bulk actions and the per-post switch
+    const spamId = sql("SELECT id FROM comments WHERE email = 'e2e+spam@example.com'")[0].id;
+    await admin.post('admin/comments/bulk', { _token: csrf, bulk_action: 'delete', 'ids[]': String(spamId) });
+    assert.equal(sql('SELECT COUNT(*) n FROM comments WHERE id = ?', [spamId])[0].n, 0);
+    sql('UPDATE posts SET allow_comments = 0 WHERE id = ?', [post.id]);
+    page = await v.get('blog/' + post.slug);
+    assert.doesNotMatch(page.text, /id="comment-form"/);
+    assert.doesNotMatch(page.text, /Leave a comment/);
+    r = await v.post(`blog/${post.slug}/comment`, { form: 'comment', comment: 'x' });
+    assert.equal(r.status, 422);
+  } finally {
+    cleanup();
+  }
+});
+
+test('newsletter: double opt-in, welcome, campaign with test, batch send, open/click tracking, signed links, one-click unsubscribe, import/export', async () => {
+  const clean = () => {
+    sql("DELETE cs FROM campaign_sends cs JOIN subscribers s ON s.id = cs.subscriber_id WHERE s.email LIKE 'e2e+%'");
+    sql("DELETE FROM campaigns WHERE subject LIKE 'e2e%'");
+    sql("DELETE FROM subscribers WHERE email LIKE 'e2e+%'");
+  };
+  clean();
+  setSetting('newsletter_enabled', true);
+  setSetting('newsletter_double_optin', true);
+  sql('DELETE FROM rate_limits');
+  try {
+    const v = new Client();
+    const home = await v.get('');
+    assert.match(home.text, /data-newsletter/);
+    await sleep(3200);
+    const ft = formToken(home.text);
+    let r = await v.post('newsletter/subscribe', { _ft: ft, email: 'not-an-email', source: 'footer' }, { Accept: 'application/json' });
+    assert.equal(r.status, 422);
+    r = await v.post('newsletter/subscribe', { _ft: ft, email: 'E2E+NL@example.com', source: 'footer' }, { Accept: 'application/json' });
+    assert.match(JSON.parse(r.text).message, /check your inbox/);
+    let sub = sql("SELECT * FROM subscribers WHERE email = 'e2e+nl@example.com'")[0];
+    assert.equal(sub.status, 'pending');
+    if (DEBUG) assert.ok(findMail(new RegExp(`newsletter/confirm/${sub.token}`)), 'confirmation email with link');
+    r = await v.get(`newsletter/confirm/${sub.token}`);
+    assert.match(r.text, /You are subscribed/);
+    assert.equal(sql("SELECT status FROM subscribers WHERE email = 'e2e+nl@example.com'")[0].status, 'subscribed');
+    r = await v.post('newsletter/subscribe', { _ft: ft, email: 'e2e+nl@example.com' }, { Accept: 'application/json' });
+    assert.match(JSON.parse(r.text).message, /check your inbox/, 'same answer for existing addresses (no list disclosure)');
+
+    // Campaign: draft, test, send
+    r = await admin.post('admin/newsletter/new', { _token: csrf, subject: 'e2e Spring update', preheader: 'New sheaves', body: '<p>Read our <a href="https://example.com/e2e-landing">offer</a> or see <a href="/products">products</a>.</p>', latest_posts: '3' });
+    const cid = Number(new URL(r.location, BASE).pathname.match(/newsletter\/(\d+)/)[1]);
+    const edit = await admin.get(`admin/newsletter/${cid}/edit`);
+    assert.match(edit.text, /srcdoc="[^"]*Latest articles/);
+    await admin.post(`admin/newsletter/${cid}/test`, { _token: csrf });
+    if (DEBUG) assert.ok(findMail(/\[Test\] e2e Spring update/));
+    await admin.post(`admin/newsletter/${cid}/send`, { _token: csrf, mode: 'now' });
+    sub = sql("SELECT * FROM subscribers WHERE email = 'e2e+nl@example.com'")[0];
+    const send = sql('SELECT * FROM campaign_sends WHERE campaign_id = ? AND subscriber_id = ?', [cid, sub.id])[0];
+    assert.ok(send && send.sent_at && !send.error, 'sent to the subscriber');
+    if (DEBUG) {
+      const mail = findMail(new RegExp(`subject: e2e Spring update[^\\n]*List-Unsubscribe: &lt;[^&]*newsletter/unsubscribe/${sub.token}&gt; \\| List-Unsubscribe-Post: List-Unsubscribe=One-Click`));
+      assert.ok(mail, 'campaign email with one-click unsubscribe headers');
+      assert.match(mail, new RegExp(`newsletter/o/${cid}/${sub.token}`), 'open pixel');
+      const tracked = mail.match(new RegExp(`href="([^"]*newsletter/c/${cid}/${sub.token}\\?u=[^"]+)"`))[1].replace(/&amp;/g, '&');
+      r = await v.get(tracked.replace(BASE + '/', ''));
+      assert.equal(r.status, 302);
+      assert.equal(r.location, 'https://example.com/e2e-landing');
+      assert.match(mail, /href="http[^"]*\/products"|newsletter\/c\/[^"]*u=[^"]+/, 'site links absolute (and tracked)');
+      r = await v.get(tracked.replace(BASE + '/', '').replace(/s=[^&]+/, 's=000000000000000000000000'));
+      assert.equal(r.status, 404, 'unsigned redirects refused');
+    }
+    await v.get(`newsletter/o/${cid}/${sub.token}`);
+    const st = sql('SELECT opened_at, clicked_at FROM campaign_sends WHERE campaign_id = ? AND subscriber_id = ?', [cid, sub.id])[0];
+    assert.ok(st.opened_at, 'open recorded');
+    if (DEBUG) assert.ok(st.clicked_at, 'click recorded');
+    assert.equal(sql('SELECT status FROM campaigns WHERE id = ?', [cid])[0].status, 'sent');
+    assert.match((await admin.get(`admin/newsletter/${cid}/edit`)).text, /data-campaign-stats/);
+
+    // Unsubscribe: GET asks, one-click POST (mail apps) does it
+    r = await v.get(`newsletter/unsubscribe/${sub.token}`);
+    assert.match(r.text, /Yes, unsubscribe me/);
+    assert.equal(sql('SELECT status FROM subscribers WHERE id = ?', [sub.id])[0].status, 'subscribed', 'GET alone does not unsubscribe');
+    r = await new Client().post(`newsletter/unsubscribe/${sub.token}`, { 'List-Unsubscribe': 'One-Click' });
+    assert.equal(r.status, 200);
+    assert.equal(sql('SELECT status FROM subscribers WHERE id = ?', [sub.id])[0].status, 'unsubscribed');
+
+    // Admin: add needs consent, CSV import, export (administrators)
+    await admin.post('admin/subscribers/add', { _token: csrf, email: 'e2e+manual@example.com', name: '' });
+    assert.equal(sql("SELECT COUNT(*) n FROM subscribers WHERE email = 'e2e+manual@example.com'")[0].n, 0, 'consent required');
+    await admin.post('admin/subscribers/add', { _token: csrf, email: 'e2e+manual@example.com', name: 'E2E Manual', consent: '1' });
+    assert.equal(sql("SELECT status FROM subscribers WHERE email = 'e2e+manual@example.com'")[0].status, 'subscribed');
+    const fd = new FormData();
+    fd.append('_token', csrf); fd.append('consent', '1');
+    fd.append('csv', new Blob(['email,name\ne2e+imp1@example.com,One\nnot-valid,Bad\ne2e+imp2@example.com,Two\n'], { type: 'text/csv' }), 'list.csv');
+    await admin.req('admin/subscribers/import', { method: 'POST', body: fd });
+    assert.equal(sql("SELECT COUNT(*) n FROM subscribers WHERE email IN ('e2e+imp1@example.com', 'e2e+imp2@example.com') AND status = 'subscribed'")[0].n, 2);
+    const csv = await admin.get('admin/subscribers/export');
+    assert.match(csv.type, /text\/csv/);
+    assert.match(csv.text, /e2e\+imp1@example\.com,One,subscribed,import/);
+    assert.match((await admin.get('admin/subscribers?q=e2e%2Bimp')).text, /data-subscriber="e2e\+imp1@example\.com"/);
+  } finally {
+    clean();
+  }
+});
+
 test('keep me signed in: survives a browser restart, rotates, is device-bound, detects stolen tokens, ends on sign-out', async () => {
   setSetting('remember_enabled', true);
   setSetting('remember_days', 30);

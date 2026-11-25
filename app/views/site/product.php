@@ -33,6 +33,7 @@ $catalogue = (string) setting('catalogue_pdf', '');
         <?php if ($catalogue): ?><a href="<?= e(url('catalogue')) ?>" class="inline-flex items-center gap-2 text-steel hover:underline"><?= icon('book-open', 'h-4 w-4') ?> <?= e((string) setting('catalogue_title', 'Product catalogue')) ?></a><?php endif ?>
         <?php if (company('phone')): ?><a href="tel:<?= e(company('phone_href')) ?>" class="inline-flex items-center gap-2 text-steel hover:underline" data-track="phone"><?= icon('phone', 'h-4 w-4') ?> Speak to an engineer</a><?php endif ?>
       </div>
+      <div class="hero-in mt-6" style="--d:300ms"><?= share_bar('/products/' . $p['slug'], $p['name']) ?></div>
       <?php if ($wa = whatsapp_link('Hello, I would like a quote for ' . $p['name'] . '.')): ?>
       <a href="<?= e($wa) ?>" target="_blank" rel="noopener" class="hero-in mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#128C7E] hover:underline" style="--d:280ms" data-track="whatsapp"><?= icon('message-circle', 'h-4 w-4') ?> Ask about this product on WhatsApp</a>
       <?php endif ?>

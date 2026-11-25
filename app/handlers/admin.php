@@ -6,6 +6,8 @@ function admin_nav(): array
 {
     $newLeads = can('leads') ? (int) db_val("SELECT COUNT(*) FROM leads WHERE status = 'new'") : 0;
     $newApplications = can('users') ? (int) db_val("SELECT COUNT(*) FROM leads WHERE type = 'job' AND status = 'new'") : 0;
+    $pendingComments = 0;
+    if (can('content')) { try { $pendingComments = (int) db_val("SELECT COUNT(*) FROM comments WHERE status = 'pending'"); } catch (Throwable) {} }
     $pendingReviews = 0;
     if (can('settings')) { try { $pendingReviews = (int) db_val("SELECT COUNT(*) FROM content_reviews WHERE status = 'pending'"); } catch (Throwable) {} }
     $openErrors = 0;
@@ -17,6 +19,7 @@ function admin_nav(): array
         ['_', 'Content'],
         ['Pages', 'admin/pages', 'file-text', 'content'],
         ['Blog Posts', 'admin/posts', 'newspaper', 'content'],
+        ['Comments', 'admin/comments', 'message-square', 'content', $pendingComments],
         ['Categories', 'admin/r/categories', 'folder-tree', 'content'],
         ['Products', 'admin/r/products', 'package', 'content'],
         ['Product Categories', 'admin/r/product_categories', 'layers', 'content'],
@@ -25,6 +28,10 @@ function admin_nav(): array
         ['Certificates', 'admin/r/certificates', 'award', 'content'],
         ['Testimonials', 'admin/r/testimonials', 'message-square-quote', 'content'],
         ['Media Library', 'admin/media', 'images', 'content'],
+        ['Short links', 'admin/links', 'link-2', 'content'],
+        ['_', 'Marketing'],
+        ['Newsletter', 'admin/newsletter', 'megaphone', 'content'],
+        ['Subscribers', 'admin/subscribers', 'users-round', 'content'],
         ['Downloads', 'admin/r/downloads', 'folder-down', 'content'],
         ['Part numbers', 'admin/r/part_refs', 'scan-barcode', 'content'],
         ['Distributors', 'admin/r/distributors', 'map-pinned', 'content'],

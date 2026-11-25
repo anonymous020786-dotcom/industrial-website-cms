@@ -4,8 +4,6 @@ $crumbs = [['label' => 'Blog', 'url' => url('blog')]];
 if ($post['category_name']) $crumbs[] = ['label' => $post['category_name'], 'url' => url('blog/category/' . $post['category_slug'])];
 $crumbs[] = ['label' => $post['title'], 'url' => post_url($post)];
 $tags = array_filter(array_map('trim', explode(',', (string) $post['tags'])));
-$share = rawurlencode($url);
-$shareTitle = rawurlencode($post['title']);
 ?>
 <?php if ($post['status'] !== 'published' || ($post['published_at'] && strtotime($post['published_at']) > time())): ?>
 <div class="bg-amber-100 px-4 py-3 text-center text-sm font-semibold text-amber-900">Preview — this article is <?= e($post['status']) ?> and not visible to the public.</div>
@@ -40,14 +38,9 @@ $shareTitle = rawurlencode($post['title']);
       <ul class="mt-12 flex flex-wrap gap-2" aria-label="Tags"><?php foreach ($tags as $t): ?><li><a class="chip" href="<?= e(url('blog') . '?q=' . rawurlencode($t)) ?>">#<?= e($t) ?></a></li><?php endforeach ?></ul>
       <?php endif ?>
 
-      <div class="mt-10 flex flex-wrap items-center gap-3 border-y border-black/10 py-5">
-        <span class="text-sm font-semibold uppercase tracking-widest text-charcoal/55">Share</span>
-        <a class="share-btn" target="_blank" rel="noopener" href="https://www.linkedin.com/sharing/share-offsite/?url=<?= $share ?>" aria-label="Share on LinkedIn"><?= icon('linkedin', 'h-4 w-4') ?></a>
-        <a class="share-btn" target="_blank" rel="noopener" href="https://wa.me/?text=<?= $shareTitle ?>%20<?= $share ?>" aria-label="Share on WhatsApp"><?= icon('message-circle', 'h-4 w-4') ?></a>
-        <a class="share-btn" target="_blank" rel="noopener" href="https://twitter.com/intent/tweet?url=<?= $share ?>&amp;text=<?= $shareTitle ?>" aria-label="Share on X"><?= icon('twitter', 'h-4 w-4') ?></a>
-        <a class="share-btn" href="mailto:?subject=<?= $shareTitle ?>&amp;body=<?= $share ?>" aria-label="Share by email"><?= icon('mail', 'h-4 w-4') ?></a>
-        <button type="button" class="share-btn" data-copy="<?= e($url) ?>" aria-label="Copy link"><?= icon('link', 'h-4 w-4') ?></button>
-      </div>
+      <div class="mt-10"><?= share_bar('/blog/' . $post['slug'], $post['title'], 'Share this article') ?></div>
+
+      <?= view('site/_comments', ['post' => $post]) ?>
 
       <?php if ($prev || $next): ?>
       <nav class="mt-10 grid gap-4 sm:grid-cols-2" aria-label="More articles">
@@ -71,6 +64,13 @@ $shareTitle = rawurlencode($post['title']);
           <a href="<?= e(url('quote')) ?>" class="btn btn-primary mt-5 w-full justify-center">Request a Quote <?= icon('arrow-right', 'btn-arrow h-4 w-4') ?></a>
           <?php if ($wa = whatsapp_link('Hello, I read your article "' . $post['title'] . '" and have a question.')): ?><a href="<?= e($wa) ?>" target="_blank" rel="noopener" class="btn btn-ghost-light mt-3 w-full justify-center" data-track="whatsapp"><?= icon('message-circle', 'h-4 w-4') ?> Ask on WhatsApp</a><?php endif ?>
         </div>
+        <?php if (newsletter_enabled()): ?>
+        <div class="border border-black/10 bg-white p-7" data-newsletter-box>
+          <p class="font-display text-2xl font-semibold uppercase leading-tight text-navy">Get articles like this</p>
+          <p class="mt-2 text-sm text-charcoal/70">Practical engineering notes once a month.</p>
+          <div class="mt-4"><?= newsletter_form('blog') ?></div>
+        </div>
+        <?php endif ?>
       </div>
     </aside>
   </div>

@@ -136,7 +136,7 @@ function admin_review_decide(string $id): void
 
 const ACTIVITY_ENTITIES = ['page' => 'Pages', 'post' => 'Blog posts', 'products' => 'Products', 'projects' => 'Projects', 'categories' => 'Categories', 'product_categories' => 'Product categories',
     'industries' => 'Industries', 'certificates' => 'Certificates', 'testimonials' => 'Testimonials', 'downloads' => 'Downloads', 'part_refs' => 'Part numbers', 'distributors' => 'Distributors',
-    'jobs' => 'Job openings', 'users' => 'Users', 'quote' => 'Quotations', 'report' => 'Reports'];
+    'jobs' => 'Job openings', 'users' => 'Users', 'quote' => 'Quotations', 'report' => 'Reports', 'short_link' => 'Short links', 'comment' => 'Comments', 'campaign' => 'Newsletters', 'subscriber' => 'Subscribers'];
 
 function activity_link(array $r): ?string
 {

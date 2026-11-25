@@ -18,6 +18,7 @@ $hours = setting('company_hours', []) ?: [];
       <div class="lg:col-span-3">
         <?= view('site/_logo', ['dark' => true]) ?>
         <p class="mt-6 max-w-sm text-sm leading-relaxed"><?= e(company('description')) ?></p>
+        <?php if (newsletter_enabled()): ?><div class="mt-6 max-w-sm"><p class="footer-heading !text-xs">Newsletter</p><div class="mt-3"><?= newsletter_form('footer') ?></div></div><?php endif ?>
         <?php if ($social): ?>
         <ul class="mt-6 flex gap-2">
           <?php foreach ($social as $s): if (empty($s['url'])) continue; ?>

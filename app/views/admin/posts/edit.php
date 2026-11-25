@@ -34,7 +34,7 @@ $previewUrl = abs_url('blog/' . ($values['slug'] ?? 'your-post'));
       <p class="text-xs text-charcoal/50">Last saved <?= e(time_ago($post['updated_at'])) ?> · <?= (int) $post['views'] ?> views</p>
       <?php endif ?>
     </div>
-    <div class="adm-card space-y-4 p-6"><h2 class="adm-card-title">Organise</h2><?= render_fields($pick(['category_id', 'tags', 'author_id']), $values, $errors) ?></div>
+    <div class="adm-card space-y-4 p-6"><h2 class="adm-card-title">Organise</h2><?= render_fields($pick(['category_id', 'tags', 'author_id', 'allow_comments']), $values, $errors) ?></div>
     <div class="adm-card space-y-4 p-6"><h2 class="adm-card-title">Featured image</h2><?= render_fields($pick(['featured_image', 'featured_alt']), $values, $errors) ?></div>
     <?php if ($post): ?><?= view('admin/_content_tools', ['type' => 'posts', 'item' => $post, 'revisions' => $revisions ?? [], 'canTrash' => !$post['deleted_at'], 'canDuplicate' => true]) ?><?php endif ?>
   </aside>
