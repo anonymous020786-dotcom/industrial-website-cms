@@ -6,7 +6,9 @@ declare(strict_types=1);
 
 define('APP_ROOT', dirname(__DIR__));
 define('APP_DIR', __DIR__);
-define('PUBLIC_DIR', APP_ROOT . '/public');
+// The web root is /public. On hosts with a fixed document root (Hostinger/cPanel: domains/<site>/public_html)
+// the contents of /public go into public_html and app/, content/, database/ sit next to it, outside the web root.
+define('PUBLIC_DIR', is_dir(APP_ROOT . '/public') ? APP_ROOT . '/public' : APP_ROOT . '/public_html');
 define('STORAGE_DIR', APP_DIR . '/storage');
 define('APP_VERSION', '2.0.0');
 
