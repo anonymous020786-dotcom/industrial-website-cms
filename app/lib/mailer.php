@@ -6,7 +6,8 @@
 declare(strict_types=1);
 
 /** @return true|string  true on success, error message on failure */
-function send_mail(string|array $to, string $subject, string $html, ?string $replyTo = null): bool|string
+/** @param array $attachments list of ['name' => 'file.pdf', 'type' => 'application/pdf', 'data' => bytes] */
+function send_mail(string|array $to, string $subject, string $html, ?string $replyTo = null, array $attachments = []): bool|string
 {
     $to = array_values(array_filter(array_map('trim', is_array($to) ? $to : explode(',', $to)), fn($a) => filter_var($a, FILTER_VALIDATE_EMAIL)));
     if (!$to) return 'No valid recipient address.';
@@ -30,13 +31,24 @@ function send_mail(string|array $to, string $subject, string $html, ?string $rep
     $body = "--{$boundary}\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n" . chunk_split(base64_encode($text))
         . "--{$boundary}\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n" . chunk_split(base64_encode($html))
         . "--{$boundary}--\r\n";
+    if ($attachments) {
+        // multipart/mixed: the text/HTML alternatives first, then each file
+        $mixed = 'm' . bin2hex(random_bytes(8));
+        foreach ($headers as $i => $h) if (str_starts_with($h, 'Content-Type: multipart/alternative')) $headers[$i] = 'Content-Type: multipart/mixed; boundary="' . $mixed . '"';
+        $parts = "--{$mixed}\r\nContent-Type: multipart/alternative; boundary=\"{$boundary}\"\r\n\r\n" . $body;
+        foreach ($attachments as $a) {
+            $name = preg_replace('~[^\w.\- ]~', '_', (string) $a['name']);
+            $parts .= "--{$mixed}\r\nContent-Type: " . ($a['type'] ?? 'application/octet-stream') . "; name=\"{$name}\"\r\nContent-Transfer-Encoding: base64\r\nContent-Disposition: attachment; filename=\"{$name}\"\r\n\r\n" . chunk_split(base64_encode((string) $a['data']));
+        }
+        $body = $parts . "--{$mixed}--\r\n";
+    }
 
     // Development mailbox: in debug mode every email is also saved to app/storage/mail (viewable in Admin → Settings → System).
     $host = trim((string) setting('smtp_host', ''));
     if (config('debug') || config('mail_log')) {
         $dir = STORAGE_DIR . '/mail';
         @mkdir($dir, 0775, true);
-        $meta = '<!-- to: ' . e(implode(', ', $to)) . ' | subject: ' . e($subject) . ' | ' . date('c') . ' -->';
+        $meta = '<!-- to: ' . e(implode(', ', $to)) . ' | subject: ' . e($subject) . ' | ' . date('c') . ($attachments ? ' | attachments: ' . e(implode(', ', array_column($attachments, 'name'))) : '') . ' -->';
         @file_put_contents($dir . '/' . date('Ymd-His') . '-' . bin2hex(random_bytes(3)) . '.html', $meta . "\n" . $html);
         foreach (array_slice(glob($dir . '/*.html') ?: [], 0, -200) as $old) @unlink($old); // keep the newest 200
         if ($host === '' && config('debug')) return true; // no SMTP locally: treat the saved copy as delivered

@@ -950,6 +950,89 @@ test('admin theme switch and scroll buttons: applied before paint without inline
 });
 
 /* ------------------------------------------------------------------ */
+test('quotations: from a lead, server-side totals, PDF, email with attachment, customer accepts online, lead won', async () => {
+  sql("DELETE FROM quotes WHERE email LIKE 'e2e+%@example.com'");
+  sql("INSERT INTO leads (type, status, name, company, email, phone, product, items, consent) VALUES ('quote', 'new', 'E2E Quote Buyer', 'E2E Cranes Ltd', 'e2e+qb@example.com', '+91 90000 00000', 'Hydraulic Cylinders', ?, 1)",
+    [JSON.stringify([{ slug: 'hydraulic-cylinders', name: 'Hydraulic Cylinders', part: 'HC-80', qty: 4, notes: '' }])]);
+  const leadId = Number(sql("SELECT id FROM leads WHERE email = 'e2e+qb@example.com' ORDER BY id DESC LIMIT 1")[0].id);
+  try {
+    // Prefilled from the lead
+    const nw = await admin.get(`admin/quotes/new?lead=${leadId}`);
+    assert.equal(nw.status, 200);
+    assert.match(nw.text, /value="E2E Quote Buyer"/);
+    assert.match(nw.text, /value="Hydraulic Cylinders"/, 'requested item becomes a line');
+    // Totals are computed on the server (a forged total is ignored)
+    const saved = await admin.post('admin/quotes/new', { _token: token(nw.text), lead_id: String(leadId), customer_name: 'E2E Quote Buyer', company: 'E2E Cranes Ltd', email: 'e2e+qb@example.com',
+      currency: 'INR', tax_label: 'GST', tax_rate: '18', valid_until: '2099-12-31', total: '1',
+      'items[0][description]': 'Hydraulic cylinder 80/45 × 500', 'items[0][part]': 'HC-80', 'items[0][qty]': '4', 'items[0][unit]': 'pcs', 'items[0][price]': '1000', 'items[0][discount]': '10',
+      'items[1][description]': 'Seal kit', 'items[1][qty]': '2', 'items[1][unit]': 'sets', 'items[1][price]': '250', 'items[1][discount]': '0',
+      'items[2][description]': '', 'items[2][price]': '999' });
+    assert.equal(saved.status, 302);
+    const q = sql("SELECT * FROM quotes WHERE email = 'e2e+qb@example.com' ORDER BY id DESC LIMIT 1")[0];
+    assert.equal(Number(q.subtotal), 4100, '4×1000×0.9 + 2×250');
+    assert.equal(Number(q.tax), 738);
+    assert.equal(Number(q.total), 4838);
+    assert.equal(JSON.parse(q.items).length, 2, 'empty lines dropped');
+    assert.match(q.number, /^Q-\d{4}-\d{4}$/);
+    assert.equal(q.status, 'draft');
+
+    // Drafts are private: the customer link only works once sent
+    assert.equal((await new Client().get(`q/${q.token}`)).status, 404);
+    const pdf = await admin.req(`admin/quotes/${q.id}/pdf`);
+    assert.match(pdf.headers.get('content-type') || '', /application\/pdf/);
+    assert.equal(Buffer.from(await pdf.arrayBuffer()).subarray(0, 5).toString(), '%PDF-');
+
+    // Send: email with the PDF attached, lead moves to "quoted" with the value
+    const ed = await admin.get(`admin/quotes/${q.id}/edit`);
+    const sent = await admin.post(`admin/quotes/${q.id}/send`, { _token: token(ed.text), message: 'Please find our offer.' });
+    assert.equal(sent.status, 302);
+    assert.equal(sql('SELECT status FROM quotes WHERE id = ?', [q.id])[0].status, 'sent');
+    const lead = sql('SELECT status, value FROM leads WHERE id = ?', [leadId])[0];
+    assert.equal(lead.status, 'quoted');
+    assert.equal(Number(lead.value), 4838);
+    // The dev mailbox keeps the newest 200 emails, so look for this quote's email among the latest
+    const mail = readdirSync(join(ROOT, 'app/storage/mail')).sort().slice(-5).reverse().map((f) => readFileSync(join(ROOT, 'app/storage/mail', f), 'utf8')).find((m) => m.includes(q.token)) || '';
+    assert.match(mail, new RegExp(`attachments: Quotation-${q.number}\\.pdf`));
+    assert.match(mail, new RegExp(`/q/${q.token}`), 'private link in the email');
+
+    // Customer view: opened, accept needs a name + confirmation, then the lead is won
+    const cust = new Client();
+    const view = await cust.get(`q/${q.token}`);
+    assert.equal(view.status, 200);
+    assert.match(view.text, new RegExp(q.number));
+    assert.match(view.text, /noindex/);
+    assert.ok(sql('SELECT viewed_at FROM quotes WHERE id = ?', [q.id])[0].viewed_at, 'first view recorded');
+    assert.equal((await cust.get(`q/${q.token}/pdf`)).status, 200);
+    const noName = await cust.post(`q/${q.token}`, { decision: 'accept', name: '', agree: '1' });
+    assert.match(noName.text, /type your full name/);
+    const ok = await cust.post(`q/${q.token}`, { decision: 'accept', name: 'Ravi Kumar', agree: '1' });
+    assert.match(ok.location, /\?done=accepted$/);
+    const after = sql('SELECT status, decided_name FROM quotes WHERE id = ?', [q.id])[0];
+    assert.equal(after.status, 'accepted');
+    assert.equal(after.decided_name, 'Ravi Kumar');
+    assert.equal(sql('SELECT status FROM leads WHERE id = ?', [leadId])[0].status, 'won');
+    assert.ok(sql("SELECT id FROM notifications WHERE event = 'quote_accepted' AND created_at >= NOW() - INTERVAL 2 MINUTE").length, 'team alerted');
+    assert.match((await cust.post(`q/${q.token}`, { decision: 'decline', name: 'x' })).text, /already been accepted/, 'decided only once');
+
+    // Accepted quotes are locked; duplicating starts a new draft with the next number
+    const locked = await admin.post(`admin/quotes/${q.id}/edit`, { _token: token(ed.text), customer_name: 'Changed' });
+    assert.equal(sql('SELECT customer_name FROM quotes WHERE id = ?', [q.id])[0].customer_name, 'E2E Quote Buyer', 'locked');
+    assert.equal(locked.status, 302);
+    await admin.post(`admin/quotes/${q.id}/duplicate`, { _token: token(ed.text) });
+    const copy = sql("SELECT number, status FROM quotes WHERE email = 'e2e+qb@example.com' ORDER BY id DESC LIMIT 1")[0];
+    assert.equal(copy.status, 'draft');
+    assert.notEqual(copy.number, q.number);
+    assert.match((await admin.get('admin/quotes')).text, new RegExp(q.number));
+    assert.match((await admin.get(`admin/leads/${leadId}`)).text, new RegExp(`${q.number}[\\s\\S]{0,400}Accepted`), 'quotes listed on the lead');
+    assert.ok(sql("SELECT id FROM content_log WHERE entity = 'quote' AND entity_id = ? AND action = 'accepted'", [q.id]).length, 'history recorded');
+  } finally {
+    sql("DELETE FROM quotes WHERE email LIKE 'e2e+%@example.com'");
+    sql('DELETE FROM leads WHERE id = ?', [leadId]);
+    sql("DELETE FROM notifications WHERE event LIKE 'quote_%'");
+  }
+});
+
+/* ------------------------------------------------------------------ */
 test('keep me signed in: survives a browser restart, rotates, is device-bound, detects stolen tokens, ends on sign-out', async () => {
   setSetting('remember_enabled', true);
   setSetting('remember_days', 30);

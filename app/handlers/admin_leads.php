@@ -117,7 +117,8 @@ function admin_lead_show(string $id): void
         'prev' => db_val('SELECT id FROM leads WHERE created_at > ? OR (created_at = ? AND id > ?) ORDER BY created_at ASC, id ASC LIMIT 1', [$lead['created_at'], $lead['created_at'], $lead['id']]),
         'next' => db_val('SELECT id FROM leads WHERE created_at < ? OR (created_at = ? AND id < ?) ORDER BY created_at DESC, id DESC LIMIT 1', [$lead['created_at'], $lead['created_at'], $lead['id']]),
     ];
-    admin_render('Lead #' . $lead['id'] . ' — ' . $lead['name'], 'leads/show', compact('lead', 'files', 'notes', 'others', 'nav') + ['users' => lead_users()], ['crumbs' => [['Leads', 'admin/leads']], 'wide' => true]);
+    $quotes = db_all('SELECT * FROM quotes WHERE lead_id = ? ORDER BY id DESC', [$lead['id']]);
+    admin_render('Lead #' . $lead['id'] . ' — ' . $lead['name'], 'leads/show', compact('lead', 'files', 'notes', 'others', 'nav', 'quotes') + ['users' => lead_users()], ['crumbs' => [['Leads', 'admin/leads']], 'wide' => true]);
 }
 
 function admin_lead_update(string $id): void

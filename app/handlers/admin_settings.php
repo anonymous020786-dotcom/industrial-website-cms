@@ -143,6 +143,18 @@ function settings_tabs(): array
             'backup_keep' => ['type' => 'number', 'label' => 'Keep the newest', 'default' => 14, 'help' => 'Number of daily backups to keep.'],
             'backup_uploads' => ['type' => 'checkbox', 'label' => 'Uploads', 'text' => 'Also zip uploaded images and documents (uses more disk space)', 'default' => false, 'wide' => true],
         ]],
+        'quotes' => ['Quotes', 'file-text', [
+            'h_q' => ['type' => 'heading', 'label' => 'Quotation defaults', 'help' => 'Used for every new quotation; each quote can still be changed. Your company name, address, phone, email and registration number come from Company & Branding.'],
+            'quote_prefix' => ['type' => 'text', 'label' => 'Number prefix', 'default' => 'Q-', 'help' => 'Quotes are numbered Q-2026-0001, Q-2026-0002…'],
+            'quote_currency' => ['type' => 'select', 'label' => 'Currency', 'options' => array_combine(array_keys(QUOTE_CURRENCIES), array_keys(QUOTE_CURRENCIES)), 'default' => 'INR'],
+            'quote_tax_label' => ['type' => 'text', 'label' => 'Tax name', 'default' => 'GST'],
+            'quote_tax_rate' => ['type' => 'number', 'label' => 'Tax rate (%)', 'default' => 18],
+            'quote_validity_days' => ['type' => 'number', 'label' => 'Valid for (days)', 'default' => 30],
+            'quote_delivery' => ['type' => 'text', 'label' => 'Default delivery', 'placeholder' => 'e.g. 3–4 weeks from purchase order, ex-works', 'wide' => true],
+            'quote_payment_terms' => ['type' => 'text', 'label' => 'Default payment terms', 'placeholder' => 'e.g. 50% advance, balance before dispatch', 'wide' => true],
+            'quote_terms' => ['type' => 'textarea', 'label' => 'Terms & conditions', 'rows' => 5, 'default' => "Prices are ex-works and exclusive of freight and insurance unless stated.\nDelivery time starts from receipt of the purchase order and advance payment.\nThis quotation is valid until the date shown."],
+            'quote_bank' => ['type' => 'textarea', 'label' => 'Bank details (printed on the PDF)', 'rows' => 4, 'placeholder' => "Account name\nBank, branch\nAccount number · IFSC"],
+        ]],
         'telegram' => ['Telegram', 'send', [
             'h_tg' => ['type' => 'heading', 'label' => 'Telegram bot', 'help' => 'Send sign-in codes, one-tap sign-in approval, security alerts and new-lead alerts through your own Telegram bot. In Telegram, open <strong>@BotFather</strong>, send <code>/newbot</code>, choose a name, then paste the token it gives you here. Each team member then connects their own Telegram in My profile.'],
             'telegram_enabled' => ['type' => 'checkbox', 'label' => 'Telegram', 'text' => 'Use Telegram for codes and alerts', 'wide' => true],

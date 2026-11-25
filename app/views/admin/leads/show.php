@@ -75,6 +75,18 @@ $row = fn($label, $val) => ($val === null || $val === '') ? '' : '<div class="py
   </div>
 
   <div class="space-y-6">
+    <div class="adm-card p-6">
+      <div class="flex items-center justify-between gap-3"><h2 class="adm-card-title"><?= icon('file-text', 'h-5 w-5 text-steel') ?> Quotations</h2>
+        <a class="adm-btn adm-btn-primary adm-btn-sm" href="<?= e(url('admin/quotes/new?lead=' . $lead['id'])) ?>"><?= icon('plus', 'h-4 w-4') ?> Create quote</a></div>
+      <?php if (!empty($quotes)): ?>
+      <ul class="mt-3 divide-y divide-black/5 text-sm">
+        <?php foreach ($quotes as $qq): ?>
+        <li class="flex items-center justify-between gap-2 py-2"><a class="font-mono font-semibold text-navy hover:text-steel" href="<?= e(url('admin/quotes/' . $qq['id'] . '/edit')) ?>"><?= e($qq['number']) ?></a>
+          <span class="text-right"><?= quote_badge($qq) ?> <span class="block text-xs font-semibold"><?= e(money((float) $qq['total'], $qq['currency'])) ?></span></span></li>
+        <?php endforeach ?>
+      </ul>
+      <?php else: ?><p class="mt-2 text-sm text-charcoal/70">Turn this enquiry into a priced quotation the customer can accept online.</p><?php endif ?>
+    </div>
     <form method="post" action="<?= e(url('admin/leads/' . $lead['id'])) ?>" class="adm-card space-y-4 p-6">
       <?= csrf_field() ?>
       <h2 class="adm-card-title">Pipeline</h2>

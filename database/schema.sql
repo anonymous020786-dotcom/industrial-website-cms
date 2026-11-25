@@ -439,3 +439,138 @@ CREATE TABLE IF NOT EXISTS app_errors (
   KEY idx_app_errors_fp (fingerprint, created_at),
   KEY idx_app_errors_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Quotations (Admin → Quotes); customers view, download and accept them at /q/{token}
+CREATE TABLE IF NOT EXISTS quotes (
+  id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  number         VARCHAR(30) NOT NULL,
+  lead_id        INT UNSIGNED NULL,
+  status         VARCHAR(20) NOT NULL DEFAULT 'draft',
+  customer_name  VARCHAR(150) NOT NULL,
+  company        VARCHAR(190) NULL,
+  email          VARCHAR(190) NULL,
+  phone          VARCHAR(50) NULL,
+  address        TEXT NULL,
+  customer_tax_id VARCHAR(60) NULL,
+  currency       VARCHAR(3) NOT NULL DEFAULT 'INR',
+  items          MEDIUMTEXT NOT NULL,
+  tax_label      VARCHAR(30) NOT NULL DEFAULT 'GST',
+  tax_rate       DECIMAL(5,2) NOT NULL DEFAULT 0,
+  subtotal       DECIMAL(14,2) NOT NULL DEFAULT 0,
+  tax            DECIMAL(14,2) NOT NULL DEFAULT 0,
+  total          DECIMAL(14,2) NOT NULL DEFAULT 0,
+  valid_until    DATE NULL,
+  delivery       VARCHAR(255) NULL,
+  payment_terms  VARCHAR(255) NULL,
+  notes          TEXT NULL,
+  terms          TEXT NULL,
+  token          CHAR(40) NOT NULL,
+  sent_at        DATETIME NULL,
+  viewed_at      DATETIME NULL,
+  decided_at     DATETIME NULL,
+  decided_name   VARCHAR(150) NULL,
+  decided_ip     VARCHAR(45) NULL,
+  decline_reason TEXT NULL,
+  created_by     INT UNSIGNED NULL,
+  created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_quotes_number (number),
+  UNIQUE KEY uq_quotes_token (token),
+  KEY idx_quotes_lead (lead_id),
+  KEY idx_quotes_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Part-number cross-reference (old / competitor numbers → our product)
+CREATE TABLE IF NOT EXISTS part_refs (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  ref_number  VARCHAR(120) NOT NULL,
+  ref_norm    VARCHAR(120) NOT NULL,
+  brand       VARCHAR(120) NULL,
+  product_id  INT UNSIGNED NULL,
+  our_part    VARCHAR(120) NULL,
+  notes       VARCHAR(255) NULL,
+  status      ENUM('draft','published') NOT NULL DEFAULT 'published',
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_part_refs_norm (ref_norm)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Downloads centre (brochures, manuals, CAD, certificates)
+CREATE TABLE IF NOT EXISTS downloads (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  title       VARCHAR(190) NOT NULL,
+  category    VARCHAR(80) NOT NULL DEFAULT 'Brochures',
+  description TEXT NULL,
+  file        VARCHAR(500) NOT NULL,
+  gated       TINYINT(1) NOT NULL DEFAULT 0,
+  status      ENUM('draft','published') NOT NULL DEFAULT 'published',
+  sort_order  INT NOT NULL DEFAULT 0,
+  downloads   INT UNSIGNED NOT NULL DEFAULT 0,
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Distributor / dealer network
+CREATE TABLE IF NOT EXISTS distributors (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name        VARCHAR(190) NOT NULL,
+  region      VARCHAR(120) NOT NULL,
+  city        VARCHAR(120) NULL,
+  country     VARCHAR(120) NULL,
+  address     TEXT NULL,
+  phone       VARCHAR(50) NULL,
+  email       VARCHAR(190) NULL,
+  website     VARCHAR(255) NULL,
+  products    VARCHAR(255) NULL,
+  status      ENUM('draft','published') NOT NULL DEFAULT 'published',
+  sort_order  INT NOT NULL DEFAULT 0,
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Careers: job openings (applications are leads of type 'job')
+CREATE TABLE IF NOT EXISTS jobs (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  title       VARCHAR(190) NOT NULL,
+  slug        VARCHAR(160) NOT NULL UNIQUE,
+  department  VARCHAR(120) NULL,
+  location    VARCHAR(120) NULL,
+  job_type    VARCHAR(60) NULL,
+  summary     VARCHAR(300) NULL,
+  description MEDIUMTEXT NULL,
+  status      ENUM('draft','published') NOT NULL DEFAULT 'draft',
+  closes_at   DATE NULL,
+  sort_order  INT NOT NULL DEFAULT 0,
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Who changed what (content history across pages, posts, products and other content)
+CREATE TABLE IF NOT EXISTS content_log (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id     INT UNSIGNED NULL,
+  entity      VARCHAR(40) NOT NULL,
+  entity_id   INT UNSIGNED NULL,
+  action      VARCHAR(20) NOT NULL,
+  title       VARCHAR(255) NULL,
+  detail      VARCHAR(500) NULL,
+  ip          VARCHAR(45) NULL,
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_content_log_entity (entity, entity_id),
+  KEY idx_content_log_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Changes editors submit for approval (applied only when an administrator approves)
+CREATE TABLE IF NOT EXISTS content_reviews (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  entity      VARCHAR(20) NOT NULL,
+  entity_id   INT UNSIGNED NOT NULL,
+  user_id     INT UNSIGNED NULL,
+  title       VARCHAR(255) NULL,
+  snapshot    MEDIUMTEXT NOT NULL,
+  status      VARCHAR(20) NOT NULL DEFAULT 'pending',
+  note        TEXT NULL,
+  decided_by  INT UNSIGNED NULL,
+  decided_at  DATETIME NULL,
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_content_reviews_status (status, created_at),
+  KEY idx_content_reviews_entity (entity, entity_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

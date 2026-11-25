@@ -20,6 +20,8 @@ function routes(): array
         ['GET', '/projects', 'site_projects', 'site_extra'],
         ['GET', '/projects/{slug}', 'site_project', 'site_extra'],
         ['GET', '/download/datasheet/{slug}', 'site_datasheet', 'site_extra'],
+        ['GET|POST', '/q/{token}', 'site_quote_view', 'site_extra'],
+        ['GET', '/q/{token}/pdf', 'site_quote_pdf', 'site_extra'],
         ['GET|POST', '/catalogue', 'site_catalogue', 'site_extra'],
         ['GET', '/cron/{key}', 'site_cron', 'site_extra'],
         ['POST', '/telegram/webhook', 'telegram_webhook', 'admin_telegram'],
@@ -91,6 +93,15 @@ function routes(): array
         ['GET', '/admin/dev-mail', 'admin_dev_mail', 'admin_settings'],
         ['POST', '/admin/logout', 'admin_logout', 'admin'],
         ['GET', '/admin', 'admin_dashboard', 'admin'],
+
+        // Quotations
+        ['GET', '/admin/quotes', 'admin_quotes', 'admin_quotes'],
+        ['GET|POST', '/admin/quotes/new', 'admin_quote_edit', 'admin_quotes'],
+        ['GET|POST', '/admin/quotes/{id}/edit', 'admin_quote_edit', 'admin_quotes'],
+        ['GET', '/admin/quotes/{id}/pdf', 'admin_quote_pdf', 'admin_quotes'],
+        ['POST', '/admin/quotes/{id}/send', 'admin_quote_send', 'admin_quotes'],
+        ['POST', '/admin/quotes/{id}/duplicate', 'admin_quote_duplicate', 'admin_quotes'],
+        ['POST', '/admin/quotes/{id}/delete', 'admin_quote_delete', 'admin_quotes'],
 
         // Leads
         ['GET', '/admin/leads', 'admin_leads', 'admin_leads'],

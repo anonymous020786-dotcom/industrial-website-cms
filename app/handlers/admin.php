@@ -10,6 +10,7 @@ function admin_nav(): array
     return [
         ['Dashboard', 'admin', 'layout-dashboard', 'dashboard'],
         ['Leads', 'admin/leads', 'inbox', 'leads', $newLeads],
+        ['Quotes', 'admin/quotes', 'file-text', 'leads'],
         ['_', 'Content'],
         ['Pages', 'admin/pages', 'file-text', 'content'],
         ['Blog Posts', 'admin/posts', 'newspaper', 'content'],

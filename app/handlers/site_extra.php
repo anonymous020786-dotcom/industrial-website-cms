@@ -175,3 +175,54 @@ function site_cron(string $key): void
     foreach (cron_run() as $task => $result) echo "{$task}: {$result}\n";
     exit;
 }
+
+/* ------------------------------------------------------------------ */
+/* Quotations: the customer's private link                             */
+/* ------------------------------------------------------------------ */
+
+function quote_by_token(string $token): array
+{
+    $q = preg_match('~^[a-f0-9]{40}$~', $token) ? db_one('SELECT * FROM quotes WHERE token = ?', [$token]) : null;
+    if (!$q || $q['status'] === 'draft' && !site_admin_user()) abort(404); // drafts are visible to the team only
+    return $q;
+}
+
+function site_quote_view(string $token): void
+{
+    $q = quote_by_token($token);
+    $error = null;
+    if (is_post()) {
+        if (!rate_limit(ip_bucket('quote-decide'), 10, 3600)) abort(429, '', ['retry_after' => 3600]);
+        $status = quote_status($q);
+        $name = trim((string) input('name', ''));
+        if ($status !== 'sent') {
+            $error = $status === 'expired' ? 'This quotation has expired. Please contact us for an updated one.' : 'This quotation has already been ' . $status . '.';
+        } elseif (input('decision') === 'accept') {
+            if (mb_strlen($name) < 2) $error = 'Please type your full name to accept.';
+            elseif (empty($_POST['agree'])) $error = 'Please confirm that you accept the quotation and its terms.';
+            else { quote_decide($q, true, $name); redirect('q/' . $token . '?done=accepted'); }
+        } elseif (input('decision') === 'decline') {
+            quote_decide($q, false, $name, mb_substr(trim((string) input('reason', '')), 0, 2000));
+            redirect('q/' . $token . '?done=declined');
+        }
+        $q = quote_by_token($token);
+    } elseif (!$q['viewed_at'] && !site_admin_user()) {
+        db_update('quotes', ['viewed_at' => now()], (int) $q['id']); // first time the customer opened it
+    }
+    $meta = ['title' => 'Quotation ' . $q['number'], 'description' => '', 'noindex' => true, 'crumbs' => []];
+    header('Referrer-Policy: no-referrer'); // the link itself is the key
+    site_render($meta, view('site/quote_view', ['q' => $q, 'items' => json_decode((string) $q['items'], true) ?: [], 'error' => $error, 'done' => (string) query('done', '')]));
+}
+
+function site_quote_pdf(string $token): void
+{
+    $q = quote_by_token($token);
+    $pdf = quote_pdf($q);
+    header('Content-Type: application/pdf');
+    header('Content-Disposition: attachment; filename="Quotation-' . $q['number'] . '.pdf"');
+    header('Content-Length: ' . strlen($pdf));
+    header('Cache-Control: private, no-store');
+    header('X-Robots-Tag: noindex');
+    echo $pdf;
+    exit;
+}

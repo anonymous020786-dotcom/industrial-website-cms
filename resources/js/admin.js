@@ -387,4 +387,42 @@
       window.scrollBy({ top: by, behavior: smooth });
     });
   }
+
+  /* ---------------- Quotation editor: line items and live totals (the server recalculates on save) ---------------- */
+  const qForm = $('[data-quote-form]');
+  if (qForm) {
+    const body = $('[data-quote-items]', qForm);
+    const tpl = $('[data-quote-template]');
+    const fmt = (n) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const num = (el) => parseFloat(el?.value) || 0;
+    const recalc = () => {
+      let sub = 0;
+      $$('[data-quote-row]', body).forEach((r) => {
+        const amount = Math.round(num($('[data-q="qty"]', r)) * num($('[data-q="price"]', r)) * (1 - Math.min(100, num($('[data-q="discount"]', r))) / 100) * 100) / 100;
+        sub += amount;
+        $('[data-q="amount"]', r).textContent = fmt(amount);
+      });
+      const tax = Math.round(sub * num($('[data-q="tax_rate"]', qForm))) / 100;
+      const cur = $('[data-q="currency"]', qForm)?.value || '';
+      $('[data-q="subtotal"]', qForm).textContent = fmt(sub);
+      $('[data-q="tax"]', qForm).textContent = fmt(tax);
+      $('[data-q="total"]', qForm).textContent = `${cur} ${fmt(sub + tax)}`;
+    };
+    let next = $$('[data-quote-row]', body).length;
+    $('[data-quote-add]')?.addEventListener('click', () => {
+      body.insertAdjacentHTML('beforeend', tpl.innerHTML.replaceAll('__i__', String(next++)));
+      $$('[data-quote-row]', body).at(-1)?.querySelector('input')?.focus();
+      recalc();
+    });
+    body.addEventListener('click', (e) => {
+      const rm = e.target.closest('[data-quote-remove]');
+      if (!rm) return;
+      if ($$('[data-quote-row]', body).length > 1) rm.closest('[data-quote-row]').remove();
+      else $$('input', rm.closest('[data-quote-row]')).forEach((i) => { i.value = i.dataset.q === 'qty' ? '1' : ''; });
+      recalc();
+    });
+    qForm.addEventListener('input', recalc);
+    qForm.addEventListener('change', recalc);
+    recalc();
+  }
 })();

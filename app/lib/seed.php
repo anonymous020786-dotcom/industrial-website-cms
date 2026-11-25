@@ -202,7 +202,7 @@ function finish_install(): void
 /* Migrations for sites installed before newer columns existed.        */
 /* Portable across MySQL and MariaDB (checks information_schema).      */
 /* ------------------------------------------------------------------ */
-const SCHEMA_VERSION = 10;
+const SCHEMA_VERSION = 11;
 
 function column_exists(string $table, string $column): bool
 {
@@ -242,7 +242,13 @@ function run_migrations(): array
             'remember_hash' => 'CHAR(64) NULL AFTER trusted_until',
             'remember_until' => 'DATETIME NULL AFTER remember_hash',
         ],
-        'leads' => ['items' => 'MEDIUMTEXT NULL AFTER message'],
+        'leads' => [
+            'items' => 'MEDIUMTEXT NULL AFTER message',
+            'track_token' => 'CHAR(32) NULL AFTER consent',        // service requests: public status link
+            'service_status' => 'VARCHAR(20) NULL AFTER track_token',
+            'location' => 'VARCHAR(190) NULL AFTER service_status',
+            'job_id' => 'INT UNSIGNED NULL AFTER location',          // careers applications
+        ],
         'products' => ['datasheet' => 'VARCHAR(500) NULL AFTER specs'],
         'media' => ['variants' => 'TEXT NULL AFTER alt'],
         'posts' => ['deleted_at' => 'DATETIME NULL AFTER views'],
