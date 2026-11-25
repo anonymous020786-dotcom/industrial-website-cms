@@ -57,6 +57,7 @@ $hours = setting('company_hours', []) ?: [];
         <?php foreach (legal_pages() as $l): ?><li><a class="footer-link" href="<?= e(url($l['slug'])) ?>"><?= e($l['title']) ?></a></li><?php endforeach ?>
         <li><a class="footer-link" href="<?= e(url('sitemap')) ?>">Sitemap</a></li>
         <?php if (consent_required()): ?><li><button type="button" class="footer-link" data-cookie-settings>Cookie Settings</button></li><?php endif ?>
+        <?php if (setting('footer_login_link', true)): ?><li><a class="footer-link inline-flex items-center gap-1" href="<?= e(url('admin/login')) ?>" rel="nofollow"><?= icon('lock', 'h-3 w-3') ?> Team login</a></li><?php endif ?>
       </ul>
     </div>
     <?php if ($note = (string) setting('footer_note', '')): ?><p class="pb-8 text-[11px] text-white/35"><?= e($note) ?></p><?php endif ?>

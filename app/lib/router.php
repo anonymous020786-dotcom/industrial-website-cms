@@ -25,7 +25,9 @@ function routes(): array
         ['GET', '/blog/category/{slug}', 'site_blog_category', 'site'],
         ['GET', '/blog/{slug}', 'site_blog_post', 'site'],
 
-        // Admin — auth
+        // Admin — auth (short, easy-to-remember addresses for the team)
+        ['GET', '/login', 'site_login_shortcut', 'site'],
+        ['GET', '/admin/', 'site_login_shortcut', 'site'],
         ['GET|POST', '/admin/login', 'admin_login', 'admin'],
         ['GET|POST', '/admin/login/verify', 'admin_login_verify', 'admin'],
         ['POST', '/admin/login/resend', 'admin_login_resend', 'admin'],

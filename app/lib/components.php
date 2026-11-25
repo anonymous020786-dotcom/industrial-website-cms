@@ -262,3 +262,13 @@ function form_alert(): string
 {
     return '<div class="form-alert" role="alert" hidden data-form-alert></div>';
 }
+
+
+/** The signed-in team member viewing the public site, if any (never starts a session for visitors). */
+function site_admin_user(): ?array
+{
+    static $u = false;
+    if ($u !== false) return $u;
+    if (empty($_COOKIE['ivadmin'])) return $u = null;
+    try { return $u = current_user(); } catch (Throwable) { return $u = null; }
+}

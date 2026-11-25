@@ -200,6 +200,15 @@ Replace the stock photos with your own photography before launch.
 
 ## Admin sign-in & account security
 
+- **Getting to the admin.** Use `/admin` or the short `/login`; both go straight to the dashboard if
+  you're already signed in. The footer also has a small **Team login** link, which can be turned off in
+  Settings → Company & Branding.
+- **Admin toolbar.** While you're signed in, the public site shows a slim toolbar at the top (visitors
+  never see it). It has:
+  - *Control panel*, a context-aware *Edit page / product / post / project* link, *Leads* with the
+    new-lead count, and *New post*
+  - *Sign out*, which keeps you on the page you were reading
+
 - **Passkeys** (My profile → Passkeys). Sign in with a fingerprint, face or device PIN instead of a
   password, using Windows Hello, Touch ID / Face ID, Android or a security key.
   - Passkeys can't be phished and already include two-factor protection. The browser can offer them

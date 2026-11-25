@@ -202,6 +202,9 @@ function admin_logout(): void
 {
     csrf_check();
     logout_user();
+    // Signing out from the website toolbar keeps the visitor on the public page they were reading
+    $to = stepup_safe_path((string) input('return', ''), '');
+    if ($to !== '' && !str_starts_with($to, 'admin')) redirect($to);
     flash('success', 'You have been signed out.');
     redirect('admin/login');
 }

@@ -33,6 +33,8 @@ function settings_tabs(): array
             'heading_style' => ['type' => 'select', 'label' => 'Heading style', 'options' => ['industrial' => 'Industrial — condensed, uppercase (default)', 'editorial' => 'Editorial — elegant serif (Playfair Display)'], 'default' => 'industrial', 'help' => 'Changes the large headings across the website. Both fonts are self-hosted.'],
             'theme_default' => ['type' => 'select', 'label' => 'Default colour theme', 'options' => ['light' => 'Light', 'system' => 'Follow the visitor’s device', 'dark' => 'Dark'], 'help' => 'Visitors can still switch with the header toggle; their choice is remembered in their browser.'],
             'theme_toggle' => ['type' => 'checkbox', 'label' => 'Theme switch', 'text' => 'Show the light / dark toggle in the header', 'default' => true],
+            'admin_bar' => ['type' => 'checkbox', 'label' => 'Admin toolbar', 'text' => 'Show the admin toolbar (Edit this page, Leads, Sign out) on the website while you are signed in', 'default' => true, 'help' => 'Visitors never see it.'],
+            'footer_login_link' => ['type' => 'checkbox', 'label' => 'Team login link', 'text' => 'Show a small “Team login” link in the footer', 'default' => true, 'help' => 'The sign-in page is always at /admin and /login, and stays protected by Turnstile, rate limits and two-step codes.'],
             'scroll_buttons' => ['type' => 'checkbox', 'label' => 'Scroll buttons', 'text' => 'Show floating scroll up / down buttons with reading progress', 'default' => true],
         ]],
         'seo' => ['SEO', 'search', [

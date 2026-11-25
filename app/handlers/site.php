@@ -48,6 +48,7 @@ function site_page(string $slug = 'home'): void
         if ($vars['pager']['page'] > 1 || $vars['q'] !== '') { $meta['noindex'] = $vars['q'] !== ''; $meta['canonical'] = abs_url('blog' . ($vars['pager']['page'] > 1 ? '?page=' . $vars['pager']['page'] : '')); }
     }
     $body = view('site/t_' . $tpl, $vars);
+    $meta['edit'] = ['Edit page', 'admin/pages/' . $page['id'] . '/edit', 'content'];
     site_render($meta, $body);
 }
 
@@ -77,6 +78,7 @@ function site_blog_category(string $slug): void
         'crumbs' => [['label' => $page['title'], 'url' => url('blog')], ['label' => $cat['name'], 'url' => url('blog/category/' . $cat['slug'])]],
     ]);
     $vars['meta'] = &$meta;
+    $meta['edit'] = ['Manage posts', 'admin/posts', 'content'];
     site_render($meta, view('site/t_blog', $vars));
 }
 
@@ -132,6 +134,7 @@ function site_blog_post(string $slug): void
         ]],
     ];
     if ($faqLd) $meta['jsonld'][] = $faqLd;
+    $meta['edit'] = ['Edit post', 'admin/posts/' . $post['id'] . '/edit', 'content'];
     site_render($meta, view('site/post', compact('post', 'content', 'toc', 'related', 'prev', 'next', 'url')));
 }
 
@@ -151,6 +154,7 @@ function site_product(string $slug): void
         'jsonld' => [['@context' => 'https://schema.org', '@type' => 'Product', 'name' => $p['name'], 'description' => $p['summary'],
             'image' => image_abs_url($p['image']), 'category' => $cat, 'brand' => ['@type' => 'Brand', 'name' => company('name')]]],
     ];
+    $meta['edit'] = ['Edit product', 'admin/r/products/' . $p['id'] . '/edit', 'content'];
     site_render($meta, view('site/product', ['p' => $p, 'cat' => $cat]));
 }
 
@@ -256,4 +260,10 @@ function site_feed(): void
             . '<pubDate>' . date(DATE_RSS, strtotime($p['published_at'])) . '</pubDate><description>' . e($p['excerpt']) . '</description></item>';
     }
     echo '</channel></rss>';
+}
+
+/** /login (and /admin/): straight to the dashboard when signed in, otherwise the sign-in page. */
+function site_login_shortcut(): void
+{
+    redirect(site_admin_user() ? 'admin' : 'admin/login');
 }

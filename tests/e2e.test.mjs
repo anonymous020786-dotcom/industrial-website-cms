@@ -703,6 +703,47 @@ test('maintenance mode: 503 page for visitors, team and preview link see the sit
 });
 
 /* ------------------------------------------------------------------ */
+test('team access: footer "Team login", /login shortcut, admin toolbar with "Edit this page" for signed-in staff only', async () => {
+  const visitor = new Client();
+  const home = await visitor.get('');
+  assert.match(home.text, /href="[^"]*admin\/login"[^>]*>[\s\S]{0,400}Team login/, 'footer link');
+  assert.doesNotMatch(home.text, /site-adminbar/, 'visitors never see the toolbar');
+  assert.ok(!visitor.jar.has('ivadmin'), 'no session started for visitors');
+  assert.match((await visitor.get('login')).location, /\/admin\/login$/);
+
+  const product = await admin.get('products/hydraulic-cylinders');
+  assert.match(product.text, /class="site-adminbar"/);
+  const pid = sql("SELECT id FROM products WHERE slug = 'hydraulic-cylinders'")[0].id;
+  assert.match(product.text, new RegExp(`href="[^"]*admin/r/products/${pid}/edit"[^>]*>[\\s\\S]{0,900}Edit product`));
+  const about = await admin.get('about');
+  const aid = sql("SELECT id FROM pages WHERE slug = 'about'")[0].id;
+  assert.match(about.text, new RegExp(`admin/pages/${aid}/edit`));
+  assert.match((await admin.get('login')).location, /\/admin$/, '/login goes straight to the dashboard when signed in');
+
+  setSetting('footer_login_link', false);
+  setSetting('admin_bar', false);
+  try {
+    assert.doesNotMatch((await visitor.get('')).text, /Team login/);
+    assert.doesNotMatch((await admin.get('')).text, /site-adminbar/);
+  } finally {
+    setSetting('footer_login_link', true);
+    setSetting('admin_bar', true);
+  }
+
+  // Signing out from the toolbar keeps you on the public page
+  const s = new Client();
+  await s.login(ADMIN, PASSWORD);
+  const pg = await s.get('quality');
+  const out = await s.post('admin/logout', { _token: token(pg.text), return: 'quality' });
+  assert.match(out.location, /\/quality$/);
+  assert.doesNotMatch((await s.get('quality')).text, /site-adminbar/);
+  const bad = new Client();
+  await bad.login(ADMIN, PASSWORD);
+  const back = await bad.post('admin/logout', { _token: token((await bad.get('admin')).text), return: 'https://evil.example/' });
+  assert.match(back.location, /\/admin\/login$/, 'never redirects off-site');
+});
+
+/* ------------------------------------------------------------------ */
 test('keep me signed in: survives a browser restart, rotates, is device-bound, detects stolen tokens, ends on sign-out', async () => {
   setSetting('remember_enabled', true);
   setSetting('remember_days', 30);

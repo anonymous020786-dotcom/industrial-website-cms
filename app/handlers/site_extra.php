@@ -23,6 +23,7 @@ function site_projects(): void
         'section' => 'projects',
         'crumbs' => [['label' => 'Projects', 'url' => url('projects')]],
     ];
+    $meta['edit'] = ['Manage projects', 'admin/r/projects', 'content'];
     site_render($meta, view('site/projects', compact('projects', 'industries', 'active', 'meta')));
 }
 
@@ -49,6 +50,7 @@ function site_project(string $slug): void
             'author' => ['@type' => 'Organization', 'name' => company('name')], 'publisher' => ['@type' => 'Organization', 'name' => company('name')],
             'mainEntityOfPage' => abs_url('projects/' . $p['slug'])])],
     ];
+    $meta['edit'] = ['Edit project', 'admin/r/projects/' . $p['id'] . '/edit', 'content'];
     site_render($meta, view('site/project', ['p' => $p, 'products' => $products, 'results' => array_slice($results, 0, 4), 'more' => array_slice($more, 0, 3), 'meta' => $meta]));
 }
 
