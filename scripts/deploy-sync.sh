@@ -23,5 +23,6 @@ if [ -n "$WEB_DIR" ]; then
   # 2) Web root: only the contents of public/ (uploads, SSL validation files and the dev router are left alone).
   rsync -az --delete --exclude=/uploads/ --exclude=/.well-known/ --exclude=/router.php "${E[@]}" ./public/ "$DEST/$WEB_DIR/"
 else
-  rsync -az --delete --exclude-from=.deployignore "${E[@]}" ./ "$DEST/"
+  # .well-known holds SSL validation files the host puts on the server; --delete must not remove them
+  rsync -az --delete --exclude-from=.deployignore --exclude=/.well-known/ --exclude=/public/.well-known/ "${E[@]}" ./ "$DEST/"
 fi
