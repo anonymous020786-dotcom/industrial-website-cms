@@ -15,7 +15,7 @@ $hours = setting('company_hours', []) ?: [];
     </div>
 
     <div class="grid gap-12 py-14 sm:grid-cols-2 lg:grid-cols-12">
-      <div class="lg:col-span-4">
+      <div class="lg:col-span-3">
         <?= view('site/_logo', ['dark' => true]) ?>
         <p class="mt-6 max-w-sm text-sm leading-relaxed"><?= e(company('description')) ?></p>
         <?php if ($social): ?>
@@ -34,7 +34,18 @@ $hours = setting('company_hours', []) ?: [];
           <?php if (setting('catalogue_pdf')): ?><li><a class="footer-link" href="<?= e(url('catalogue')) ?>"><?= e((string) setting('catalogue_title', 'Product catalogue')) ?></a></li><?php endif ?>
         </ul>
       </div>
-      <div class="lg:col-span-3">
+      <div class="lg:col-span-2">
+        <h2 class="footer-heading">Resources</h2>
+        <ul class="mt-5 space-y-3 text-sm" data-footer-resources>
+          <li><a class="footer-link" href="<?= e(url('service-request')) ?>">Breakdown &amp; service</a></li>
+          <li><a class="footer-link" href="<?= e(url('parts')) ?>">Find a part number</a></li>
+          <li><a class="footer-link" href="<?= e(url('calculators')) ?>">Hydraulic calculators</a></li>
+          <li><a class="footer-link" href="<?= e(url('downloads')) ?>">Downloads</a></li>
+          <?php if (db_val("SELECT 1 FROM distributors WHERE status = 'published' LIMIT 1")): ?><li><a class="footer-link" href="<?= e(url('distributors')) ?>">Distributors</a></li><?php endif ?>
+          <?php if (jobs_open()): ?><li><a class="footer-link" href="<?= e(url('careers')) ?>">Careers</a></li><?php endif ?>
+        </ul>
+      </div>
+      <div class="lg:col-span-2">
         <h2 class="footer-heading">Products</h2>
         <ul class="mt-5 space-y-3 text-sm">
           <?php foreach ($products as $p): ?><li><a class="footer-link" href="<?= e(product_url($p)) ?>"><?= e($p['name']) ?></a></li><?php endforeach ?>

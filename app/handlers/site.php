@@ -204,6 +204,11 @@ function site_sitemap_xml(): void
     $projects = db_all("SELECT slug, updated_at FROM projects WHERE status = 'published'");
     if ($projects) $urls[] = [abs_url('projects'), null, '0.7'];
     foreach ($projects as $p) $urls[] = [abs_url('projects/' . $p['slug']), $p['updated_at'], '0.7'];
+    foreach (['service-request' => '0.6', 'parts' => '0.6', 'calculators' => '0.6', 'downloads' => '0.5'] as $u => $prio) $urls[] = [abs_url($u), null, $prio];
+    if (db_val("SELECT 1 FROM distributors WHERE status = 'published' LIMIT 1")) $urls[] = [abs_url('distributors'), null, '0.5'];
+    $jobs = jobs_open();
+    if ($jobs) $urls[] = [abs_url('careers'), null, '0.5'];
+    foreach ($jobs as $j) $urls[] = [abs_url('careers/' . $j['slug']), $j['updated_at'], '0.5'];
     foreach (db_all("SELECT c.slug FROM categories c WHERE c.type = 'post' AND EXISTS (SELECT 1 FROM posts p WHERE p.category_id = c.id AND " . POST_VISIBLE . ')') as $c) $urls[] = [abs_url('blog/category/' . $c['slug']), null, '0.5'];
     foreach (db_all('SELECT p.slug, p.updated_at FROM posts p WHERE ' . POST_VISIBLE . ' AND p.noindex = 0 ORDER BY p.published_at DESC') as $p) $urls[] = [abs_url('blog/' . $p['slug']), $p['updated_at'], '0.6'];
 

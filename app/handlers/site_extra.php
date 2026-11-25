@@ -107,9 +107,11 @@ function site_catalogue(): void
     $pdf = (string) setting('catalogue_pdf', '');
     $title = (string) setting('catalogue_title', 'Product catalogue') ?: 'Product catalogue';
     $next = (string) (query('next') ?? input('next', ''));
-    if (!preg_match('~^download/datasheet/[a-z0-9-]+$~', $next)) $next = '';
+    if (!preg_match('~^download/(datasheet/[a-z0-9-]+|file/\d+)$~', $next)) $next = '';
+    $doc = str_starts_with($next, 'download/file/') ? db_one("SELECT * FROM downloads WHERE id = ? AND status = 'published'", [(int) substr($next, 14)]) : null;
+    if (str_starts_with($next, 'download/file/') && !$doc) abort(404);
     if ($pdf === '' && $next === '') abort(404);
-    $gated = $next !== '' ? (bool) setting('datasheets_gated', false) : (bool) setting('catalogue_gated', true);
+    $gated = $doc ? (bool) $doc['gated'] : ($next !== '' ? (bool) setting('datasheets_gated', false) : (bool) setting('catalogue_gated', true));
     if (!$gated || download_access_ok()) {
         if ($next !== '') redirect($next);
         download_send($pdf, $title, 'catalogue', $title);
@@ -119,16 +121,16 @@ function site_catalogue(): void
     $old = [];
     if (is_post()) {
         $old = $_POST;
-        $res = download_lead_submit($_POST, $next !== '' ? 'Datasheet: ' . basename($next) : $title);
+        $res = download_lead_submit($_POST, $doc ? $doc['category'] . ': ' . $doc['title'] : ($next !== '' ? 'Datasheet: ' . basename($next) : $title));
         if ($res === true) {
             download_grant_access();
             redirect($next !== '' ? $next : 'catalogue');
         }
         [$message, $errors] = $res;
     }
-    $meta = ['title' => $next !== '' ? 'Download datasheet' : 'Download the ' . $title, 'description' => 'Download our ' . strtolower($title) . ' with specifications for crane components and hydraulic products.',
+    $meta = ['title' => $doc ? 'Download: ' . $doc['title'] : ($next !== '' ? 'Download datasheet' : 'Download the ' . $title), 'description' => 'Download our ' . strtolower($title) . ' with specifications for crane components and hydraulic products.',
         'canonical' => abs_url('catalogue'), 'noindex' => $next !== '', 'section' => 'products', 'crumbs' => [['label' => 'Products', 'url' => url('products')], ['label' => $title, 'url' => url('catalogue')]]];
-    site_render($meta, view('site/catalogue', compact('title', 'errors', 'message', 'old', 'next', 'meta')), $errors || $message ? 422 : 200);
+    site_render($meta, view('site/catalogue', compact('title', 'errors', 'message', 'old', 'next', 'meta', 'doc')), $errors || $message ? 422 : 200);
 }
 
 /** @return true|array{0:?string,1:array} */

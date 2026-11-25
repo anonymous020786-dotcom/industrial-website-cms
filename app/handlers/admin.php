@@ -5,6 +5,7 @@ declare(strict_types=1);
 function admin_nav(): array
 {
     $newLeads = can('leads') ? (int) db_val("SELECT COUNT(*) FROM leads WHERE status = 'new'") : 0;
+    $newApplications = can('users') ? (int) db_val("SELECT COUNT(*) FROM leads WHERE type = 'job' AND status = 'new'") : 0;
     $openErrors = 0;
     if (can('settings')) { try { $openErrors = (int) db_val('SELECT COUNT(DISTINCT fingerprint) FROM app_errors WHERE resolved_at IS NULL AND created_at >= NOW() - INTERVAL 7 DAY'); } catch (Throwable) {} }
     return [
@@ -22,6 +23,12 @@ function admin_nav(): array
         ['Certificates', 'admin/r/certificates', 'award', 'content'],
         ['Testimonials', 'admin/r/testimonials', 'message-square-quote', 'content'],
         ['Media Library', 'admin/media', 'images', 'content'],
+        ['Downloads', 'admin/r/downloads', 'folder-down', 'content'],
+        ['Part numbers', 'admin/r/part_refs', 'scan-barcode', 'content'],
+        ['Distributors', 'admin/r/distributors', 'map-pinned', 'content'],
+        ['_', 'Careers'],
+        ['Job openings', 'admin/r/jobs', 'briefcase', 'content'],
+        ['Applications', 'admin/careers/applications', 'user-round-check', 'users', $newApplications],
         ['_', 'Insights'],
         ['Reports', 'admin/reports', 'chart-column', 'leads'],
         ['Redirects & 404s', 'admin/redirects', 'route', 'settings'],

@@ -23,6 +23,12 @@ function routes(): array
         ['GET|POST', '/q/{token}', 'site_quote_view', 'site_extra'],
         ['GET', '/service-request', 'site_service_request', 'site_extra'],
         ['GET', '/calculators', 'site_calculators', 'site_extra'],
+        ['GET', '/parts', 'site_parts', 'site_more'],
+        ['GET', '/downloads', 'site_downloads', 'site_more'],
+        ['GET', '/download/file/{id}', 'site_download_file', 'site_more'],
+        ['GET', '/distributors', 'site_distributors', 'site_more'],
+        ['GET', '/careers', 'site_careers', 'site_more'],
+        ['GET', '/careers/{slug}', 'site_career', 'site_more'],
         ['GET', '/service-request/track/{token}', 'site_service_track', 'site_extra'],
         ['GET', '/q/{token}/pdf', 'site_quote_pdf', 'site_extra'],
         ['GET|POST', '/catalogue', 'site_catalogue', 'site_extra'],
@@ -108,6 +114,8 @@ function routes(): array
 
         // Leads
         ['GET', '/admin/leads', 'admin_leads', 'admin_leads'],
+        ['GET', '/admin/careers/applications', 'admin_careers_applications', 'admin_leads'],
+        ['GET', '/admin/careers/applications/{id}', 'admin_careers_application', 'admin_leads'],
         ['GET', '/admin/leads/export', 'admin_leads_export', 'admin_leads'],
         ['POST', '/admin/leads/bulk', 'admin_leads_bulk', 'admin_leads'],
         ['GET|POST', '/admin/leads/new', 'admin_lead_new', 'admin_leads'],

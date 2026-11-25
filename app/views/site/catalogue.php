@@ -1,8 +1,9 @@
-<?php /** @var string $title @var array $errors @var ?string $message @var array $old @var string $next @var array $meta */
+<?php /** @var string $title @var array $errors @var ?string $message @var array $old @var string $next @var array $meta @var ?array $doc */
 $isSheet = $next !== '';
+$docName = $doc ? $doc['title'] : 'the Datasheet';
 $f = fn($id, $label, $type = 'text', $req = true, $ac = '') => form_field(['id' => $id, 'label' => $label, 'type' => $type, 'required' => $req, 'autocomplete' => $ac, 'value' => (string) ($old[$id] ?? ''), 'error' => $errors[$id] ?? '']);
 ?>
-<?= page_hero(['eyebrow' => 'Downloads', 'title' => $isSheet ? 'Download the Datasheet' : $title, 'lead' => $isSheet ? 'Tell us who you are and the download starts straight away. You will not need to do this again on this device.' : 'Specifications, sizes and options for our crane components and hydraulic products in one PDF.', 'crumbs' => $meta['crumbs']]) ?>
+<?= page_hero(['eyebrow' => 'Downloads', 'title' => $isSheet ? 'Download ' . $docName : $title, 'lead' => $isSheet ? 'Tell us who you are and the download starts straight away. You will not need to do this again on this device.' : 'Specifications, sizes and options for our crane components and hydraulic products in one PDF.', 'crumbs' => $meta['crumbs']]) ?>
 
 <section class="section bg-mist !pt-12">
   <div class="mx-auto grid max-w-site gap-8 px-4 sm:px-6 lg:grid-cols-12 lg:px-8">
@@ -20,7 +21,7 @@ $f = fn($id, $label, $type = 'text', $req = true, $ac = '') => form_field(['id' 
         <?= consent_field() ?>
         <?php if (!empty($errors['consent'])): ?><p class="field-error sm:col-span-2"><?= e($errors['consent']) ?></p><?php endif ?>
         <?= turnstile_widget('sm:col-span-2') ?>
-        <div class="sm:col-span-2"><button type="submit" class="btn btn-primary btn-lg w-full justify-center sm:w-auto"><?= icon('file-down', 'h-5 w-5') ?> <?= $isSheet ? 'Download datasheet' : 'Download catalogue' ?></button></div>
+        <div class="sm:col-span-2"><button type="submit" class="btn btn-primary btn-lg w-full justify-center sm:w-auto"><?= icon('file-down', 'h-5 w-5') ?> <?= $doc ? 'Download' : ($isSheet ? 'Download datasheet' : 'Download catalogue') ?></button></div>
       </form>
     </div>
     <aside class="blueprint bg-navy p-8 text-white lg:col-span-5">

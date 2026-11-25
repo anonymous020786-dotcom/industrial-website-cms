@@ -630,6 +630,67 @@ function resources(): array
                 'sort_order' => ['type' => 'number', 'label' => 'Display order', 'default' => 0],
             ],
         ],
+        'part_refs' => [
+            'title' => 'Part numbers', 'singular' => 'Part number', 'table' => 'part_refs', 'perm' => 'content', 'order' => 'ref_number',
+            'columns' => ['ref_number' => 'Their part number', 'brand' => 'Brand / OEM', 'product_id' => 'Our product', 'our_part' => 'Our part no.', 'status' => 'Status'],
+            'fields' => [
+                'ref_number' => ['type' => 'text', 'label' => 'Customer / competitor / old part number', 'required' => true, 'help' => 'Visitors find it with or without spaces, dashes or dots.'],
+                'brand' => ['type' => 'text', 'label' => 'Brand / OEM', 'placeholder' => 'e.g. original crane maker'],
+                'product_id' => ['type' => 'select', 'label' => 'Our equivalent product', 'options' => $prods, 'empty' => '— Ask us —'],
+                'our_part' => ['type' => 'text', 'label' => 'Our part number'],
+                'notes' => ['type' => 'text', 'label' => 'Note shown to visitors', 'wide' => true, 'placeholder' => 'e.g. Direct replacement, upgraded seals'],
+                'status' => ['type' => 'select', 'label' => 'Status', 'options' => ['published' => 'Published', 'draft' => 'Draft']],
+            ],
+        ],
+        'downloads' => [
+            'title' => 'Downloads', 'singular' => 'Download', 'table' => 'downloads', 'perm' => 'content', 'order' => 'category, sort_order, title',
+            'columns' => ['title' => 'Title', 'category' => 'Category', 'gated' => 'Lead capture', 'downloads' => 'Downloads', 'status' => 'Status'],
+            'view' => fn($r) => url('downloads'),
+            'fields' => [
+                'title' => ['type' => 'text', 'label' => 'Title', 'required' => true],
+                'category' => ['type' => 'select', 'label' => 'Category', 'options' => ['Brochures' => 'Brochures', 'Manuals' => 'Manuals & guides', 'CAD drawings' => 'CAD drawings', 'Certificates' => 'Certificates', 'Datasheets' => 'Datasheets', 'Other' => 'Other']],
+                'file' => ['type' => 'document', 'label' => 'File', 'required' => true, 'help' => 'PDF, DWG, DXF, STEP or ZIP from the Media Library.'],
+                'description' => ['type' => 'textarea', 'label' => 'Short description', 'rows' => 2],
+                'gated' => ['type' => 'checkbox', 'label' => 'Lead capture', 'text' => 'Ask for name, company and email before downloading (creates a lead)'],
+                'status' => ['type' => 'select', 'label' => 'Status', 'options' => ['published' => 'Published', 'draft' => 'Draft']],
+                'sort_order' => ['type' => 'number', 'label' => 'Display order', 'default' => 0],
+            ],
+        ],
+        'distributors' => [
+            'title' => 'Distributors', 'singular' => 'Distributor', 'table' => 'distributors', 'perm' => 'content', 'order' => 'region, sort_order, name',
+            'columns' => ['name' => 'Name', 'region' => 'Region', 'city' => 'City', 'phone' => 'Phone', 'status' => 'Status'],
+            'view' => fn($r) => url('distributors'),
+            'fields' => [
+                'name' => ['type' => 'text', 'label' => 'Company name', 'required' => true],
+                'region' => ['type' => 'text', 'label' => 'Region / state', 'required' => true, 'help' => 'Distributors are grouped by region on the website.'],
+                'city' => ['type' => 'text', 'label' => 'City'],
+                'country' => ['type' => 'text', 'label' => 'Country'],
+                'address' => ['type' => 'textarea', 'label' => 'Address', 'rows' => 2],
+                'phone' => ['type' => 'text', 'label' => 'Phone'],
+                'email' => ['type' => 'email', 'label' => 'Email'],
+                'website' => ['type' => 'url', 'label' => 'Website'],
+                'products' => ['type' => 'text', 'label' => 'Products they supply', 'wide' => true, 'placeholder' => 'e.g. Hydraulic cylinders, crane spare parts'],
+                'status' => ['type' => 'select', 'label' => 'Status', 'options' => ['published' => 'Published', 'draft' => 'Draft']],
+                'sort_order' => ['type' => 'number', 'label' => 'Display order', 'default' => 0],
+            ],
+        ],
+        'jobs' => [
+            'title' => 'Job openings', 'singular' => 'Job opening', 'table' => 'jobs', 'perm' => 'content', 'order' => 'status DESC, sort_order, id DESC',
+            'columns' => ['title' => 'Position', 'department' => 'Department', 'location' => 'Location', 'closes_at' => 'Closes', 'status' => 'Status'],
+            'view' => fn($r) => url('careers/' . $r['slug']) . ($r['status'] === 'draft' ? '?preview=1' : ''),
+            'fields' => [
+                'title' => ['type' => 'text', 'label' => 'Position', 'required' => true, 'attrs' => 'data-slug-source'],
+                'slug' => ['type' => 'slug', 'label' => 'URL slug'],
+                'department' => ['type' => 'text', 'label' => 'Department', 'placeholder' => 'e.g. Production, Service, Sales'],
+                'location' => ['type' => 'text', 'label' => 'Location'],
+                'job_type' => ['type' => 'select', 'label' => 'Type', 'options' => ['Full-time' => 'Full-time', 'Part-time' => 'Part-time', 'Contract' => 'Contract', 'Apprenticeship' => 'Apprenticeship', 'Internship' => 'Internship']],
+                'closes_at' => ['type' => 'date', 'label' => 'Applications close', 'help' => 'The opening is hidden automatically after this date.'],
+                'summary' => ['type' => 'textarea', 'label' => 'Summary (listing and search results)', 'rows' => 2],
+                'description' => ['type' => 'html', 'label' => 'Role, responsibilities and requirements'],
+                'status' => ['type' => 'select', 'label' => 'Status', 'options' => ['published' => 'Published', 'draft' => 'Draft']],
+                'sort_order' => ['type' => 'number', 'label' => 'Display order', 'default' => 0],
+            ],
+        ],
         'users' => [
             'title' => 'Users', 'singular' => 'User', 'table' => 'users', 'perm' => 'users', 'order' => 'name',
             'columns' => ['name' => 'Name', 'username' => 'Username', 'email' => 'Email', 'role' => 'Role', 'active' => 'Active', 'last_login_at' => 'Last login'],
@@ -698,7 +759,10 @@ function admin_resource_edit(string $res, ?string $id = null): void
             $v['project_id'] = ($v['project_id'] ?? null) !== null && $v['project_id'] !== '' ? (int) $v['project_id'] : null;
             if ($v['status'] === 'published' && !$v['permission']) $errors['permission'] = 'Confirm the client agreed to publication before publishing.';
         }
-        foreach (['category_id', 'industry_id'] as $fk) if (array_key_exists($fk, $v)) $v[$fk] = $v[$fk] !== null ? (int) $v[$fk] : null;
+        foreach (['category_id', 'industry_id', 'product_id'] as $fk) if (array_key_exists($fk, $v)) $v[$fk] = $v[$fk] !== null && $v[$fk] !== '' ? (int) $v[$fk] : null;
+        if ($res === 'part_refs') $v['ref_norm'] = part_norm((string) $v['ref_number']);
+        if ($res === 'downloads') $v['gated'] = (int) !empty($v['gated']);
+        if ($res === 'jobs' && !empty($v['description'])) $v['description'] = sanitize_html((string) $v['description']);
         foreach (['sort_order'] as $n) if (array_key_exists($n, $v)) $v[$n] = (int) $v[$n];
         foreach (['active'] as $b) if (array_key_exists($b, $v)) $v[$b] = (int) $v[$b];
         foreach ($r['json'] ?? [] as $j) if (array_key_exists($j, $v)) $v[$j] = json_encode($v[$j], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -707,6 +771,8 @@ function admin_resource_edit(string $res, ?string $id = null): void
             if ($row) { db_update($r['table'], $v, (int) $row['id']); $rid = (int) $row['id']; }
             else $rid = db_insert($r['table'], $v);
             if ($res === 'users') resource_user_notify($row, $v, $rid);
+            content_log($res, $rid, $row ? 'updated' : 'created', (string) ($v['name'] ?? $v['title'] ?? $v['ref_number'] ?? $v['author'] ?? ('#' . $rid)),
+                $row ? history_changed_fields($row, $v, array_map(fn($f) => $f['label'] ?? '', $schema)) : null);
             // Keep old links working when a published item's URL changes
             $urlBase = ['products' => 'products/', 'projects' => 'projects/'][$res] ?? null;
             if ($row && $urlBase && isset($v['slug']) && $v['slug'] !== $row['slug'] && ($row['status'] ?? '') === 'published') {
@@ -785,7 +851,9 @@ function admin_resource_delete(string $res, string $id): void
     if ($res === 'product_categories' && db_val('SELECT COUNT(*) FROM products WHERE category_id = ?', [(int) $id])) {
         flash('info', 'Products in this category are now uncategorised.');
     }
+    $gone = db_one("SELECT * FROM `{$r['table']}` WHERE id = ?", [(int) $id]);
     db_delete($r['table'], (int) $id);
+    if ($gone) content_log($res, (int) $id, 'deleted', (string) ($gone['name'] ?? $gone['title'] ?? $gone['ref_number'] ?? $gone['author'] ?? ('#' . $id)));
     flash('success', $r['singular'] . ' deleted.');
     redirect("admin/r/{$res}");
 }

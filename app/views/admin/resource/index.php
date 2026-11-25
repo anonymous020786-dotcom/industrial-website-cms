@@ -15,6 +15,9 @@ $fmt = function (string $col, array $row) use ($r) {
             : '<span class="adm-badge bg-emerald-100 text-emerald-800">' . e(date('j M Y', strtotime((string) $v))) . '</span>')),
         'type' => e($v === 'post' ? 'Blog posts' : 'Pages'),
         'role' => e(ucfirst((string) $v)),
+        'product_id' => e($v ? (string) db_val('SELECT name FROM products WHERE id = ?', [(int) $v]) : '— Ask us —'),
+        'gated' => $v ? '<span class="adm-badge bg-amber-100 text-amber-800">Form first</span>' : '<span class="adm-badge bg-gray-100 text-gray-700">Instant</span>',
+        'closes_at' => !$v ? '—' : (strtotime((string) $v) < strtotime('today') ? '<span class="adm-badge bg-gray-200 text-gray-700">Closed ' . e(date('j M', strtotime((string) $v))) . '</span>' : e(date('j M Y', strtotime((string) $v)))),
         'last_login_at' => e($v ? time_ago($v) : 'Never'),
         default => e($v),
     };

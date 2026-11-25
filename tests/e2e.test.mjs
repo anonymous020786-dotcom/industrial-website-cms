@@ -1102,6 +1102,185 @@ test('calculators: correct hydraulic results, works without JavaScript, prefills
 });
 
 /* ------------------------------------------------------------------ */
+/* ------------------------------------------------------------------ */
+const leadForm = async (c, path, form, extra) => {
+  const page = await c.get(path);
+  assert.equal(page.status, 200, path);
+  assert.match(page.text, new RegExp(`name="form" value="${form}"`));
+  await sleep(3200); // the form token is only valid a few seconds after the page loads
+  return { form, _ft: formToken(page.text), consent: '1', 'cf-turnstile-response': TS_TOKEN, ...extra, _page: path, page };
+};
+const cleanupMore = () => {
+  sql("DELETE FROM part_refs WHERE ref_number LIKE 'e2e%'");
+  sql("DELETE FROM downloads WHERE title LIKE 'e2e%'");
+  sql("DELETE FROM distributors WHERE name LIKE 'e2e%'");
+  sql("DELETE FROM leads WHERE email LIKE 'e2e+%@example.com'");
+  sql("DELETE FROM jobs WHERE slug LIKE 'e2e%'");
+  sql("DELETE FROM content_log WHERE title LIKE 'e2e%'");
+};
+
+test('part finder: cross-reference ignores punctuation, links our product; unknown numbers become "find me this part" requests', async () => {
+  cleanupMore();
+  sql('DELETE FROM rate_limits');
+  const prod = sql("SELECT id, name FROM products WHERE slug = 'hydraulic-cylinders'")[0];
+  let r = await admin.post('admin/r/part_refs/new', { _token: csrf, ref_number: 'e2e AB-12.345/c', brand: 'E2E Crane Co', product_id: prod.id, our_part: 'HC-E2E-63', notes: 'Direct replacement', status: 'published' });
+  assert.equal(r.status, 302);
+  const row = sql("SELECT * FROM part_refs WHERE ref_number = 'e2e AB-12.345/c'")[0];
+  assert.equal(row.ref_norm, 'E2EAB12345C');
+  assert.ok(sql("SELECT id FROM content_log WHERE entity = 'part_refs' AND entity_id = ? AND action = 'created'", [row.id]).length, 'change history records who added it');
+  await admin.post('admin/r/part_refs/new', { _token: csrf, ref_number: 'e2e-hidden-999', brand: '', product_id: '', our_part: '', notes: '', status: 'draft' });
+
+  const c = new Client();
+  r = await c.get('parts?q=' + encodeURIComponent('E2EAB 12345 C'));
+  assert.equal(r.status, 200);
+  assert.match(r.text, /data-part-match/);
+  assert.match(r.text, /Exact match/);
+  assert.match(r.text, new RegExp(`Our equivalent: <strong class="text-navy">${prod.name}`));
+  assert.match(r.text, /href="[^"]*quote\?product=Hydraulic\+Cylinders&amp;specs=Part\+number\+e2e\+AB-12\.345%2Fc/);
+  assert.match((await c.get('parts?q=hc-e2e-63')).text, /data-part-match/, 'our own part number works too');
+  assert.doesNotMatch((await c.get('parts?q=e2e-hidden-999')).text, /data-part-match/, 'drafts are hidden');
+
+  const missing = await c.get('parts?q=e2e-zz-404');
+  assert.match(missing.text, /data-part-none/);
+  assert.match(missing.text, /id="partNumber" name="partNumber" type="text" required[^>]*value="e2e-zz-404"/, 'request form is prefilled');
+  const base = await leadForm(c, 'parts?q=e2e-zz-404', 'part', { fullName: 'E2E Buyer', email: 'e2e+part@example.com', message: 'Need 2 pcs for an old crane.' });
+  delete base.page;
+  r = await c.post('lead', { ...base, partNumber: '' }, { Accept: 'application/json' });
+  assert.equal(r.status, 422);
+  assert.ok(JSON.parse(r.text).errors.partNumber);
+  r = await c.post('lead', { ...base, partNumber: 'e2e-zz-404' }, { Accept: 'application/json' });
+  assert.equal(r.status, 200, r.text);
+  const lead = sql("SELECT * FROM leads WHERE email = 'e2e+part@example.com'")[0];
+  assert.equal(lead.type, 'part');
+  assert.equal(lead.part_number, 'e2e-zz-404');
+  assert.ok(sql("SELECT id FROM events WHERE type = 'part_missing' AND page = 'e2e-zz-404'").length, 'missing searches are logged to spot demand');
+});
+
+test('downloads centre: grouped by category, instant or gated (lead first, once per device), counts downloads, hides drafts', async () => {
+  assert.ok(pdfPath, 'needs the PDF from the media test');
+  sql('DELETE FROM rate_limits');
+  const mk = (title, category, gated, status = 'published') => admin.post('admin/r/downloads/new', { _token: csrf, title, category, file: pdfPath, description: 'e2e doc', gated: gated ? '1' : '0', status, sort_order: '0' });
+  await mk('e2e Installation manual', 'Manuals', false);
+  await mk('e2e Cylinder CAD pack', 'CAD drawings', true);
+  await mk('e2e Draft brochure', 'Brochures', false, 'draft');
+  const [manual, cad, draft] = ['e2e Installation manual', 'e2e Cylinder CAD pack', 'e2e Draft brochure'].map((t) => sql('SELECT * FROM downloads WHERE title = ?', [t])[0]);
+  assert.equal(Number(cad.gated), 1);
+
+  const c = new Client();
+  const list = await c.get('downloads');
+  assert.equal(list.status, 200);
+  assert.match(list.text, /data-download-group="Manuals"[\s\S]*e2e Installation manual/);
+  assert.match(list.text, /data-download-group="CAD drawings"[\s\S]*e2e Cylinder CAD pack[\s\S]*Quick form first/);
+  assert.doesNotMatch(list.text, /e2e Draft brochure/);
+  assert.equal((await c.get(`download/file/${draft.id}`)).status, 404);
+
+  let r = await c.get(`download/file/${manual.id}`);
+  assert.equal(r.status, 200);
+  assert.match(r.type, /application\/pdf/);
+  assert.equal(Number(sql('SELECT downloads FROM downloads WHERE id = ?', [manual.id])[0].downloads), 1);
+
+  r = await c.get(`download/file/${cad.id}`);
+  assert.equal(r.status, 302);
+  const gate = new URL(r.location, BASE);
+  assert.equal(gate.pathname + gate.search, `/catalogue?next=download%2Ffile%2F${cad.id}`);
+  const form = await c.get(gate.pathname.slice(1) + gate.search);
+  assert.match(form.text, /Download e2e Cylinder CAD pack/);
+  assert.match(form.text, new RegExp(`name="next" value="download/file/${cad.id}"`));
+  await sleep(3200);
+  r = await c.post('catalogue', { _ft: formToken(form.text), form: 'download', next: `download/file/${cad.id}`, fullName: 'E2E Designer', company: 'E2E Ltd', email: 'e2e+cad@example.com', consent: '1', 'cf-turnstile-response': TS_TOKEN });
+  assert.equal(r.status, 302);
+  assert.equal(new URL(r.location, BASE).pathname, `/download/file/${cad.id}`);
+  r = await c.get(`download/file/${cad.id}`);
+  assert.match(r.type, /application\/pdf/);
+  const lead = sql("SELECT * FROM leads WHERE email = 'e2e+cad@example.com'")[0];
+  assert.equal(lead.type, 'download');
+  assert.equal(lead.product, 'CAD drawings: e2e Cylinder CAD pack');
+  assert.equal((await c.get('catalogue?next=' + encodeURIComponent('download/file/999999'))).status, 404);
+  const adm = await admin.get('admin/r/downloads');
+  assert.match(adm.text, /Form first/);
+});
+
+test('distributors: grouped by region with filter and map links; "become a distributor" applications are leads', async () => {
+  sql('DELETE FROM rate_limits');
+  const mk = (name, region, city) => admin.post('admin/r/distributors/new', { _token: csrf, name, region, city, country: 'India', address: '12 E2E Industrial Estate', phone: '+91 90000 22222', email: 'e2e@example.com', website: 'https://example.com', products: 'Hydraulic cylinders', status: 'published', sort_order: '0' });
+  await mk('e2e West Hydraulics', 'E2E West', 'Pune');
+  await mk('e2e North Cranes', 'E2E North', 'Delhi');
+  const c = new Client();
+  let r = await c.get('distributors');
+  assert.equal(r.status, 200);
+  assert.match(r.text, /E2E North[\s\S]*e2e North Cranes/);
+  assert.match(r.text, /google\.com\/maps\/search\/\?api=1&amp;query=e2e%20West%20Hydraulics%2C%2012%20E2E%20Industrial%20Estate%2C%20Pune%2C%20India/);
+  r = await c.get('distributors?region=' + encodeURIComponent('E2E West'));
+  assert.match(r.text, /e2e West Hydraulics/);
+  assert.doesNotMatch(r.text, /e2e North Cranes/);
+
+  const base = await leadForm(c, 'distributors', 'distributor', { fullName: 'E2E Dealer', company: 'E2E Traders', phone: '+91 90000 33333', email: 'e2e+dealer@example.com', message: 'We sell crane parts in Nagpur since 2010.' });
+  delete base.page;
+  r = await c.post('lead', base, { Accept: 'application/json' });
+  assert.equal(r.status, 422);
+  assert.ok(JSON.parse(r.text).errors.location, 'region required');
+  r = await c.post('lead', { ...base, location: 'Nagpur, Vidarbha' }, { Accept: 'application/json' });
+  assert.equal(r.status, 200, r.text);
+  const lead = sql("SELECT * FROM leads WHERE email = 'e2e+dealer@example.com'")[0];
+  assert.equal(lead.type, 'distributor');
+  assert.equal(lead.location, 'Nagpur, Vidarbha');
+});
+
+test('careers: openings with JobPosting data, CV required, applications admin-only and kept out of sales leads, closed jobs answer 410', async () => {
+  sql('DELETE FROM rate_limits');
+  const future = new Date(Date.now() + 30 * 86400e3).toISOString().slice(0, 10);
+  const mk = (title, slug, status) => admin.post('admin/r/jobs/new', { _token: csrf, title, slug, department: 'Service', location: 'Pune', job_type: 'Full-time', closes_at: future, summary: 'Field service for cranes.', description: '<p>Fix cranes.</p><script>alert(1)</script>', status, sort_order: '0' });
+  await mk('e2e Service Engineer', 'e2e-service-engineer', 'published');
+  await mk('e2e Secret Role', 'e2e-secret-role', 'draft');
+  const job = sql("SELECT * FROM jobs WHERE slug = 'e2e-service-engineer'")[0];
+  assert.doesNotMatch(job.description, /<script/i, 'job description is sanitised');
+
+  const c = new Client();
+  let r = await c.get('careers');
+  assert.match(r.text, /e2e Service Engineer/);
+  assert.doesNotMatch(r.text, /e2e Secret Role/);
+  assert.equal((await c.get('careers/e2e-secret-role')).status, 404);
+  assert.equal((await admin.get('careers/e2e-secret-role?preview=1')).status, 200, 'team can preview drafts');
+  const page = await c.get('careers/e2e-service-engineer');
+  assert.equal(page.status, 200);
+  assert.match(page.text, /"@type":"JobPosting"/);
+  assert.match(page.text, new RegExp(`"validThrough":"${future}T23:59:59"`));
+
+  await sleep(3200);
+  const fields = { form: 'job', _ft: formToken(page.text), job_id: String(job.id), fullName: 'E2E Applicant', email: 'e2e+cv@example.com', phone: '+91 90000 44444', location: 'Pune', message: '', consent: '1', 'cf-turnstile-response': TS_TOKEN };
+  const send = (withCv, name = 'e2e-cv.pdf') => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(fields)) fd.append(k, v);
+    if (withCv) fd.append('attachments[]', new Blob(['%PDF-1.4\n% e2e cv\n'], { type: 'application/pdf' }), name);
+    return c.req('lead', { method: 'POST', body: fd, headers: { Accept: 'application/json' } });
+  };
+  r = await send(false);
+  assert.equal(r.status, 422);
+  assert.ok((await r.json()).errors.attachments, 'CV required');
+  r = await send(true, 'e2e-cv.exe');
+  assert.equal(r.status, 422, 'only PDF / Word');
+  r = await send(true);
+  assert.equal(r.status, 200, await r.clone().text());
+  const lead = sql("SELECT * FROM leads WHERE email = 'e2e+cv@example.com'")[0];
+  assert.equal(lead.type, 'job');
+  assert.equal(Number(lead.job_id), Number(job.id));
+
+  assert.doesNotMatch((await admin.get('admin/leads?q=E2E+Applicant')).text, new RegExp(`admin/leads/${lead.id}"`), 'not in the sales leads list');
+  const apps = await admin.get('admin/careers/applications?job=' + job.id);
+  assert.equal(apps.status, 200);
+  assert.match(apps.text, /data-application>E2E Applicant/);
+  r = await admin.get(`admin/careers/applications/${lead.id}`);
+  assert.equal(new URL(r.location, BASE).pathname, `/admin/leads/${lead.id}`);
+  assert.match((await admin.get(`admin/leads/${lead.id}`)).text, /e2e-cv\.pdf/);
+
+  sql('UPDATE jobs SET closes_at = CURDATE() - INTERVAL 1 DAY WHERE id = ?', [job.id]);
+  r = await c.get('careers/e2e-service-engineer');
+  assert.equal(r.status, 410);
+  assert.match(r.text, /data-job-closed/);
+  assert.doesNotMatch((await c.get('careers')).text, /e2e Service Engineer/);
+  cleanupMore();
+});
+
 test('keep me signed in: survives a browser restart, rotates, is device-bound, detects stolen tokens, ends on sign-out', async () => {
   setSetting('remember_enabled', true);
   setSetting('remember_days', 30);

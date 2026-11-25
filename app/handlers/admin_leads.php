@@ -247,3 +247,33 @@ function admin_lead_service(string $id): void
     flash('success', 'Service request updated' . ($lead['email'] ? ' and the customer was emailed.' : '.'));
     redirect('admin/leads/' . $lead['id']);
 }
+
+
+/* ------------------------------------------------------------------ */
+/* Careers: job applications                                           */
+/* ------------------------------------------------------------------ */
+
+function admin_careers_applications(): void
+{
+    require_login('users');
+    $jobs = db_all('SELECT id, title, status, closes_at FROM jobs ORDER BY status DESC, id DESC');
+    $where = ["l.type = 'job'"];
+    $params = [];
+    if (ctype_digit((string) query('job', ''))) { $where[] = 'l.job_id = ?'; $params[] = (int) query('job'); }
+    if (array_key_exists($st = (string) query('status', ''), LEAD_STATUSES)) { $where[] = 'l.status = ?'; $params[] = $st; }
+    $w = implode(' AND ', $where);
+    $total = (int) db_val("SELECT COUNT(*) FROM leads l WHERE {$w}", $params);
+    $pager = paginate($total, 30, (int) query('page', 1));
+    $rows = db_all("SELECT l.*, j.title AS job_title, (SELECT COUNT(*) FROM lead_files f WHERE f.lead_id = l.id) AS files
+        FROM leads l LEFT JOIN jobs j ON j.id = l.job_id WHERE {$w} ORDER BY l.created_at DESC LIMIT {$pager['per']} OFFSET {$pager['offset']}", $params);
+    $actions = '<a class="adm-btn adm-btn-light" href="' . e(url('admin/r/jobs')) . '">' . icon('briefcase', 'h-4 w-4') . ' Job openings</a>';
+    admin_render('Job applications', 'careers/applications', compact('rows', 'pager', 'jobs', 'total'), ['actions' => $actions, 'wide' => true]);
+}
+
+function admin_careers_application(string $id): void
+{
+    require_login('users');
+    $lead = ctype_digit($id) ? db_one("SELECT id FROM leads WHERE id = ? AND type = 'job'", [(int) $id]) : null;
+    if (!$lead) abort(404);
+    redirect('admin/leads/' . (int) $lead['id']);
+}

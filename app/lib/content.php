@@ -121,3 +121,16 @@ function menu_active(string $u): bool
     $path = '/' . trim(parse_url($u, PHP_URL_PATH) ?? '', '/');
     return current_url_is($path);
 }
+
+
+/** "AB-12.345 / c" and "ab12345c" are the same part number. */
+function part_norm(string $s): string
+{
+    return strtoupper(preg_replace('~[^A-Za-z0-9]+~', '', $s) ?? '');
+}
+
+/** Published job openings that are still open. */
+function jobs_open(): array
+{
+    return db_all("SELECT * FROM jobs WHERE status = 'published' AND (closes_at IS NULL OR closes_at >= CURDATE()) ORDER BY sort_order, id DESC");
+}
