@@ -75,6 +75,19 @@ $row = fn($label, $val) => ($val === null || $val === '') ? '' : '<div class="py
   </div>
 
   <div class="space-y-6">
+    <?php if ($lead['type'] === 'job'): $jobT = $lead['job_id'] ? (string) db_val('SELECT title FROM jobs WHERE id = ?', [(int) $lead['job_id']]) : ''; $stage = hiring_stage($lead); ?>
+    <form method="post" action="<?= e(url('admin/leads/' . $lead['id'] . '/hiring')) ?>" class="adm-card space-y-3 border-2 !border-violet-300 p-6" data-hiring-form>
+      <?= csrf_field() ?>
+      <div class="flex items-center justify-between gap-2"><h2 class="adm-card-title"><?= icon('user-round-check', 'h-5 w-5 text-steel') ?> Candidate</h2><?= hiring_badge($stage) ?></div>
+      <p class="text-sm text-charcoal/75"><?= e($jobT ?: 'Position removed') ?><?= $lead['location'] ? ' · lives in ' . e((string) $lead['location']) : '' ?></p>
+      <div class="adm-field"><label class="adm-label" for="h-stage">Move to stage</label>
+        <select id="h-stage" name="stage" class="adm-input" data-hiring-stage><?php foreach (HIRING_STAGES as $k => [$l]): ?><option value="<?= $k ?>"<?= $stage === $k ? ' selected' : '' ?> data-template="<?= e(hiring_template($k, $lead + ['job_title' => $jobT])) ?>"><?= e($l) ?></option><?php endforeach ?></select></div>
+      <label class="adm-check"><input type="checkbox" name="email_candidate" value="1" data-hiring-email><span>Email the candidate<?= $lead['email'] ? ' (' . e((string) $lead['email']) . ')' : '' ?></span></label>
+      <textarea name="message" rows="7" class="adm-input" data-hiring-message hidden placeholder="Message to the candidate"></textarea>
+      <button class="adm-btn adm-btn-primary w-full justify-center"><?= icon('check', 'h-4 w-4') ?> Update</button>
+      <p class="adm-help">Each change is recorded in the timeline. Replies from the candidate go to <?= e((string) (setting('careers_email') ?: 'you')) ?>.</p>
+    </form>
+    <?php endif ?>
     <?php if ($lead['type'] === 'service'): ?>
     <form method="post" action="<?= e(url('admin/leads/' . $lead['id'] . '/service')) ?>" class="adm-card space-y-3 border-2 <?= $lead['priority'] === 'high' ? '!border-red-300' : '!border-amber-300' ?> p-6">
       <?= csrf_field() ?>

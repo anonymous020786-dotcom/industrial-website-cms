@@ -106,6 +106,9 @@ function site_career(string $slug): void
         'jobLocation' => ['@type' => 'Place', 'address' => ['@type' => 'PostalAddress', 'addressLocality' => $job['location'] ?: trim((string) strtok(company('address'), "
 "))]]];
     if ($job['closes_at']) $ld['validThrough'] = $job['closes_at'] . 'T23:59:59';
+    if (($job['remote'] ?? '') === 'remote') $ld['jobLocationType'] = 'TELECOMMUTE';
+    if (!empty($job['openings'])) $ld['totalJobOpenings'] = (int) $job['openings'];
+    if (!empty($job['experience'])) $ld['experienceRequirements'] = (string) $job['experience'];
     $meta = ['title' => $job['title'] . ' — careers', 'description' => (string) ($job['summary'] ?: 'Apply for ' . $job['title'] . ' at ' . company('name') . '.'),
         'canonical' => abs_url('careers/' . $job['slug']), 'noindex' => !$open, 'jsonld' => $open ? [$ld] : [],
         'crumbs' => [['label' => 'Careers', 'url' => url('careers')], ['label' => $job['title'], 'url' => url('careers/' . $job['slug'])]]];

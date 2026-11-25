@@ -426,6 +426,19 @@
     recalc();
   }
 
+  // Hiring: show the message box when emailing the candidate, prefilled from the stage
+  const hForm = document.querySelector('[data-hiring-form]');
+  if (hForm) {
+    const sel = hForm.querySelector('[data-hiring-stage]');
+    const box = hForm.querySelector('[data-hiring-message]');
+    const chk = hForm.querySelector('[data-hiring-email]');
+    let edited = false;
+    box.addEventListener('input', () => { edited = true; });
+    const fill = () => { if (!edited) box.value = sel.selectedOptions[0]?.dataset.template || ''; };
+    chk.addEventListener('change', () => { box.hidden = !chk.checked; fill(); });
+    sel.addEventListener('change', () => { edited = false; fill(); });
+  }
+
   // Copy a value (short links, codes) to the clipboard
   document.addEventListener('click', async (e) => {
     const b = e.target.closest('[data-copy-text]');

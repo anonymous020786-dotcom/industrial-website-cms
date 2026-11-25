@@ -1632,6 +1632,49 @@ test('newsletter: double opt-in, welcome, campaign with test, batch send, open/c
   }
 });
 
+test('hiring: job details on the page, pipeline stages with candidate emails from templates, applicant counts', async () => {
+  sql("DELETE FROM leads WHERE email = 'e2e+hire@example.com'");
+  sql("DELETE FROM jobs WHERE slug = 'e2e-hydraulic-fitter'");
+  await admin.post('admin/r/jobs/new', { _token: csrf, title: 'e2e Hydraulic Fitter', slug: 'e2e-hydraulic-fitter', department: 'Service', location: 'Pune', job_type: 'Full-time',
+    experience: '2+ years with hydraulic systems', salary: '₹3.6–4.8 lakh / year', openings: '2', remote: 'field', closes_at: '', summary: 'Fit and test cylinders.', description: '<p>Hands-on role.</p>', status: 'published', sort_order: '0' });
+  const job = sql("SELECT * FROM jobs WHERE slug = 'e2e-hydraulic-fitter'")[0];
+  try {
+    const c = new Client();
+    const page = await c.get('careers/e2e-hydraulic-fitter');
+    assert.match(page.text, /Salary<\/dt><dd[^>]*>₹3\.6–4\.8 lakh \/ year/);
+    assert.match(page.text, /Field \/ travelling/);
+    assert.match(page.text, /"totalJobOpenings":2/);
+    assert.match(page.text, /data-share-net="linkedin"/, 'job can be shared');
+    sql('DELETE FROM rate_limits');
+    await sleep(3200);
+    const fd = new FormData();
+    for (const [k, v] of Object.entries({ form: 'job', _ft: formToken(page.text), job_id: String(job.id), fullName: 'E2E Candidate Rao', email: 'e2e+hire@example.com', phone: '+91 90000 55555', location: 'Pune', message: '', consent: '1', 'cf-turnstile-response': TS_TOKEN })) fd.append(k, v);
+    fd.append('attachments[]', new Blob(['%PDF-1.4\n% cv\n'], { type: 'application/pdf' }), 'e2e-rao-cv.pdf');
+    const r = await c.req('lead', { method: 'POST', body: fd, headers: { Accept: 'application/json' } });
+    assert.equal(r.status, 200, await r.clone().text());
+    const lead = sql("SELECT * FROM leads WHERE email = 'e2e+hire@example.com'")[0];
+
+    const list = await admin.get('admin/r/jobs');
+    assert.match(list.text, new RegExp(`careers/applications\\?job=${job.id}">1</a> <span class="adm-badge[^"]*">1 new`), 'applicant count with new badge');
+    let show = await admin.get(`admin/leads/${lead.id}`);
+    assert.match(show.text, /data-hiring-form/);
+    assert.match(show.text, /data-template="Dear E2E,[^"]*invite you to an interview/);
+    await admin.post(`admin/leads/${lead.id}/hiring`, { _token: csrf, stage: 'interview', email_candidate: '1', message: 'Dear E2E,\n\nPlease come for an interview on Monday 10:00. e2e-invite' });
+    const after = sql('SELECT stage, status FROM leads WHERE id = ?', [lead.id])[0];
+    assert.deepEqual([after.stage, after.status], ['interview', 'qualified']);
+    assert.ok(sql("SELECT id FROM lead_notes WHERE lead_id = ? AND kind = 'email' AND body LIKE '%e2e-invite%'", [lead.id]).length, 'email kept in the timeline');
+    if (DEBUG) assert.ok(findMail(/to: e2e\+hire@example\.com[\s\S]*e2e-invite/), 'candidate emailed');
+    const apps = await admin.get(`admin/careers/applications?job=${job.id}&stage=interview`);
+    assert.match(apps.text, /data-application>E2E Candidate Rao/);
+    assert.match(apps.text, /data-hiring-pipeline[\s\S]*Interview<\/span><span[^>]*>1</);
+    await admin.post(`admin/leads/${lead.id}/hiring`, { _token: csrf, stage: 'hired' });
+    assert.equal(sql('SELECT status FROM leads WHERE id = ?', [lead.id])[0].status, 'won');
+  } finally {
+    sql("DELETE FROM leads WHERE email = 'e2e+hire@example.com'");
+    sql("DELETE FROM jobs WHERE slug = 'e2e-hydraulic-fitter'");
+  }
+});
+
 test('keep me signed in: survives a browser restart, rotates, is device-bound, detects stolen tokens, ends on sign-out', async () => {
   setSetting('remember_enabled', true);
   setSetting('remember_days', 30);

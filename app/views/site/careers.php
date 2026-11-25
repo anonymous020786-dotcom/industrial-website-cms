@@ -16,6 +16,7 @@ $email = (string) (setting('careers_email') ?: company('email'));
             <?php if ($j['department']): ?><span class="inline-flex items-center gap-1.5"><?= icon('users', 'h-4 w-4') ?><?= e($j['department']) ?></span><?php endif ?>
             <?php if ($j['location']): ?><span class="inline-flex items-center gap-1.5"><?= icon('map-pin', 'h-4 w-4') ?><?= e($j['location']) ?></span><?php endif ?>
             <?php if ($j['job_type']): ?><span class="inline-flex items-center gap-1.5"><?= icon('clock', 'h-4 w-4') ?><?= e($j['job_type']) ?></span><?php endif ?>
+            <?php if (!empty($j['salary'])): ?><span class="inline-flex items-center gap-1.5"><?= icon('wallet', 'h-4 w-4') ?><?= e($j['salary']) ?></span><?php endif ?>
             <?php if ($j['closes_at']): ?><span>Apply by <?= e(date('j M Y', strtotime($j['closes_at']))) ?></span><?php endif ?>
           </span>
           <?php if ($j['summary']): ?><span class="mt-3 block text-charcoal/75"><?= e($j['summary']) ?></span><?php endif ?>

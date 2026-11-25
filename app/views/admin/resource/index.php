@@ -16,6 +16,8 @@ $fmt = function (string $col, array $row) use ($r) {
         'type' => e($v === 'post' ? 'Blog posts' : 'Pages'),
         'role' => e(ucfirst((string) $v)),
         'product_id' => e($v ? (string) db_val('SELECT name FROM products WHERE id = ?', [(int) $v]) : '— Ask us —'),
+        'applicants' => ($n = (int) db_val("SELECT COUNT(*) FROM leads WHERE type = 'job' AND job_id = ?", [(int) $row['id']])) && can('users')
+            ? '<a class="font-semibold text-steel hover:underline" href="' . e(url('admin/careers/applications') . '?job=' . (int) $row['id']) . '">' . $n . '</a>' . (($new = (int) db_val("SELECT COUNT(*) FROM leads WHERE type = 'job' AND job_id = ? AND COALESCE(stage, 'new') = 'new'", [(int) $row['id']])) ? ' <span class="adm-badge bg-blue-100 text-blue-800">' . $new . ' new</span>' : '') : (string) $n,
         'gated' => $v ? '<span class="adm-badge bg-amber-100 text-amber-800">Form first</span>' : '<span class="adm-badge bg-gray-100 text-gray-700">Instant</span>',
         'closes_at' => !$v ? '—' : (strtotime((string) $v) < strtotime('today') ? '<span class="adm-badge bg-gray-200 text-gray-700">Closed ' . e(date('j M', strtotime((string) $v))) . '</span>' : e(date('j M Y', strtotime((string) $v)))),
         'last_login_at' => e($v ? time_ago($v) : 'Never'),

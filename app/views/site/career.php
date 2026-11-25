@@ -4,8 +4,8 @@
 <section class="section bg-mist !pt-12">
   <div class="mx-auto grid max-w-site gap-8 px-4 sm:px-6 lg:grid-cols-12 lg:px-8">
     <article class="bg-white p-8 sm:p-10 lg:col-span-7">
-      <dl class="grid gap-4 border-b border-black/10 pb-6 text-sm sm:grid-cols-3">
-        <?php foreach (['Location' => $job['location'], 'Type' => $job['job_type'], 'Apply by' => $job['closes_at'] ? date('j M Y', strtotime($job['closes_at'])) : ''] as $l => $v): if (!$v) continue; ?>
+      <dl class="grid grid-cols-2 gap-4 border-b border-black/10 pb-6 text-sm sm:grid-cols-3">
+        <?php foreach (['Location' => $job['location'], 'Work place' => ['onsite' => 'On site', 'hybrid' => 'Hybrid', 'remote' => 'Remote', 'field' => 'Field / travelling'][$job['remote'] ?? 'onsite'] ?? '', 'Type' => $job['job_type'], 'Experience' => $job['experience'] ?? '', 'Salary' => $job['salary'] ?? '', 'Positions' => $job['openings'] ?? '', 'Apply by' => $job['closes_at'] ? date('j M Y', strtotime($job['closes_at'])) : ''] as $l => $v): if (!$v) continue; ?>
         <div><dt class="text-xs font-semibold uppercase tracking-[0.16em] text-charcoal/55"><?= $l ?></dt><dd class="mt-1 font-semibold text-navy"><?= e($v) ?></dd></div>
         <?php endforeach ?>
       </dl>

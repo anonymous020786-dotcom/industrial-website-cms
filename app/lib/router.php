@@ -125,6 +125,7 @@ function routes(): array
         // Leads
         ['GET', '/admin/leads', 'admin_leads', 'admin_leads'],
         ['GET', '/admin/careers/applications', 'admin_careers_applications', 'admin_leads'],
+        ['POST', '/admin/leads/{id}/hiring', 'admin_lead_hiring', 'admin_leads'],
         ['GET', '/admin/reviews', 'admin_reviews', 'admin_workflow'],
         ['GET', '/admin/reviews/{id}', 'admin_review_show', 'admin_workflow'],
         ['POST', '/admin/reviews/{id}/decide', 'admin_review_decide', 'admin_workflow'],

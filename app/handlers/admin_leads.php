@@ -260,14 +260,41 @@ function admin_careers_applications(): void
     $where = ["l.type = 'job'"];
     $params = [];
     if (ctype_digit((string) query('job', ''))) { $where[] = 'l.job_id = ?'; $params[] = (int) query('job'); }
-    if (array_key_exists($st = (string) query('status', ''), LEAD_STATUSES)) { $where[] = 'l.status = ?'; $params[] = $st; }
+    if (isset(HIRING_STAGES[$st = (string) query('stage', '')])) { $where[] = "COALESCE(l.stage, 'new') = ?"; $params[] = $st; }
     $w = implode(' AND ', $where);
+    $stageCounts = array_column(db_all("SELECT COALESCE(stage, 'new') s, COUNT(*) n FROM leads WHERE type = 'job'" . (ctype_digit((string) query('job', '')) ? ' AND job_id = ' . (int) query('job') : '') . ' GROUP BY s'), 'n', 's');
     $total = (int) db_val("SELECT COUNT(*) FROM leads l WHERE {$w}", $params);
     $pager = paginate($total, 30, (int) query('page', 1));
     $rows = db_all("SELECT l.*, j.title AS job_title, (SELECT COUNT(*) FROM lead_files f WHERE f.lead_id = l.id) AS files
         FROM leads l LEFT JOIN jobs j ON j.id = l.job_id WHERE {$w} ORDER BY l.created_at DESC LIMIT {$pager['per']} OFFSET {$pager['offset']}", $params);
     $actions = '<a class="adm-btn adm-btn-light" href="' . e(url('admin/r/jobs')) . '">' . icon('briefcase', 'h-4 w-4') . ' Job openings</a>';
-    admin_render('Job applications', 'careers/applications', compact('rows', 'pager', 'jobs', 'total'), ['actions' => $actions, 'wide' => true]);
+    admin_render('Job applications', 'careers/applications', compact('rows', 'pager', 'jobs', 'total', 'stageCounts'), ['actions' => $actions, 'wide' => true]);
+}
+
+/** Move an application to a hiring stage, optionally emailing the candidate. */
+function admin_lead_hiring(string $id): void
+{
+    $me = require_login('users');
+    csrf_check();
+    $lead = db_one("SELECT l.*, j.title AS job_title FROM leads l LEFT JOIN jobs j ON j.id = l.job_id WHERE l.id = ? AND l.type = 'job'", [(int) $id]);
+    if (!$lead) abort(404);
+    $stage = (string) input('stage', '');
+    if (!isset(HIRING_STAGES[$stage])) { flash('error', 'Choose a stage.'); redirect('admin/leads/' . $lead['id']); }
+    $old = hiring_stage($lead);
+    $status = ['new' => 'new', 'screening' => 'contacted', 'interview' => 'qualified', 'offer' => 'negotiation', 'hired' => 'won', 'rejected' => 'lost'][$stage];
+    db_update('leads', ['stage' => $stage, 'status' => $status], (int) $lead['id']);
+    lead_note((int) $lead['id'], 'status', 'Hiring stage: ' . HIRING_STAGES[$old][0] . ' → ' . HIRING_STAGES[$stage][0], (int) $me['id']);
+    $msg = trim(str_replace("\r\n", "\n", (string) input('message', '')));
+    $mailed = false;
+    if (!empty($_POST['email_candidate']) && $msg !== '' && filter_var((string) $lead['email'], FILTER_VALIDATE_EMAIL)) {
+        $mailed = send_mail((string) $lead['email'], ($lead['job_title'] ?: 'Your application') . ' — ' . company('name'),
+            mail_layout('Your application', '<p style="font-size:14px;line-height:1.7">' . nl2br(e($msg)) . '</p><p style="font-size:14px">' . e((string) $me['name']) . '<br>' . e(company('name')) . '</p>'),
+            (string) (setting('careers_email') ?: $me['email'])) === true;
+        if ($mailed) lead_note((int) $lead['id'], 'email', "Emailed the candidate:\n" . $msg, (int) $me['id']);
+    }
+    content_log('application', (int) $lead['id'], 'updated', $lead['name'] . ' — ' . ($lead['job_title'] ?: 'application'), HIRING_STAGES[$stage][0] . ($mailed ? ' (candidate emailed)' : ''));
+    flash('success', 'Moved to ' . HIRING_STAGES[$stage][0] . ($mailed ? ' and the candidate was emailed.' : '.'));
+    redirect('admin/leads/' . $lead['id']);
 }
 
 function admin_careers_application(string $id): void

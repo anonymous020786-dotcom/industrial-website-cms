@@ -712,7 +712,7 @@ function resources(): array
         ],
         'jobs' => [
             'title' => 'Job openings', 'singular' => 'Job opening', 'table' => 'jobs', 'perm' => 'content', 'order' => 'status DESC, sort_order, id DESC',
-            'columns' => ['title' => 'Position', 'department' => 'Department', 'location' => 'Location', 'closes_at' => 'Closes', 'status' => 'Status'],
+            'columns' => ['title' => 'Position', 'department' => 'Department', 'location' => 'Location', 'applicants' => 'Applicants', 'closes_at' => 'Closes', 'status' => 'Status'],
             'view' => fn($r) => url('careers/' . $r['slug']) . ($r['status'] === 'draft' ? '?preview=1' : ''),
             'fields' => [
                 'title' => ['type' => 'text', 'label' => 'Position', 'required' => true, 'attrs' => 'data-slug-source'],
@@ -720,6 +720,10 @@ function resources(): array
                 'department' => ['type' => 'text', 'label' => 'Department', 'placeholder' => 'e.g. Production, Service, Sales'],
                 'location' => ['type' => 'text', 'label' => 'Location'],
                 'job_type' => ['type' => 'select', 'label' => 'Type', 'options' => ['Full-time' => 'Full-time', 'Part-time' => 'Part-time', 'Contract' => 'Contract', 'Apprenticeship' => 'Apprenticeship', 'Internship' => 'Internship']],
+                'experience' => ['type' => 'text', 'label' => 'Experience', 'placeholder' => 'e.g. 3–5 years in CNC machining'],
+                'salary' => ['type' => 'text', 'label' => 'Salary (optional, shown on the page)', 'placeholder' => 'e.g. ₹4–6 lakh per year'],
+                'openings' => ['type' => 'number', 'label' => 'Positions open'],
+                'remote' => ['type' => 'select', 'label' => 'Work place', 'options' => ['onsite' => 'On site', 'hybrid' => 'Hybrid', 'remote' => 'Remote', 'field' => 'Field / travelling']],
                 'closes_at' => ['type' => 'date', 'label' => 'Applications close', 'help' => 'The opening is hidden automatically after this date.'],
                 'summary' => ['type' => 'textarea', 'label' => 'Summary (listing and search results)', 'rows' => 2],
                 'description' => ['type' => 'html', 'label' => 'Role, responsibilities and requirements'],
@@ -800,6 +804,8 @@ function admin_resource_edit(string $res, ?string $id = null): void
         if ($res === 'downloads') $v['gated'] = (int) !empty($v['gated']);
         if ($res === 'jobs' && !empty($v['description'])) $v['description'] = sanitize_html((string) $v['description']);
         foreach (['sort_order'] as $n) if (array_key_exists($n, $v)) $v[$n] = (int) $v[$n];
+        if ($res === 'jobs') $v['remote'] = ($v['remote'] ?? null) ?: 'onsite';
+        if ($res === 'jobs') $v['openings'] =($v['openings'] ?? '') !== '' && $v['openings'] !== null ? max(1, (int) $v['openings']) : null;
         foreach (['active'] as $b) if (array_key_exists($b, $v)) $v[$b] = (int) $v[$b];
         foreach ($r['json'] ?? [] as $j) if (array_key_exists($j, $v)) $v[$j] = json_encode($v[$j], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 

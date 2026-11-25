@@ -250,6 +250,7 @@ function run_migrations(): array
             'stage' => 'VARCHAR(20) NULL AFTER job_id',               // hiring pipeline for job applications
         ],
         'products' => ['datasheet' => 'VARCHAR(500) NULL AFTER specs'],
+        'jobs' => ['experience' => 'VARCHAR(120) NULL AFTER job_type', 'salary' => 'VARCHAR(120) NULL AFTER experience', 'openings' => 'SMALLINT UNSIGNED NULL AFTER salary', 'remote' => "VARCHAR(20) NOT NULL DEFAULT 'onsite' AFTER openings"],
         'media' => ['variants' => 'TEXT NULL AFTER alt'],
         'posts' => ['deleted_at' => 'DATETIME NULL AFTER views', 'allow_comments' => 'TINYINT(1) NOT NULL DEFAULT 1 AFTER noindex'],
         'pages' => ['deleted_at' => 'DATETIME NULL AFTER is_system'],

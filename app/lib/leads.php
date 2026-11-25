@@ -330,3 +330,44 @@ function job_application_notify(int $id): void
     }
     notify_admins('job_application', 'New job application', $text, ['severity' => 'info', 'category' => 'admin', 'link' => 'admin/careers/applications/' . $id, 'email' => $to === '' ? null : false]);
 }
+
+
+/* ------------------------------------------------------------------ */
+/* Hiring pipeline for job applications                                */
+/* ------------------------------------------------------------------ */
+
+const HIRING_STAGES = [
+    'new' => ['New', 'bg-blue-100 text-blue-800'],
+    'screening' => ['Screening', 'bg-indigo-100 text-indigo-800'],
+    'interview' => ['Interview', 'bg-violet-100 text-violet-800'],
+    'offer' => ['Offer', 'bg-amber-100 text-amber-800'],
+    'hired' => ['Hired', 'bg-emerald-100 text-emerald-800'],
+    'rejected' => ['Not selected', 'bg-gray-200 text-gray-700'],
+];
+
+function hiring_stage(array $lead): string
+{
+    return isset(HIRING_STAGES[$lead['stage'] ?? '']) ? (string) $lead['stage'] : 'new';
+}
+
+function hiring_badge(string $stage): string
+{
+    [$l, $c] = HIRING_STAGES[$stage] ?? [ucfirst($stage), 'bg-gray-100 text-gray-700'];
+    return '<span class="adm-badge ' . $c . '">' . e($l) . '</span>';
+}
+
+/** Suggested message to the candidate when they move to a stage (editable before sending). */
+function hiring_template(string $stage, array $lead): string
+{
+    $first = trim((string) strtok((string) $lead['name'], ' '));
+    $job = (string) ($lead['job_title'] ?? 'the position');
+    $co = company('name');
+    return match ($stage) {
+        'screening' => "Dear {$first},\n\nThank you for applying for {$job} at {$co}. We are reviewing your application and will be in touch soon.",
+        'interview' => "Dear {$first},\n\nThank you for your application for {$job}. We would like to invite you to an interview.\n\nDate and time: \nPlace: \n\nPlease reply to confirm, or suggest another time.",
+        'offer' => "Dear {$first},\n\nWe are pleased to offer you the position of {$job} at {$co}. We will send the written offer with the details shortly.",
+        'hired' => "Dear {$first},\n\nWelcome to {$co}! We look forward to working with you.",
+        'rejected' => "Dear {$first},\n\nThank you for your interest in {$job} at {$co} and for the time you spent applying. After careful consideration we have decided not to continue with your application. We will keep your details on file for future openings unless you ask us not to.",
+        default => '',
+    };
+}
