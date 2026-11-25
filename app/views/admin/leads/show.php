@@ -1,6 +1,6 @@
 <?php /** @var array $lead @var array $files @var array $notes @var array $others @var array $nav @var array $users */
 $phoneDigits = preg_replace('~\D~', '', (string) $lead['phone']);
-$noteIcons = ['note' => 'sticky-note', 'call' => 'phone-call', 'email' => 'mail', 'status' => 'git-commit-horizontal', 'system' => 'bot'];
+$noteIcons = ['service' => 'wrench', 'note' => 'sticky-note', 'call' => 'phone-call', 'email' => 'mail', 'status' => 'git-commit-horizontal', 'system' => 'bot'];
 $row = fn($label, $val) => ($val === null || $val === '') ? '' : '<div class="py-2.5 sm:grid sm:grid-cols-3 sm:gap-4"><dt class="text-sm text-charcoal/55">' . e($label) . '</dt><dd class="mt-1 text-sm text-navy sm:col-span-2 sm:mt-0">' . $val . '</dd></div>';
 ?>
 <div class="mb-4 flex flex-wrap items-center gap-2">
@@ -75,6 +75,17 @@ $row = fn($label, $val) => ($val === null || $val === '') ? '' : '<div class="py
   </div>
 
   <div class="space-y-6">
+    <?php if ($lead['type'] === 'service'): ?>
+    <form method="post" action="<?= e(url('admin/leads/' . $lead['id'] . '/service')) ?>" class="adm-card space-y-3 border-2 <?= $lead['priority'] === 'high' ? '!border-red-300' : '!border-amber-300' ?> p-6">
+      <?= csrf_field() ?>
+      <div class="flex items-center justify-between gap-2"><h2 class="adm-card-title"><?= icon('wrench', 'h-5 w-5 text-steel') ?> Service <?= e(service_ref($lead)) ?></h2><?= $lead['priority'] === 'high' ? '<span class="adm-badge bg-red-100 text-red-700">Urgent</span>' : '' ?></div>
+      <p class="text-sm text-charcoal/75"><?= e((string) $lead['location']) ?> · <a class="adm-link" href="<?= e(service_track_url($lead)) ?>" target="_blank">Customer tracking page</a></p>
+      <div class="adm-field"><label class="adm-label" for="service_status">Status</label><select id="service_status" name="service_status" class="adm-input"><?php foreach (SERVICE_STATUSES as $k => [$l]): ?><option value="<?= $k ?>"<?= $lead['service_status'] === $k ? ' selected' : '' ?>><?= e($l) ?></option><?php endforeach ?></select></div>
+      <div class="adm-field"><label class="adm-label" for="svc_msg">Update for the customer</label><textarea id="svc_msg" name="message" rows="3" class="adm-input" placeholder="e.g. Engineer visit booked for Thursday 10:00. Please isolate power before arrival."></textarea>
+        <p class="adm-help">Shown on their tracking page<?= $lead['email'] ? ' and emailed to ' . e((string) $lead['email']) : '' ?>. Internal notes stay in the timeline.</p></div>
+      <button class="adm-btn adm-btn-primary w-full justify-center"><?= icon('send', 'h-4 w-4') ?> Post update</button>
+    </form>
+    <?php endif ?>
     <div class="adm-card p-6">
       <div class="flex items-center justify-between gap-3"><h2 class="adm-card-title"><?= icon('file-text', 'h-5 w-5 text-steel') ?> Quotations</h2>
         <a class="adm-btn adm-btn-primary adm-btn-sm" href="<?= e(url('admin/quotes/new?lead=' . $lead['id'])) ?>"><?= icon('plus', 'h-4 w-4') ?> Create quote</a></div>

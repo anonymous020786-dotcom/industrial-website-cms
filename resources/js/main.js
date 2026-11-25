@@ -343,7 +343,7 @@
 
   /* ---------------- Lead forms (contact + quote) ---------------- */
   const MAX_FILE = 10 * 1024 * 1024;
-  const FILE_TYPES = /\.(pdf|dwg|dxf|jpe?g|png)$/i;
+  const FILE_TYPES = /\.(pdf|dwg|dxf|jpe?g|png|docx?)$/i;
 
   function initForms() {
     $$('form.lead-form').forEach((form) => {
@@ -451,6 +451,11 @@
             return;
           }
           $('[data-success-name]', success).textContent = form.elements.fullName.value.trim();
+          // Service requests: show the ticket number and the private tracking link
+          const track = $('[data-success-track]', success);
+          if (track && json.track) { track.href = json.track; track.hidden = false; }
+          const ref = $('[data-success-ref]', success);
+          if (ref && json.ref) { ref.textContent = json.ref; ref.closest('[data-success-refwrap]')?.removeAttribute('hidden'); }
           form.hidden = true;
           success.hidden = false;
           success.focus();

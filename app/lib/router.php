@@ -21,6 +21,8 @@ function routes(): array
         ['GET', '/projects/{slug}', 'site_project', 'site_extra'],
         ['GET', '/download/datasheet/{slug}', 'site_datasheet', 'site_extra'],
         ['GET|POST', '/q/{token}', 'site_quote_view', 'site_extra'],
+        ['GET', '/service-request', 'site_service_request', 'site_extra'],
+        ['GET', '/service-request/track/{token}', 'site_service_track', 'site_extra'],
         ['GET', '/q/{token}/pdf', 'site_quote_pdf', 'site_extra'],
         ['GET|POST', '/catalogue', 'site_catalogue', 'site_extra'],
         ['GET', '/cron/{key}', 'site_cron', 'site_extra'],
@@ -111,6 +113,7 @@ function routes(): array
         ['GET', '/admin/leads/{id}', 'admin_lead_show', 'admin_leads'],
         ['POST', '/admin/leads/{id}', 'admin_lead_update', 'admin_leads'],
         ['POST', '/admin/leads/{id}/note', 'admin_lead_note', 'admin_leads'],
+        ['POST', '/admin/leads/{id}/service', 'admin_lead_service', 'admin_leads'],
         ['POST', '/admin/leads/{id}/delete', 'admin_lead_delete', 'admin_leads'],
         ['GET', '/admin/leads/file/{id}', 'admin_lead_file', 'admin_leads'],
 

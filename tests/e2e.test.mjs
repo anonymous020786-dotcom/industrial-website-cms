@@ -1033,6 +1033,54 @@ test('quotations: from a lead, server-side totals, PDF, email with attachment, c
 });
 
 /* ------------------------------------------------------------------ */
+test('service requests: urgent breakdown alerts the team, customer gets a reference and a tracking page with updates', async () => {
+  sql('DELETE FROM rate_limits');
+  const v = new Client();
+  const page = await v.get('service-request');
+  assert.equal(page.status, 200);
+  assert.match(page.text, /name="form" value="service"/);
+  await sleep(3200);
+  const base = { form: 'service', _ft: formToken(page.text), urgency: 'urgent', equipment: 'E2E 50 t EOT crane hoist', fullName: 'E2E Plant Engineer', company: 'E2E Steel',
+    phone: '+91 90000 11111', email: 'e2e+svc@example.com', message: 'Hoist brake slipping under load, crane stopped.', consent: '1', 'cf-turnstile-response': TS_TOKEN };
+  const bad = await v.post('lead', { ...base, location: '' }, { Accept: 'application/json' });
+  assert.equal(bad.status, 422);
+  assert.ok(JSON.parse(bad.text).errors.location, 'site location required');
+  const r = await v.post('lead', { ...base, location: 'E2E Works, Pune' }, { Accept: 'application/json' });
+  const json = JSON.parse(r.text);
+  assert.equal(r.status, 200, r.text);
+  assert.match(json.ref, /^SR-\d{5}$/);
+  assert.match(json.track, /\/service-request\/track\/[a-f0-9]{32}$/);
+  const lead = sql("SELECT * FROM leads WHERE email = 'e2e+svc@example.com' ORDER BY id DESC LIMIT 1")[0];
+  try {
+    assert.equal(lead.type, 'service');
+    assert.equal(lead.priority, 'high', 'urgent breakdown is high priority');
+    assert.equal(lead.service_status, 'received');
+    assert.ok(sql("SELECT id FROM notifications WHERE event = 'service_urgent' AND link = ?", [`admin/leads/${lead.id}`]).length, 'team alerted');
+
+    const trackPath = new URL(json.track).pathname.slice(1);
+    const tr = await new Client().get(trackPath);
+    assert.equal(tr.status, 200);
+    assert.match(tr.text, new RegExp(json.ref));
+    assert.match(tr.text, /noindex/);
+    assert.equal((await new Client().get('service-request/track/' + 'f'.repeat(32))).status, 404);
+
+    // Admin posts an update: visible to the customer, internal notes are not
+    const show = await admin.get(`admin/leads/${lead.id}`);
+    assert.match(show.text, new RegExp(`Service ${json.ref}`));
+    await admin.post(`admin/leads/${lead.id}/note`, { _token: token(show.text), body: 'E2E internal: customer is difficult', kind: 'note' });
+    await admin.post(`admin/leads/${lead.id}/service`, { _token: token(show.text), service_status: 'scheduled', message: 'E2E engineer visit Thursday 10:00' });
+    assert.equal(sql('SELECT service_status FROM leads WHERE id = ?', [lead.id])[0].service_status, 'scheduled');
+    const tr2 = await new Client().get(trackPath);
+    assert.match(tr2.text, /E2E engineer visit Thursday 10:00/);
+    assert.doesNotMatch(tr2.text, /customer is difficult/, 'internal notes stay private');
+    assert.match((await admin.get('admin/leads?type=service')).text, new RegExp(`${json.ref} · Visit scheduled`));
+  } finally {
+    sql('DELETE FROM leads WHERE id = ?', [lead.id]);
+    sql("DELETE FROM notifications WHERE event = 'service_urgent'");
+  }
+});
+
+/* ------------------------------------------------------------------ */
 test('keep me signed in: survives a browser restart, rotates, is device-bound, detects stolen tokens, ends on sign-out', async () => {
   setSetting('remember_enabled', true);
   setSetting('remember_days', 30);

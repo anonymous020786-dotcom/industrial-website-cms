@@ -11,7 +11,9 @@ function lead_filters(): array
     if ($status === 'open') $where[] = "l.status IN ('" . implode("','", LEAD_OPEN) . "')";
     elseif (isset(LEAD_STATUSES[$status])) { $where[] = 'l.status = ?'; $params[] = $status; }
     else $where[] = "l.status <> 'spam'";
-    if (in_array($t = (string) query('type', ''), ['contact', 'quote', 'manual'], true)) { $where[] = 'l.type = ?'; $params[] = $t; }
+    // Job applications are personal data handled in Careers, never in the sales pipeline
+    $where[] = "l.type <> 'job'";
+    if (in_array($t = (string) query('type', ''), ['contact', 'quote', 'manual', 'service', 'part', 'distributor', 'download'], true)) { $where[] = 'l.type = ?'; $params[] = $t; }
     if (in_array($p = (string) query('priority', ''), ['low', 'normal', 'high'], true)) { $where[] = 'l.priority = ?'; $params[] = $p; }
     $a = (string) query('assigned', '');
     if ($a === 'me') { $where[] = 'l.assigned_to = ?'; $params[] = (int) current_user()['id']; }
@@ -103,6 +105,7 @@ function lead_or_404(int $id): array
 {
     $lead = db_one('SELECT l.*, u.name AS assignee FROM leads l LEFT JOIN users u ON u.id = l.assigned_to WHERE l.id = ?', [$id]);
     if (!$lead) abort(404);
+    if ($lead['type'] === 'job' && (current_user()['role'] ?? '') !== 'admin') abort(403, 'Job applications are only available to administrators (Careers → Applications).');
     return $lead;
 }
 
@@ -227,4 +230,20 @@ function admin_lead_new(): void
         }
     }
     admin_render('Add lead', 'leads/new', ['v' => $v, 'errors' => $errors, 'users' => lead_users()], ['crumbs' => [['Leads', 'admin/leads']]]);
+}
+
+
+/** Service tickets: change the status and post an update the customer sees (tracking page + email). */
+function admin_lead_service(string $id): void
+{
+    $user = require_login('leads');
+    csrf_check();
+    $lead = lead_or_404((int) $id);
+    if ($lead['type'] !== 'service') abort(400, 'This lead is not a service request.');
+    $status = (string) input('service_status', '');
+    if (!isset(SERVICE_STATUSES[$status])) { flash('error', 'Choose a status.'); redirect('admin/leads/' . $lead['id']); }
+    service_update($lead, $status, mb_substr(trim((string) input('message', '')), 0, 2000), (int) $user['id']);
+    content_log('service', (int) $lead['id'], 'updated', service_ref($lead), SERVICE_STATUSES[$status][0]);
+    flash('success', 'Service request updated' . ($lead['email'] ? ' and the customer was emailed.' : '.'));
+    redirect('admin/leads/' . $lead['id']);
 }

@@ -270,6 +270,11 @@ function run_migrations(): array
             }
         }
     }
+    // lead_notes.kind: ENUM -> VARCHAR (service updates and future note kinds)
+    if (db_val("SELECT DATA_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'lead_notes' AND COLUMN_NAME = 'kind'") === 'enum') {
+        db()->exec("ALTER TABLE `lead_notes` MODIFY `kind` VARCHAR(20) NOT NULL DEFAULT 'note'");
+        $changes[] = 'lead_notes.kind varchar';
+    }
     // leads.type: ENUM -> VARCHAR so new lead kinds (e.g. 'download') need no further migrations
     if (db_val("SELECT DATA_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'leads' AND COLUMN_NAME = 'type'") === 'enum') {
         db()->exec("ALTER TABLE `leads` MODIFY `type` VARCHAR(20) NOT NULL DEFAULT 'contact'");

@@ -226,3 +226,25 @@ function site_quote_pdf(string $token): void
     echo $pdf;
     exit;
 }
+
+
+/* ------------------------------------------------------------------ */
+/* Service / breakdown requests                                        */
+/* ------------------------------------------------------------------ */
+
+function site_service_request(): void
+{
+    $meta = ['title' => 'Breakdown & service request', 'description' => 'Report a crane or hydraulic breakdown or book a service visit. Get a reference number and follow your request online.',
+        'canonical' => abs_url('service-request'), 'crumbs' => [['label' => 'Service request', 'url' => url('service-request')]]];
+    site_render($meta, view('site/service_request', ['meta' => $meta]));
+}
+
+function site_service_track(string $token): void
+{
+    $lead = preg_match('~^[a-f0-9]{32}$~', $token) ? db_one("SELECT * FROM leads WHERE track_token = ? AND type = 'service'", [$token]) : null;
+    if (!$lead) abort(404);
+    $updates = db_all("SELECT body, created_at FROM lead_notes WHERE lead_id = ? AND kind = 'service' ORDER BY id DESC", [(int) $lead['id']]);
+    $meta = ['title' => 'Service request ' . service_ref($lead), 'description' => '', 'noindex' => true, 'crumbs' => []];
+    header('Referrer-Policy: no-referrer');
+    site_render($meta, view('site/service_track', compact('lead', 'updates')));
+}

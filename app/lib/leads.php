@@ -14,6 +14,17 @@ const LEAD_STATUSES = [
 ];
 const LEAD_OPEN = ['new', 'contacted', 'qualified', 'quoted', 'negotiation'];
 const LEAD_FILE_EXT = ['pdf', 'dwg', 'dxf', 'jpg', 'jpeg', 'png'];
+const LEAD_CV_EXT = ['pdf', 'doc', 'docx'];
+/** Public forms that create a lead (type => label). Job applications are kept apart from sales leads. */
+const LEAD_FORMS = ['contact' => 'Contact', 'quote' => 'Quote request', 'service' => 'Service / breakdown', 'part' => 'Part request', 'distributor' => 'Distributor application', 'job' => 'Job application'];
+const SERVICE_STATUSES = [
+    'received' => ['Received', 'We have your request and are reviewing it.'],
+    'scheduled' => ['Visit scheduled', 'An engineer visit or call-back is scheduled.'],
+    'in_progress' => ['In progress', 'Our engineers are working on it.'],
+    'awaiting_parts' => ['Awaiting parts', 'Parts are being manufactured or sourced.'],
+    'resolved' => ['Resolved', 'The issue has been fixed.'],
+    'closed' => ['Closed', 'This request is closed.'],
+];
 const LEAD_FILE_MAX = 10 * 1024 * 1024;
 const LEAD_FILE_COUNT = 5;
 
@@ -102,7 +113,7 @@ function lead_items_table(array $items, bool $email = true): string
  */
 function lead_submit(array $in, array $files): array
 {
-    $type = ($in['form'] ?? '') === 'quote' ? 'quote' : 'contact';
+    $type = isset(LEAD_FORMS[$t = (string) ($in['form'] ?? '')]) ? $t : 'contact';
 
     // Spam checks: honeypot, signed time token, Turnstile, rate limit.
     if (!empty($in['website'])) return ['ok' => true, 'id' => 0]; // silently accept bots
@@ -126,13 +137,34 @@ function lead_submit(array $in, array $files): array
     [$items, $itemsError] = $type === 'quote' ? lead_items_from_input($in['items'] ?? null) : [[], null];
     if ($itemsError) $errors['items'] = $itemsError;
     if ($items && $data['product'] === '') $data['product'] = mb_substr(count($items) === 1 ? $items[0]['name'] : 'Multiple items (' . count($items) . ')', 0, 190);
+    $data['location'] = $v('location') ?: null;
+    $job = null;
+    // Form-specific details
+    if ($type === 'service') {
+        $data['product'] = $v('equipment') ?: $data['product'];
+        if ($data['product'] === '') $errors['equipment'] = 'Please tell us which equipment is affected.';
+        if (!$data['location']) $errors['location'] = 'Please enter the site location.';
+        $data['priority'] = in_array($in['urgency'] ?? '', ['urgent', 'high'], true) ? 'high' : 'normal';
+    } elseif ($type === 'part') {
+        if ($data['part_number'] === '') $errors['partNumber'] = 'Please enter the part number you are looking for.';
+        $data['product'] = mb_substr('Part request: ' . $data['part_number'], 0, 190);
+    } elseif ($type === 'distributor') {
+        $data['product'] = 'Distributor application';
+        if (!$data['location']) $errors['location'] = 'Please enter your city / region.';
+    } elseif ($type === 'job') {
+        $job = ctype_digit((string) ($in['job_id'] ?? '')) ? db_one("SELECT * FROM jobs WHERE id = ? AND status = 'published'", [(int) $in['job_id']]) : null;
+        if (!$job) $errors['job_id'] = 'Please choose a position.';
+        $data['product'] = mb_substr('Application: ' . ($job['title'] ?? 'Open application'), 0, 190);
+    }
     if (mb_strlen($data['name']) < 2) $errors['fullName'] = 'Please enter your full name.';
-    if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) $errors['email'] = 'Please enter a valid email address.';
+    if ($type === 'service') {
+        if ($data['email'] !== '' && !filter_var($data['email'], FILTER_VALIDATE_EMAIL)) $errors['email'] = 'Please enter a valid email address.';
+    } elseif (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) $errors['email'] = 'Please enter a valid email address.';
     if ($data['phone'] !== '' && !preg_match('~^\+?[\d\s\-()]{7,20}$~', $data['phone'])) $errors['phone'] = 'Please enter a valid phone number.';
-    if ($type === 'quote' && $data['phone'] === '') $errors['phone'] = 'Please enter your phone number.';
-    if ($type === 'quote' && $data['company'] === '') $errors['company'] = 'Please enter your company name.';
-    if ($data['product'] === '') $errors['product'] = 'Please select an option.';
-    if (mb_strlen($data['message']) < 10) $errors['message'] = 'Please add a little more detail (at least 10 characters).';
+    if (in_array($type, ['quote', 'service', 'distributor', 'job'], true) && $data['phone'] === '') $errors['phone'] = 'Please enter your phone number.';
+    if (in_array($type, ['quote', 'distributor'], true) && $data['company'] === '') $errors['company'] = 'Please enter your company name.';
+    if (in_array($type, ['contact', 'quote'], true) && $data['product'] === '') $errors['product'] = 'Please select an option.';
+    if ($type !== 'job' && mb_strlen($data['message']) < 10) $errors['message'] = 'Please add a little more detail (at least 10 characters).';
     if (empty($in['consent'])) $errors['consent'] = 'Please confirm to continue.';
     $qty = trim((string) ($in['quantity'] ?? ''));
     if ($qty !== '' && (!ctype_digit($qty) || (int) $qty < 1)) $errors['quantity'] = 'Please enter a whole number of 1 or more.';
@@ -149,12 +181,13 @@ function lead_submit(array $in, array $files): array
             if (++$count > LEAD_FILE_COUNT) { $errors['attachments'] = 'You can attach up to ' . LEAD_FILE_COUNT . ' files.'; break; }
             $ext = strtolower(pathinfo((string) $origName, PATHINFO_EXTENSION));
             if ($f['error'][$i] !== UPLOAD_ERR_OK) { $errors['attachments'] = 'A file failed to upload. Files must be under 10 MB.'; continue; }
-            if (!in_array($ext, LEAD_FILE_EXT, true)) { $errors['attachments'] = 'Unsupported file type: ' . $origName; continue; }
+            if (!in_array($ext, $type === 'job' ? LEAD_CV_EXT : LEAD_FILE_EXT, true)) { $errors['attachments'] = 'Unsupported file type: ' . $origName; continue; }
             if ($f['size'][$i] > LEAD_FILE_MAX) { $errors['attachments'] = $origName . ' is larger than 10 MB.'; continue; }
             $uploads[] = ['tmp' => $f['tmp_name'][$i], 'name' => mb_substr(basename((string) $origName), 0, 200), 'ext' => $ext, 'size' => (int) $f['size'][$i]];
         }
     }
 
+    if ($type === 'job' && !$uploads && !isset($errors['attachments'])) $errors['attachments'] = 'Please attach your CV (PDF or Word).';
     if ($errors) return ['ok' => false, 'errors' => $errors, 'message' => 'Please correct the highlighted fields.'];
 
     $ref = (string) ($_SERVER['HTTP_REFERER'] ?? '');
@@ -172,6 +205,9 @@ function lead_submit(array $in, array $files): array
         'user_agent' => mb_substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 500),
         'consent' => 1,
         'items' => $items ? json_encode($items, JSON_UNESCAPED_UNICODE) : null,
+        'job_id' => $job['id'] ?? null,
+        'track_token' => $type === 'service' ? bin2hex(random_bytes(16)) : null,
+        'service_status' => $type === 'service' ? 'received' : null,
     ]);
 
     $dir = STORAGE_DIR . '/leads';
@@ -183,8 +219,10 @@ function lead_submit(array $in, array $files): array
             db_insert('lead_files', ['lead_id' => $id, 'stored_name' => $stored, 'original_name' => $u['name'], 'mime' => $mime, 'size' => $u['size']]);
         }
     }
-    lead_note($id, 'system', 'Lead received via the ' . ($type === 'quote' ? 'quote request' : 'contact') . ' form.');
+    lead_note($id, 'system', 'Received via the ' . strtolower(LEAD_FORMS[$type]) . ' form.');
+    if ($type === 'job') { job_application_notify($id); return ['ok' => true, 'id' => $id]; }
     lead_notify($id);
+    if ($type === 'service') return ['ok' => true, 'id' => $id] + service_after_submit($id);
     return ['ok' => true, 'id' => $id];
 }
 
@@ -221,4 +259,74 @@ function lead_notify(int $id): void
         $inner = '<p style="font-size:14px;line-height:1.6">Dear ' . e($lead['name']) . ',</p><p style="font-size:14px;line-height:1.6;white-space:pre-wrap">' . e($msg) . '</p>';
         send_mail($lead['email'], (string) setting('lead_autoreply_subject', 'We received your enquiry'), mail_layout('Thank you for your enquiry', $inner));
     }
+}
+
+
+/* ------------------------------------------------------------------ */
+/* Service / breakdown requests                                        */
+/* ------------------------------------------------------------------ */
+
+function service_ref(array|int $lead): string
+{
+    return 'SR-' . str_pad((string) (is_array($lead) ? $lead['id'] : $lead), 5, '0', STR_PAD_LEFT);
+}
+
+function service_track_url(array $lead): string
+{
+    return abs_url('service-request/track/' . $lead['track_token']);
+}
+
+/** After a service request: urgent ones alert the whole sales/service team at once; the customer gets their tracking link. */
+function service_after_submit(int $id): array
+{
+    $lead = db_one('SELECT * FROM leads WHERE id = ?', [$id]);
+    $ref = service_ref($lead);
+    $url = service_track_url($lead);
+    if ($lead['priority'] === 'high') {
+        $roles = PERMISSIONS['leads'] ?? ['admin'];
+        $in = implode(',', array_fill(0, count($roles), '?'));
+        foreach (db_all("SELECT * FROM users WHERE active = 1 AND role IN ({$in})", $roles) as $u) {
+            notify_user($u, 'service_urgent', 'URGENT breakdown ' . $ref . ': ' . $lead['product'],
+                $lead['name'] . ($lead['company'] ? ' (' . $lead['company'] . ')' : '') . ' at ' . $lead['location'] . ' — ' . $lead['phone'] . '. ' . mb_strimwidth((string) $lead['message'], 0, 300, '…'),
+                ['severity' => 'critical', 'category' => 'admin', 'link' => 'admin/leads/' . $id, 'email' => true]);
+        }
+    }
+    if ($lead['email']) {
+        $inner = '<p style="font-size:14px;line-height:1.6">Dear ' . e($lead['name']) . ',</p>'
+            . '<p style="font-size:14px;line-height:1.6">We have received your service request <b>' . e($ref) . '</b> for <b>' . e($lead['product']) . '</b>' . ($lead['priority'] === 'high' ? ' and marked it urgent' : '') . '. An engineer will contact you shortly.</p>'
+            . '<p style="margin:22px 0"><a href="' . e($url) . '" style="background:#F28C28;color:#101D32;padding:12px 22px;text-decoration:none;font-weight:bold">Track your request</a></p>'
+            . '<p style="font-size:13px;color:#6b7280">Keep this link — it shows the current status and our updates. For emergencies call ' . e(company('phone')) . '.</p>';
+        send_mail((string) $lead['email'], 'Service request ' . $ref . ' received', mail_layout('Service request ' . $ref, $inner));
+    }
+    return ['ref' => $ref, 'track' => $url];
+}
+
+/** Update a ticket's status with a message the customer can see (tracking page + email). */
+function service_update(array $lead, string $status, string $message, ?int $userId): void
+{
+    if (!isset(SERVICE_STATUSES[$status])) return;
+    db_update('leads', ['service_status' => $status] + (in_array($status, ['resolved', 'closed'], true) && in_array($lead['status'], LEAD_OPEN, true) ? ['status' => 'won'] : []), (int) $lead['id']);
+    $text = SERVICE_STATUSES[$status][0] . ($message !== '' ? ' — ' . $message : '');
+    lead_note((int) $lead['id'], 'service', $text, $userId); // 'service' notes are shown on the public tracking page
+    if ($lead['email'] && $lead['track_token']) {
+        $inner = '<p style="font-size:14px;line-height:1.6">Dear ' . e((string) $lead['name']) . ',</p>'
+            . '<p style="font-size:14px;line-height:1.6">Update on service request <b>' . e(service_ref($lead)) . '</b>: <b>' . e(SERVICE_STATUSES[$status][0]) . '</b>.</p>'
+            . ($message !== '' ? '<p style="font-size:14px;line-height:1.6;white-space:pre-wrap;border-left:4px solid #F28C28;padding-left:12px">' . e($message) . '</p>' : '')
+            . '<p style="margin:22px 0"><a href="' . e(service_track_url($lead)) . '" style="background:#F28C28;color:#101D32;padding:12px 22px;text-decoration:none;font-weight:bold">View your request</a></p>';
+        send_mail((string) $lead['email'], 'Service request ' . service_ref($lead) . ': ' . SERVICE_STATUSES[$status][0], mail_layout('Service request update', $inner));
+    }
+}
+
+/** Job applications go to the careers contact (or administrators), never to the sales alert list. */
+function job_application_notify(int $id): void
+{
+    $lead = db_one('SELECT l.*, j.title AS job_title FROM leads l LEFT JOIN jobs j ON j.id = l.job_id WHERE l.id = ?', [$id]);
+    if (!$lead) return;
+    $text = $lead['name'] . ' applied for ' . ($lead['job_title'] ?: 'an open position') . ' (' . $lead['email'] . ', ' . $lead['phone'] . ').';
+    $to = trim((string) setting('careers_email', ''));
+    if ($to !== '') {
+        send_mail($to, 'New application: ' . ($lead['job_title'] ?: 'Careers'), mail_layout('New job application',
+            '<p style="font-size:14px">' . e($text) . '</p><p><a href="' . e(abs_url('admin/careers/applications/' . $id)) . '" style="background:#F28C28;color:#101D32;padding:10px 18px;text-decoration:none;font-weight:bold">Open application</a></p>'), (string) $lead['email']);
+    }
+    notify_admins('job_application', 'New job application', $text, ['severity' => 'info', 'category' => 'admin', 'link' => 'admin/careers/applications/' . $id, 'email' => $to === '' ? null : false]);
 }

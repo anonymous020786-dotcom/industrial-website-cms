@@ -204,7 +204,7 @@ CREATE TABLE IF NOT EXISTS lead_notes (
   id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   lead_id    INT UNSIGNED NOT NULL,
   user_id    INT UNSIGNED NULL,
-  kind       ENUM('note','status','system','call','email') NOT NULL DEFAULT 'note',
+  kind       VARCHAR(20) NOT NULL DEFAULT 'note',
   body       TEXT NOT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   KEY idx_notes_lead (lead_id),
