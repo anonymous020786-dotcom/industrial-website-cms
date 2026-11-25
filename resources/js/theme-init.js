@@ -19,6 +19,7 @@
     }
   };
   root.classList.toggle('dark', pick());
+  try { if (localStorage.getItem('adm-sidebar') === 'collapsed') root.classList.add('sidebar-collapsed'); } catch (e) { /* ignore */ }
 
   document.addEventListener('DOMContentLoaded', function () { sync(root.classList.contains('dark')); });
   document.addEventListener('click', function (e) {

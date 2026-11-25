@@ -332,3 +332,23 @@ html.theme-anim, html.theme-anim *, html.theme-anim *::before { transition: back
 .dark .adm-scroll-down { background: var(--d-surface-2); color: var(--d-heading); border-color: rgba(255,255,255,.16); }
 .dark .adm-scroll-up { background: #24395A; }
 @media print { .adm-scroll, .adm-theme-toggle { display: none; } }
+
+/* ---------- Collapsible sidebar (desktop icon rail) ---------- */
+.adm-sidebar-toggle .icon-expand, .sidebar-collapsed .adm-sidebar-toggle .icon-collapse { display: none; }
+.sidebar-collapsed .adm-sidebar-toggle .icon-expand { display: block; }
+.adm-nav-link { position: relative; }
+@media (min-width: 1024px) {
+  .adm-sidebar, .adm-main { transition: width .2s ease, margin-left .2s ease; }
+  html.sidebar-collapsed .adm-sidebar { width: 72px; }
+  html.sidebar-collapsed .adm-main { margin-left: 72px; }
+  html.sidebar-collapsed .adm-sidebar > div:first-child { justify-content: center; padding-left: 0; padding-right: 0; }
+  html.sidebar-collapsed .adm-brand-text,
+  html.sidebar-collapsed .adm-nav-text { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; } /* hidden, still read by screen readers */
+  html.sidebar-collapsed .adm-sidebar nav { padding-left: .6rem; padding-right: .6rem; overflow-x: hidden; }
+  html.sidebar-collapsed .adm-nav-heading { height: 1px; margin: .8rem .4rem; overflow: hidden; font-size: 0; background: rgba(255,255,255,.12); }
+  html.sidebar-collapsed .adm-nav-link { justify-content: center; padding: .65rem 0; gap: 0; }
+  html.sidebar-collapsed .adm-nav-link.is-active { box-shadow: inset 3px 0 0 var(--safety); }
+  html.sidebar-collapsed .adm-nav-badge { position: absolute; top: .2rem; right: .35rem; min-width: 1.05rem; padding: 0 .25rem; font-size: .6rem; line-height: 1.05rem; }
+  html.sidebar-collapsed .adm-sidebar > div:last-child { padding-left: .6rem; padding-right: .6rem; }
+}
+@media (prefers-reduced-motion: reduce) { .adm-sidebar, .adm-main { transition: none !important; } }

@@ -23,28 +23,30 @@ $path = request_path();
   <aside class="adm-sidebar" id="adm-sidebar">
     <div class="flex h-16 items-center gap-3 border-b border-white/10 px-5">
       <svg class="h-8 w-8 shrink-0" viewBox="0 0 40 40" aria-hidden="true"><rect width="40" height="40" fill="#fff"/><path d="M9 30 L17 10 H23 L15 30 Z" fill="#F28C28"/><path d="M19 30 L27 10 H33 L25 30 Z" fill="#174A78"/></svg>
-      <div class="min-w-0 leading-tight"><p class="truncate font-display text-lg font-bold uppercase tracking-wide text-white"><?= e(company('short_name', 'Admin')) ?></p><p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/50">Control Panel</p></div>
+      <div class="adm-brand-text min-w-0 flex-1 leading-tight"><p class="truncate font-display text-lg font-bold uppercase tracking-wide text-white"><?= e(company('short_name', 'Admin')) ?></p><p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/50">Control Panel</p></div>
+      <button type="button" class="adm-icon-btn !text-white/80 hover:!bg-white/10 lg:hidden" data-sidebar-close aria-label="Close menu"><?= icon('x', 'h-5 w-5') ?></button>
     </div>
     <nav class="flex-1 overflow-y-auto px-3 py-4" aria-label="Admin">
       <?php foreach (admin_nav() as $item): ?>
         <?php if ($item[0] === '_'): ?><p class="adm-nav-heading"><?= e($item[1]) ?></p><?php continue; endif ?>
         <?php if (!can($item[3])) continue;
           $active = $item[1] === 'admin' ? $path === '/admin' : str_starts_with($path . '/', '/' . $item[1] . '/') || ($item[1] === 'admin/settings/general' && str_starts_with($path, '/admin/settings') && !preg_match('~/(integrations|maintenance)$~', $path)); ?>
-        <a href="<?= e(url($item[1])) ?>" class="adm-nav-link<?= $active ? ' is-active' : '' ?>"<?= $active ? ' aria-current="page"' : '' ?>>
-          <?= icon($item[2], 'h-[18px] w-[18px]') ?><span class="flex-1"><?= e($item[0]) ?></span>
+        <a href="<?= e(url($item[1])) ?>" class="adm-nav-link<?= $active ? ' is-active' : '' ?>"<?= $active ? ' aria-current="page"' : '' ?> title="<?= e($item[0]) ?>">
+          <?= icon($item[2], 'h-[18px] w-[18px] shrink-0') ?><span class="adm-nav-text flex-1"><?= e($item[0]) ?></span>
           <?php if (!empty($item[4])): ?><span class="adm-nav-badge"><?= (int) $item[4] ?></span><?php endif ?>
         </a>
       <?php endforeach ?>
     </nav>
     <div class="border-t border-white/10 p-3">
-      <a href="<?= e(url('')) ?>" target="_blank" class="adm-nav-link"><?= icon('external-link', 'h-[18px] w-[18px]') ?><span>View website</span></a>
+      <a href="<?= e(url('')) ?>" target="_blank" class="adm-nav-link" title="View website"><?= icon('external-link', 'h-[18px] w-[18px] shrink-0') ?><span class="adm-nav-text">View website</span></a>
     </div>
   </aside>
   <div class="adm-backdrop" data-sidebar-close></div>
 
   <div class="adm-main">
     <header class="adm-topbar">
-      <button type="button" class="adm-icon-btn lg:hidden" data-sidebar-open aria-label="Open menu"><?= icon('menu', 'h-5 w-5') ?></button>
+      <button type="button" class="adm-icon-btn lg:hidden" data-sidebar-open aria-label="Open menu" aria-controls="adm-sidebar"><?= icon('menu', 'h-5 w-5') ?></button>
+      <button type="button" class="adm-icon-btn adm-sidebar-toggle !hidden lg:!inline-grid" data-sidebar-toggle aria-controls="adm-sidebar" aria-expanded="true" aria-label="Collapse sidebar" title="Collapse sidebar ( [ )"><?= icon('panel-left-close', 'icon-collapse h-5 w-5') ?><?= icon('panel-left-open', 'icon-expand h-5 w-5') ?></button>
       <div class="min-w-0 flex-1">
         <?php if ($crumbs): ?><nav class="flex items-center gap-1 text-xs text-charcoal/50" aria-label="Breadcrumb"><?php foreach ($crumbs as [$l, $u]): ?><a class="hover:text-navy" href="<?= e(url($u)) ?>"><?= e($l) ?></a><?= icon('chevron-right', 'h-3 w-3') ?><?php endforeach ?></nav><?php endif ?>
         <h1 class="truncate text-lg font-bold text-navy"><?= e($title) ?></h1>

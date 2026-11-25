@@ -923,6 +923,10 @@ test('admin theme switch and scroll buttons: applied before paint without inline
   assert.match(dash.text, /data-theme-toggle/);
   assert.match(dash.text, /data-scroll-up/);
   assert.match(dash.text, /data-scroll-down/);
+  // Collapsible sidebar: desktop toggle (state applied early by theme-init.js), phone close button, labels kept for screen readers
+  assert.match(dash.text, /data-sidebar-toggle aria-controls="adm-sidebar" aria-expanded="true"/);
+  assert.match(dash.text, /id="adm-sidebar"[\s\S]*data-sidebar-close aria-label="Close menu"/);
+  assert.match(dash.text, /class="adm-nav-link[^"]*"[^>]*title="Dashboard"[\s\S]{0,700}<span class="adm-nav-text flex-1">Dashboard<\/span>/);
   assert.doesNotMatch(dash.res.headers.get('content-security-policy') || '', /script-src[^;]*unsafe-inline/, 'CSP still blocks inline scripts');
   assert.doesNotMatch(head.replace(/<script src="[^"]+"[^>]*><\/script>/g, ''), /<script/, 'no inline script in the admin head');
   const js = await admin.get(head.match(/src="([^"]*theme-init\.js[^"]*)"/)[1].replace(/^\//, ''));

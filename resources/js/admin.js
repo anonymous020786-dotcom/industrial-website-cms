@@ -22,6 +22,32 @@
   const sidebar = $('#adm-sidebar');
   $$('[data-sidebar-open]').forEach((b) => b.addEventListener('click', () => sidebar?.classList.add('is-open')));
   $$('[data-sidebar-close]').forEach((b) => b.addEventListener('click', () => sidebar?.classList.remove('is-open')));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && sidebar?.classList.contains('is-open')) sidebar.classList.remove('is-open'); });
+
+  /* Desktop: collapse the sidebar to an icon rail (remembered per browser; applied early by theme-init.js) */
+  const root = document.documentElement;
+  const toggles = $$('[data-sidebar-toggle]');
+  const syncSidebar = () => {
+    const collapsed = root.classList.contains('sidebar-collapsed');
+    toggles.forEach((b) => {
+      b.setAttribute('aria-expanded', String(!collapsed));
+      b.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
+      b.title = (collapsed ? 'Expand sidebar' : 'Collapse sidebar') + ' ( [ )';
+    });
+  };
+  const toggleSidebar = () => {
+    root.classList.toggle('sidebar-collapsed');
+    try { localStorage.setItem('adm-sidebar', root.classList.contains('sidebar-collapsed') ? 'collapsed' : 'open'); } catch { /* private mode */ }
+    syncSidebar();
+  };
+  toggles.forEach((b) => b.addEventListener('click', toggleSidebar));
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== '[' || e.ctrlKey || e.metaKey || e.altKey || !toggles.length || !matchMedia('(min-width: 1024px)').matches) return;
+    if (e.target.closest('input, textarea, select, [contenteditable], .ql-editor')) return; // typing, not a shortcut
+    e.preventDefault();
+    toggleSidebar();
+  });
+  syncSidebar();
   document.addEventListener('click', (e) => {
     const d = e.target.closest('[data-dismiss]');
     if (d) d.parentElement.remove();
