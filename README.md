@@ -230,7 +230,29 @@ Replace the stock photos with your own photography before launch.
   backup email instead.
 - **Trusted devices.** On the code screen, *Don’t ask for a code on this device for N days* (on by
   default; N is set in Settings → Security, 0 turns it off). That browser then signs in with the password
-  alone until the trust expires or is removed.
+  alone until the trust expires or is removed. Trust skips every kind of sign-in code: email, Telegram
+  and the authenticator app.
+  - *On trusted devices, a "confirm it's you" lasts* (Settings → Security) can be raised from 10
+    minutes to up to 4 hours, so sensitive actions ask less often there. Other devices always ask
+    again after 10 minutes.
+- **Telegram** (Settings → Telegram, then My profile → Telegram for each person).
+  - **Setup.** Create a bot with @BotFather and paste its token; it is checked with Telegram before
+    saving and never shown again.
+  - **Connecting.** Each team member presses *Connect Telegram*, confirms it's them, then presses
+    *Start* in the bot (button or QR code). The single-use link expires after 10 minutes. The page
+    notices by itself.
+  - **Codes.** Sign-in and "confirm it's you" codes go to Telegram instead of email. If Telegram is
+    unreachable they are emailed, and *Email the code instead* is always offered.
+  - **One-tap approval.** Sign-in codes come with **Approve / Deny** buttons. *Approve* finishes the
+    sign-in in the waiting browser. *Deny* blocks it and alerts the owner to change their password.
+    Only the owner's own chat can answer, once, before the code expires.
+  - **Personal two-step sign-in.** *Ask for a Telegram code at every sign-in* turns it on for one
+    account, even when email codes are off site-wide; trusted devices still skip it.
+  - **Alerts.** Security alerts and new-lead alerts, each with an *Open in admin* button (on HTTPS
+    sites).
+  - **Updates.** By webhook on a live HTTPS site (instant, checked with a secret token), or polled only
+    while someone is waiting, so it also works locally and behind firewalls. Send `/stop` in the bot
+    to disconnect.
 - **Keep me signed in.** A checkbox on the sign-in page (and for passkey sign-in) keeps the browser signed
   in for up to 30 days (Settings → Security: on/off and 1–90 days).
   - The token is random, stored only as a hash, replaced after every use, and works only together with
@@ -382,6 +404,8 @@ npm test        # end-to-end suite against http://localhost:8000 (BASE_URL, ADMI
     rejection
   - the authenticator app, including recovery codes
   - step-up codes, notifications, trusted devices and "keep me signed in"
+  - Telegram, against a fake Bot API: bot setup, connecting, codes, Approve / Deny, the trusted-device
+    skip, the email fallback, lead alerts and `/stop`
   - error pages (404 suggestions, 405, 419, JSON errors, a 500 with its reference in the error log)
   - maintenance mode: 503 and Retry-After, the team and preview-link bypass, the IP allow-list, the
     schedule, and the code needed to switch it

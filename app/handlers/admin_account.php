@@ -77,6 +77,7 @@ function admin_confirm(): void
         'label' => $pending ? (STEPUP_ACTIONS[$pending['action']] ?? 'Sensitive action') : 'Sensitive actions',
         'back' => url((string) ($pending['back'] ?? 'admin')),
         'devCode' => config('debug') ? ($_SESSION['otp_dev_code'] ?? null) : null,
+        'via' => $_SESSION['otp_channel']['stepup'] ?? 'email', 'tgCodes' => telegram_for_codes($row),
     ]);
 }
 

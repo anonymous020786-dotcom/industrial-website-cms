@@ -1,5 +1,5 @@
 <?php
-/** @var array $devices @var string $currentDevice @var array $user @var array $errors @var array $old @var array $events @var ?string $pendingEmail @var ?string $pendingBackup @var ?string $devCode
+/** @var string $tgLinkUrl @var array $devices @var string $currentDevice @var array $user @var array $errors @var array $old @var array $events @var ?string $pendingEmail @var ?string $pendingBackup @var ?string $devCode
  *  @var array $passkeys @var bool $totpOn @var ?string $totpPending @var ?array $recoveryOnce @var int $recoveryLeft */
 $err = fn($k) => isset($errors[$k]) ? '<p class="adm-error">' . e($errors[$k]) . '</p>' : '';
 $val = fn($k, $d = '') => e((string) ($old[$k] ?? $d));
@@ -16,6 +16,8 @@ $labels = [
     'totp_enabled' => 'Authenticator app enabled', 'totp_disabled' => 'Authenticator app turned off', 'totp_failed' => 'Wrong authenticator code',
     'recovery_code_used' => 'Recovery code used', 'recovery_codes_regenerated' => 'New recovery codes', 'backup_downloaded' => 'Backup downloaded',
     'login_remembered' => 'Signed in (kept signed in)', 'device_trusted' => 'Device trusted for codes', 'device_untrusted' => 'Stopped trusting a device', 'device_removed' => 'Device removed', 'signout_everywhere' => 'Signed out of all other devices', 'remember_token_mismatch' => 'Blocked an invalid sign-in token',
+    'telegram_linked' => 'Connected Telegram', 'telegram_unlinked' => 'Disconnected Telegram', 'telegram_approved' => 'Approved a sign-in in Telegram', 'telegram_denied' => 'Blocked a sign-in in Telegram',
+    'login_telegram_approval' => 'Signed in (approved in Telegram)', 'telegram_2fa_on' => 'Turned on Telegram sign-in code', 'telegram_2fa_off' => 'Turned off Telegram sign-in code',
     'maintenance_on' => 'Turned on maintenance mode', 'maintenance_off' => 'Turned off maintenance mode',
     'stepup_ok' => 'Confirmed a sensitive action', 'stepup_required' => 'Confirmation requested', 'stepup_failed' => 'Wrong confirmation code',
     'avatar_changed' => 'Profile picture changed', 'leads_exported' => 'Leads exported', 'backup_created' => 'Backup created', 'backup_deleted' => 'Backup deleted', 'stepup_code_sent' => 'Confirmation code sent',
@@ -233,6 +235,63 @@ $transportLabel = fn(?string $t) => str_contains((string) $t, 'internal') ? 'Thi
   </section>
 </div>
 
+<!-- Telegram -->
+<section class="adm-card space-y-4 p-6 xl:col-start-1" id="telegram">
+  <?php $tgOn = telegram_enabled(); $tgLinked = telegram_linked($user); $tgp = telegram_prefs($user); ?>
+  <div class="flex flex-wrap items-start justify-between gap-3">
+    <div>
+      <h2 class="adm-subheading flex items-center gap-2"><?= icon('send', 'h-5 w-5 text-steel') ?> Telegram</h2>
+      <p class="mt-1 text-sm text-charcoal/75">Get sign-in codes, approve sign-ins with one tap, and receive security and lead alerts in Telegram — faster than email and works on any phone.</p>
+    </div>
+    <?php if ($tgLinked): ?><span class="adm-badge bg-sky-100 text-sky-800"><?= icon('circle-check', 'mr-1 inline h-3.5 w-3.5') ?>Connected<?= $user['telegram_username'] ? ' · @' . e((string) $user['telegram_username']) : '' ?></span><?php endif ?>
+  </div>
+
+  <?php if (!$tgOn): ?>
+    <p class="rounded-lg bg-mist p-4 text-sm text-charcoal/80">Telegram isn’t set up on this site yet.<?php if (can('settings')): ?> Add your bot in <a class="adm-link" href="<?= e(url('admin/settings/telegram')) ?>">Settings → Telegram</a> (takes two minutes with @BotFather).<?php else: ?> Ask an administrator to add a Telegram bot.<?php endif ?></p>
+  <?php elseif (!$tgLinked && $tgLinkUrl !== ''): ?>
+    <div class="grid gap-5 rounded-lg border border-sky-200 bg-sky-50/60 p-5 sm:grid-cols-[auto_1fr]" data-tg-wait>
+      <div class="h-fit rounded-lg bg-white p-2" data-qr="<?= e($tgLinkUrl) ?>" data-qr-size="150" aria-label="QR code to open the bot on your phone"></div>
+      <script src="<?= e(url('assets/vendor/qrcode/qrcode.js')) ?>"></script>
+      <div>
+        <p class="font-semibold text-navy">1. Open the bot and press <span class="rounded bg-white px-1.5 font-mono text-sm">Start</span></p>
+        <p class="mt-1 text-sm text-charcoal/75">On this computer use the button, or scan the QR code with your phone’s camera. The link works once, for 10 minutes.</p>
+        <a href="<?= e($tgLinkUrl) ?>" target="_blank" rel="noopener" class="adm-btn adm-btn-primary mt-3"><?= icon('send', 'h-4 w-4') ?> Open @<?= e((string) setting('telegram_bot_username')) ?> in Telegram</a>
+        <p class="mt-4 flex items-center gap-2 text-sm text-charcoal/75" role="status"><span class="adm-spinner" aria-hidden="true"></span> 2. Waiting for Telegram… this page updates by itself.</p>
+      </div>
+    </div>
+  <?php elseif (!$tgLinked): ?>
+    <form method="post" action="<?= e(url('admin/telegram/link')) ?>" class="flex flex-wrap items-center gap-3"><?= csrf_field() ?>
+      <button class="adm-btn adm-btn-primary"><?= icon('send', 'h-4 w-4') ?> Connect Telegram</button>
+      <span class="text-sm text-charcoal/70">You’ll confirm it’s you, then press Start in our bot @<?= e((string) setting('telegram_bot_username')) ?>.</span>
+    </form>
+  <?php else: ?>
+    <form method="post" action="<?= e(url('admin/telegram/prefs')) ?>" class="space-y-3"><?= csrf_field() ?>
+      <?php
+      $rows = [
+          'codes' => ['Sign-in and confirmation codes', 'Send one-time codes to Telegram instead of email. If Telegram is unreachable, the code is emailed.'],
+          'approve' => ['One-tap sign-in approval', 'Sign-in codes come with Approve / Deny buttons — tap Approve and the browser continues by itself.'],
+          'require' => ['Ask for a Telegram code at every sign-in', 'Personal two-step sign-in. Devices you trust skip it for ' . (int) setting('otp_trust_days', 30) . ' days.'],
+          'alerts' => ['Security alerts', 'New-device sign-ins, password and email changes, blocked sign-ins' . (can('settings') ? ', site errors and maintenance' : '') . '.'],
+      ];
+      if (can('leads')) $rows['leads'] = ['New lead alerts', 'Each new enquiry or quote request, with a button to open it.'];
+      foreach ($rows as $k => [$l, $h]): ?>
+      <label class="flex items-start gap-3 rounded-lg border border-black/10 p-3 hover:bg-mist/60">
+        <input type="checkbox" class="mt-1" name="tg[<?= $k ?>]" value="1"<?= $tgp[$k] ? ' checked' : '' ?><?= $k === 'approve' && !setting('telegram_login_approval', true) ? ' disabled' : '' ?>>
+        <span><span class="block font-semibold text-navy"><?= e($l) ?></span><span class="block text-sm text-charcoal/70"><?= e($h) ?></span></span>
+      </label>
+      <?php endforeach ?>
+      <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+        <span class="text-xs text-charcoal/60">Connected <?= e(time_ago((string) $user['telegram_linked_at'])) ?>.</span>
+        <button class="adm-btn adm-btn-primary"><?= icon('save', 'h-4 w-4') ?> Save Telegram settings</button>
+      </div>
+    </form>
+    <div class="flex flex-wrap gap-2 border-t border-black/5 pt-4">
+      <form method="post" action="<?= e(url('admin/telegram/test')) ?>"><?= csrf_field() ?><button class="adm-btn adm-btn-light adm-btn-sm"><?= icon('send', 'h-4 w-4') ?> Send a test message</button></form>
+      <form method="post" action="<?= e(url('admin/telegram/unlink')) ?>"><?= csrf_field() ?><button class="adm-btn adm-btn-light adm-btn-sm !text-red-700" data-confirm="Disconnect Telegram? Codes and alerts will be emailed instead."><?= icon('unlink', 'h-4 w-4') ?> Disconnect</button></form>
+    </div>
+  <?php endif ?>
+</section>
+
 <!-- Devices & sessions -->
 <section class="adm-card space-y-4 p-6 xl:col-start-1" id="devices">
   <div class="flex flex-wrap items-start justify-between gap-3">
@@ -314,3 +373,4 @@ $transportLabel = fn(?string $t) => str_contains((string) $t, 'internal') ? 'Thi
 </aside>
 </div>
 <script src="<?= e(asset('js/passkey.js')) ?>" defer></script>
+<script src="<?= e(asset('js/telegram.js')) ?>" defer></script>

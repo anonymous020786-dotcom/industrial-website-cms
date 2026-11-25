@@ -80,7 +80,7 @@ function admin_login(): void
             $_SESSION['login_remember'] = !empty($_POST['remember']); // carried through the code step
             if (is_string($user)) {
                 $error = $user;
-            } elseif (device_trusted((int) $user['id']) || (!otp_enabled() && !totp_enabled_for($user))) {
+            } elseif (device_trusted((int) $user['id']) || (!otp_enabled() && !totp_enabled_for($user) && !telegram_requires_code($user))) {
                 complete_login($user);
                 login_redirect_after();
             } elseif (totp_enabled_for($user)) {
@@ -131,9 +131,38 @@ function admin_login_verify(): void
     $hasBackup = $user['backup_email'] && $user['backup_email_verified_at'];
     $sentTo = ($_SESSION['otp_to'] ?? 'primary') === 'backup' && $hasBackup ? $user['backup_email'] : $user['email'];
     $masked = mask_email((string) $sentTo);
-    echo view('admin/login', ['error' => $error, 'step' => 'otp', 'maskedEmail' => $masked, 'trustDays' => (int) setting('otp_trust_days', 30),
+    $via = $_SESSION['otp_channel']['login'] ?? 'email';
+    $tgFailed = !empty($_SESSION['otp_tg_failed']); unset($_SESSION['otp_tg_failed']);
+    echo view('admin/login', ['error' => $error, 'step' => 'otp', 'maskedEmail' => $masked, 'via' => $via, 'tgFailed' => $tgFailed,
+        'tgName' => $user['telegram_username'] ? '@' . $user['telegram_username'] : 'Telegram', 'canTelegram' => telegram_for_codes($user),
+        'approval' => $via === 'telegram' && setting('telegram_login_approval', true) && telegram_prefs($user)['approve'], 'trustDays' => (int) setting('otp_trust_days', 30),
         'hasBackup' => $hasBackup, 'sentToBackup' => $sentTo !== $user['email'], 'maskedBackup' => $hasBackup ? mask_email((string) $user['backup_email']) : '',
         'devCode' => config('debug') ? ($_SESSION['otp_dev_code'] ?? null) : null]);
+}
+
+/**
+ * Polled by the code page while Telegram approval is possible: finishes the sign-in as soon as the
+ * owner taps Approve in Telegram (and fetches Telegram updates when no webhook is used).
+ */
+function admin_login_verify_status(): void
+{
+    csrf_check();
+    $user = otp_pending_user();
+    if (!$user) json_response(['status' => 'expired', 'redirect' => url('admin/login')]);
+    telegram_poll();
+    $state = telegram_login_state((int) $user['id']);
+    if ($state === 'approved' && telegram_login_consume((int) $user['id'])) {
+        $body = json_decode((string) file_get_contents('php://input', false, null, 0, 4096), true) ?: [];
+        complete_login($user, !empty($body['trust']));
+        auth_log('login_telegram_approval', (int) $user['id'], $user['email']);
+        json_response(['status' => 'approved', 'redirect' => url('admin')]);
+    }
+    if ($state === 'denied') {
+        unset($_SESSION['otp_uid']);
+        flash('error', 'This sign-in was blocked from Telegram.');
+        json_response(['status' => 'denied', 'redirect' => url('admin/login')]);
+    }
+    json_response(['status' => $state]);
 }
 
 function admin_login_resend(): void
@@ -143,9 +172,11 @@ function admin_login_resend(): void
     if (!$user) redirect('admin/login');
     // Optionally send to the verified backup address instead of the primary
     $useBackup = input('to') === 'backup' && $user['backup_email'] && $user['backup_email_verified_at'];
-    $res = otp_send($user, 'login', $useBackup ? $user['backup_email'] : null);
+    $channel = in_array(input('to'), ['email', 'backup'], true) ? 'email' : null; // "send it by email instead"
+    $res = otp_send($user, 'login', $useBackup ? $user['backup_email'] : null, null, $channel);
     if ($res === true) $_SESSION['otp_to'] = $useBackup ? 'backup' : 'primary';
-    flash($res === true ? 'success' : 'error', $res === true ? 'A new code has been sent' . ($useBackup ? ' to your backup email.' : '.') : (string) $res);
+    $via = ($_SESSION['otp_channel']['login'] ?? 'email') === 'telegram' ? ' to your Telegram.' : ($useBackup ? ' to your backup email.' : ' by email.');
+    flash($res === true ? 'success' : 'error', $res === true ? 'A new code has been sent' . $via : (string) $res);
     redirect('admin/login/verify');
 }
 

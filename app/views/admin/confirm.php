@@ -26,13 +26,13 @@
       <?php if ($emailSent): ?>
       <form method="post" class="space-y-3" autocomplete="off">
         <?= csrf_field() ?><input type="hidden" name="method" value="email">
-        <label class="adm-label" for="email_code">Code we emailed to <?= e($masked) ?></label>
+        <label class="adm-label" for="email_code"><?= ($via ?? 'email') === 'telegram' ? 'Code we sent to your Telegram' : 'Code we emailed to ' . e($masked) ?></label>
         <div class="flex gap-2"><input id="email_code" name="code" class="adm-input text-center font-mono text-xl tracking-[0.4em]" inputmode="numeric" maxlength="7" autocomplete="one-time-code" required <?= $methods['passkey'] || $methods['totp'] ? '' : 'autofocus' ?>><button class="adm-btn adm-btn-primary shrink-0">Confirm</button></div>
         <?php if ($devCode): ?><p class="rounded bg-amber-50 px-3 py-2 text-xs text-amber-900"><?= icon('bug', 'mr-1 inline h-3.5 w-3.5') ?>Debug mode — code: <code class="font-bold"><?= e($devCode) ?></code> (never shown when debug is off)</p><?php endif ?>
       </form>
       <form method="post" class="mt-3"><?= csrf_field() ?><input type="hidden" name="method" value="send"><button class="adm-link text-sm">Send a new code</button></form>
       <?php else: ?>
-      <form method="post"><?= csrf_field() ?><input type="hidden" name="method" value="send"><button class="adm-btn adm-btn-light w-full justify-center"><?= icon('mail', 'h-4 w-4') ?> Email a code to <?= e($masked) ?></button></form>
+      <form method="post"><?= csrf_field() ?><input type="hidden" name="method" value="send"><button class="adm-btn adm-btn-light w-full justify-center"><?= icon(!empty($tgCodes) ? 'send' : 'mail', 'h-4 w-4') ?> <?= !empty($tgCodes) ? 'Send a code to my Telegram' : 'Email a code to ' . e($masked) ?></button></form>
       <?php endif ?>
     </div>
     <p class="mt-6 text-center text-sm"><a class="text-charcoal/75 hover:text-navy" href="<?= e($back) ?>">Cancel</a></p>

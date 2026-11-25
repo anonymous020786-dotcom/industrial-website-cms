@@ -27,6 +27,11 @@ Include steps to reproduce and the affected version. You will get a reply within
   fields.
 - Security alerts are shown in the admin and emailed; account-security alerts can't be turned off.
 - Profile pictures are re-encoded to WebP, which removes metadata.
+- Telegram: the bot token is a write-only secret; the webhook is authenticated with a random secret
+  token; connect links are single-use, stored hashed and expire after 10 minutes. Approve / Deny
+  buttons carry a per-code random nonce and are accepted only from the account owner's chat, once,
+  before the code expires. Connecting or disconnecting Telegram, or weakening its sign-in options,
+  needs a one-time code and sends a security alert. Codes fall back to email if Telegram is down.
 - Error pages never show internal details outside debug mode. Unexpected errors show only a short
   reference. The stored stack trace has no argument values, and the admin Error log needs the
   Settings permission.

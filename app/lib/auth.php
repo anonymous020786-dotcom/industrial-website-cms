@@ -47,7 +47,7 @@ function current_user(): ?array
         if (!$rem) return $user = null;
         $id = (int) $rem['id'];
     }
-    $row = db_one('SELECT id, name, email, username, backup_email, backup_email_verified_at, role, active, password_changed_at, avatar, notify_prefs, totp_enabled_at FROM users WHERE id = ?', [(int) $id]);
+    $row = db_one('SELECT id, name, email, username, backup_email, backup_email_verified_at, role, active, password_changed_at, avatar, notify_prefs, totp_enabled_at, telegram_chat_id, telegram_username, telegram_linked_at, telegram_prefs FROM users WHERE id = ?', [(int) $id]);
     if (!$row || !$row['active'] || ($_SESSION['ver'] ?? '') !== session_fingerprint((int) $id)) {
         unset($_SESSION['uid']);
         return $user = null;
@@ -247,7 +247,7 @@ function otp_enabled(): bool
  * @param string|string[]|null $to recipient(s); defaults to the primary email
  * @return true|string
  */
-function otp_send(array $user, string $purpose = 'login', string|array|null $to = null, ?string $target = null): bool|string
+function otp_send(array $user, string $purpose = 'login', string|array|null $to = null, ?string $target = null, ?string $channel = null): bool|string
 {
     $uid = (int) $user['id'];
     $last = db_val('SELECT created_at FROM login_otps WHERE user_id = ? AND purpose = ? ORDER BY id DESC LIMIT 1', [$uid, $purpose]);
@@ -259,7 +259,20 @@ function otp_send(array $user, string $purpose = 'login', string|array|null $to 
 
     $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
     db_query('UPDATE login_otps SET used_at = NOW() WHERE user_id = ? AND purpose = ? AND used_at IS NULL', [$uid, $purpose]);
-    db_insert('login_otps', ['user_id' => $uid, 'purpose' => $purpose, 'target' => $target, 'code_hash' => password_hash($code, PASSWORD_DEFAULT), 'expires_at' => date('Y-m-d H:i:s', time() + OTP_TTL)]);
+    $otpId = db_insert('login_otps', ['user_id' => $uid, 'purpose' => $purpose, 'target' => $target, 'code_hash' => password_hash($code, PASSWORD_DEFAULT), 'expires_at' => date('Y-m-d H:i:s', time() + OTP_TTL)]);
+
+    // Telegram (if connected) for sign-in and confirmation codes; email is the fallback
+    session_boot();
+    if ($to === null && $channel !== 'email' && in_array($purpose, ['login', 'stepup'], true) && telegram_for_codes($user)) {
+        if (telegram_send_code($user, $code, $purpose, (int) $otpId)) {
+            $_SESSION['otp_channel'][$purpose] = 'telegram';
+            if (config('debug')) $_SESSION['otp_dev_code'] = $code;
+            auth_log($purpose === 'login' ? 'otp_sent' : $purpose . '_code_sent', $uid, $user['email']);
+            return true;
+        }
+        $_SESSION['otp_tg_failed'] = true; // the page says we fell back to email
+    }
+    $_SESSION['otp_channel'][$purpose] = 'email';
 
     [$subject, $why] = OTP_PURPOSES[$purpose] ?? OTP_PURPOSES['login'];
     $inner = '<p style="font-size:14px;line-height:1.6">Hello ' . e($user['name']) . ',</p>'

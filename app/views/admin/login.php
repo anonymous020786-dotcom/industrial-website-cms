@@ -32,10 +32,19 @@ $devHint = fn($code) => $code ? '<div class="adm-flash adm-flash-info">' . icon(
     <form method="post" action="<?= e(url('admin/login/verify')) ?>" class="adm-card space-y-5 p-8" autocomplete="off">
       <?= csrf_field() ?>
       <div>
-        <span class="mb-4 grid h-12 w-12 place-items-center rounded-full bg-mist text-steel"><?= icon('mail-check', 'h-6 w-6') ?></span>
-        <h1 class="text-xl font-bold text-navy">Check your email</h1>
+        <?php $tg = ($via ?? 'email') === 'telegram'; ?>
+        <span class="mb-4 grid h-12 w-12 place-items-center rounded-full <?= $tg ? 'bg-sky-50 text-sky-700' : 'bg-mist text-steel' ?>"><?= icon($tg ? 'send' : 'mail-check', 'h-6 w-6') ?></span>
+        <h1 class="text-xl font-bold text-navy"><?= $tg ? 'Check Telegram' : 'Check your email' ?></h1>
+        <?php if ($tg): ?>
+        <p class="mt-1 text-sm text-charcoal/65">We sent a 6-digit code to your Telegram (<strong class="text-navy"><?= e($tgName ?? 'Telegram') ?></strong>). It expires in 10 minutes.</p>
+        <?php else: ?>
         <p class="mt-1 text-sm text-charcoal/65">We sent a 6-digit code to <strong class="text-navy"><?= e($maskedEmail) ?></strong><?= !empty($sentToBackup) ? ' (backup email)' : '' ?>. It expires in 10 minutes.</p>
+        <?php if (!empty($tgFailed)): ?><p class="mt-2 text-xs text-amber-700">Telegram could not be reached, so the code was emailed instead.</p><?php endif ?>
+        <?php endif ?>
       </div>
+      <?php if (!empty($approval)): ?>
+      <div class="flex items-center gap-3 rounded-lg bg-sky-50 p-3 text-sm text-sky-900" data-tg-approval role="status"><span class="adm-spinner shrink-0" aria-hidden="true"></span><span data-tg-note>Or tap <strong>Approve</strong> in Telegram — this page continues by itself.</span></div>
+      <?php endif ?>
       <?= $alerts() ?>
       <?= $devHint($devCode ?? null) ?>
       <div class="adm-field">
@@ -52,6 +61,11 @@ $devHint = fn($code) => $code ? '<div class="adm-flash adm-flash-info">' . icon(
         <form method="post" action="<?= e(url('admin/login/resend')) ?>"><?= csrf_field() ?><button class="font-semibold text-white/80 hover:text-white">Resend code<?= !empty($sentToBackup) ? ' to primary email' : '' ?></button></form>
         <a class="text-white/60 hover:text-white" href="<?= e(url('admin/login')) ?>">Use a different account</a>
       </div>
+      <?php if (($via ?? 'email') === 'telegram'): ?>
+      <form method="post" action="<?= e(url('admin/login/resend')) ?>"><?= csrf_field() ?><input type="hidden" name="to" value="email"><button class="text-white/70 hover:text-white">No access to Telegram? Email the code to <?= e($maskedEmail) ?> instead</button></form>
+      <?php elseif (!empty($canTelegram)): ?>
+      <form method="post" action="<?= e(url('admin/login/resend')) ?>"><?= csrf_field() ?><input type="hidden" name="to" value="telegram"><button class="text-white/70 hover:text-white">Send the code to Telegram instead</button></form>
+      <?php endif ?>
       <?php if (!empty($hasBackup) && empty($sentToBackup)): ?>
       <form method="post" action="<?= e(url('admin/login/resend')) ?>"><?= csrf_field() ?><input type="hidden" name="to" value="backup"><button class="text-white/70 hover:text-white">No access to this inbox? Send the code to <?= e($maskedBackup) ?> instead</button></form>
       <?php endif ?>
@@ -145,6 +159,7 @@ $devHint = fn($code) => $code ? '<div class="adm-flash adm-flash-info">' . icon(
     <p class="mt-6 text-center text-xs text-white/40"><a class="hover:text-white" href="<?= e(url('')) ?>">← Back to website</a></p>
   </main>
   <script src="<?= e(asset('js/passkey.js')) ?>" defer></script>
+  <script src="<?= e(asset('js/telegram.js')) ?>" defer></script>
   <script src="<?= e(asset('js/pwtoggle.js')) ?>" defer></script>
 </body>
 </html>

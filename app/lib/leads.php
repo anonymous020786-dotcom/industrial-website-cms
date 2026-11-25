@@ -215,6 +215,7 @@ function lead_notify(int $id): void
         $res = send_mail($recipients, 'New ' . $lead['type'] . ' enquiry from ' . $lead['name'], mail_layout('New ' . ($lead['type'] === 'quote' ? 'quote request' : 'enquiry'), $inner), $lead['email']);
         lead_note($id, 'system', $res === true ? 'Notification email sent to ' . $recipients . '.' : 'Notification email failed: ' . $res);
     }
+    try { telegram_lead_alert($lead); } catch (Throwable $e) { error_log('telegram lead alert: ' . $e->getMessage()); }
     if (setting('lead_autoreply_enabled') && $lead['email']) {
         $msg = (string) setting('lead_autoreply_text', "Thank you for contacting us. We have received your enquiry and will respond within one business day.");
         $inner = '<p style="font-size:14px;line-height:1.6">Dear ' . e($lead['name']) . ',</p><p style="font-size:14px;line-height:1.6;white-space:pre-wrap">' . e($msg) . '</p>';

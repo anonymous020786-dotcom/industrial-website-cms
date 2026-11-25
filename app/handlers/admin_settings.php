@@ -116,6 +116,7 @@ function settings_tabs(): array
             'admin_otp_enabled' => ['type' => 'checkbox', 'label' => 'Email OTP', 'text' => 'Require an emailed code for every admin sign-in', 'wide' => true],
             'otp_trust_days' => ['type' => 'number', 'label' => 'Trust a browser for (days)', 'help' => 'Users can tick “trust this browser” to skip the code on that device. 0 = always ask. Changing a password revokes trusted browsers.', 'default' => 30],
             'admin_idle_minutes' => ['type' => 'number', 'label' => 'Sign out after inactivity (minutes)', 'default' => 240],
+            'stepup_trusted_minutes' => ['type' => 'select', 'label' => 'On trusted devices, a “confirm it’s you” lasts', 'options' => ['10' => '10 minutes (same as other devices)', '30' => '30 minutes', '60' => '1 hour', '120' => '2 hours', '240' => '4 hours'], 'default' => '10', 'help' => 'Fewer code prompts for sensitive actions on devices people marked as trusted. Other devices always ask again after 10 minutes.'],
             'h_remember' => ['type' => 'heading', 'label' => 'Keep me signed in', 'help' => 'Lets users stay signed in on their own devices. Uses a single-use token that rotates on every visit, is bound to the device and is revoked on sign-out, password change or “sign out everywhere”. Sensitive actions still ask for a one-time code.'],
             'remember_enabled' => ['type' => 'checkbox', 'label' => 'Keep me signed in', 'text' => 'Offer “Keep me signed in” on the sign-in page', 'default' => true, 'wide' => true],
             'remember_days' => ['type' => 'number', 'label' => 'Stay signed in for (days)', 'default' => 30, 'help' => '1–90 days.'],
@@ -141,6 +142,13 @@ function settings_tabs(): array
             'backup_hour' => ['type' => 'select', 'label' => 'Run at', 'options' => array_combine(range(0, 23), array_map(fn($h) => sprintf('%02d:00', $h), range(0, 23))), 'default' => 2],
             'backup_keep' => ['type' => 'number', 'label' => 'Keep the newest', 'default' => 14, 'help' => 'Number of daily backups to keep.'],
             'backup_uploads' => ['type' => 'checkbox', 'label' => 'Uploads', 'text' => 'Also zip uploaded images and documents (uses more disk space)', 'default' => false, 'wide' => true],
+        ]],
+        'telegram' => ['Telegram', 'send', [
+            'h_tg' => ['type' => 'heading', 'label' => 'Telegram bot', 'help' => 'Send sign-in codes, one-tap sign-in approval, security alerts and new-lead alerts through your own Telegram bot. In Telegram, open <strong>@BotFather</strong>, send <code>/newbot</code>, choose a name, then paste the token it gives you here. Each team member then connects their own Telegram in My profile.'],
+            'telegram_enabled' => ['type' => 'checkbox', 'label' => 'Telegram', 'text' => 'Use Telegram for codes and alerts', 'wide' => true],
+            'telegram_bot_token' => ['type' => 'password', 'label' => 'Bot token', 'placeholder' => '123456789:AA…', 'help' => 'Stored securely; leave blank to keep the saved token.', 'wide' => true],
+            'telegram_login_approval' => ['type' => 'checkbox', 'label' => 'One-tap approval', 'text' => 'Show Approve / Deny buttons with sign-in codes (people can still type the code)', 'default' => true, 'wide' => true],
+            'telegram_webhook' => ['type' => 'checkbox', 'label' => 'Webhook', 'text' => 'Receive Telegram updates by webhook (needs the public HTTPS site address)', 'wide' => true, 'help' => 'Off = the site asks Telegram for updates only while someone is waiting (works anywhere, even on a laptop). On = instant, recommended for a live site.'],
         ]],
         'maintenance' => ['Maintenance mode', 'construction', [
             'h_m' => ['type' => 'heading', 'label' => 'Maintenance mode', 'help' => 'Visitors see a branded “we’ll be back” page with HTTP 503, which tells search engines to come back later without losing rankings. Signed-in team members, allowed IP addresses and anyone with the preview link still see the normal site. The admin keeps working.'],
@@ -169,7 +177,7 @@ function admin_settings(string $tab): void
     [$label, , $schema] = $tabs[$tab];
     $errors = [];
     // Security, email (SMTP password) and integration keys: confirm identity before even showing them
-    $sensitiveTab = in_array($tab, ['security', 'email', 'integrations'], true);
+    $sensitiveTab = in_array($tab, ['security', 'email', 'integrations', 'telegram'], true);
     if ($sensitiveTab) require_stepup('settings');
     // Taking the site offline (or back online) is confirmed with a one-time code
     if ($tab === 'maintenance' && is_post()) require_stepup('maintenance');
@@ -185,6 +193,21 @@ function admin_settings(string $tab): void
                 $values[$k] = strtoupper(trim((string) $values[$k]));
                 if ($k === 'meta_pixel_id') $values[$k] = preg_replace('~\D~', '', $values[$k]);
                 if ($values[$k] !== '' && !preg_match($re, $values[$k])) $errors[$k] = 'This ID format looks wrong.';
+            }
+        }
+        if ($tab === 'telegram' && !$errors) {
+            $token = (string) ($values['telegram_bot_token'] ?? '') !== '' ? (string) $values['telegram_bot_token'] : (string) setting('telegram_bot_token', '');
+            if (!empty($values['telegram_enabled']) || (string) ($values['telegram_bot_token'] ?? '') !== '') {
+                $me = $token === '' ? null : telegram_api('getMe', [], $token);
+                if ($me === null) {
+                    $errors['telegram_bot_token'] = $token === '' ? 'Paste the bot token from @BotFather.' : (string) $GLOBALS['telegram_error'];
+                } else {
+                    setting_set('telegram_bot_username', (string) ($me['username'] ?? ''));
+                    setting_set('telegram_bot_name', (string) ($me['first_name'] ?? ''));
+                }
+            }
+            if (!$errors && (bool) $values['telegram_webhook'] !== (bool) setting('telegram_webhook', false)) {
+                if ($token !== '' && ($err = telegram_configure_webhook((bool) $values['telegram_webhook'], $token))) $errors['telegram_webhook'] = $err;
             }
         }
         if ($tab === 'maintenance') {
@@ -242,10 +265,10 @@ function admin_settings(string $tab): void
         $current = settings_all();
     }
     // Never echo secrets back into the form
-    foreach (['turnstile_secret', 'smtp_pass'] as $s) $current[$s] = '';
+    foreach (['turnstile_secret', 'smtp_pass', 'telegram_bot_token'] as $s) $current[$s] = '';
 
     admin_render('Settings', 'settings', ['tabs' => $tabs, 'tab' => $tab, 'schema' => $schema, 'values' => $current, 'errors' => $errors,
-        'secrets' => ['turnstile_secret' => (bool) setting('turnstile_secret'), 'smtp_pass' => (bool) setting('smtp_pass')]]);
+        'secrets' => ['turnstile_secret' => (bool) setting('turnstile_secret'), 'smtp_pass' => (bool) setting('smtp_pass'), 'telegram_bot_token' => (bool) setting('telegram_bot_token')]]);
 }
 
 function admin_settings_test_email(): void
@@ -468,6 +491,7 @@ function admin_profile(): void
         'recoveryOnce' => (function () { $c = $_SESSION['recovery_codes_once'] ?? null; unset($_SESSION['recovery_codes_once']); return $c; })(),
         'recoveryLeft' => recovery_codes_left($uid),
         'devices' => db_all('SELECT * FROM known_devices WHERE user_id = ? ORDER BY last_seen DESC LIMIT 30', [$uid]),
+        'tgLinkUrl' => (int) ($_SESSION['telegram_link_until'] ?? 0) > time() ? (string) ($_SESSION['telegram_link_url'] ?? '') : '',
         'currentDevice' => !empty($_COOKIE[DEVICE_COOKIE]) ? device_hash() : '',
     ]);
 }

@@ -61,6 +61,10 @@ function notify_user(array $user, string $event, string $title, string $text, ar
     } catch (Throwable $e) {
         error_log('notify: ' . $e->getMessage());
     }
+    // Telegram copy: same rules as email (account-security and critical alerts always)
+    if ($email || $category === 'account' || $severity === 'critical') {
+        try { telegram_alert($user, $severity, $title, $text, $opt['link'] ?? null); } catch (Throwable $e) { error_log('notify telegram: ' . $e->getMessage()); }
+    }
     if (!$email || !filter_var((string) ($user['email'] ?? ''), FILTER_VALIDATE_EMAIL)) return;
 
     $to = [$user['email']];

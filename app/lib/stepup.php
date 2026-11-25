@@ -25,7 +25,15 @@ const STEPUP_ACTIONS = [
     'destroy' => 'Permanently delete content',
     'lead_delete' => 'Delete a lead',
     'maintenance' => 'Turn maintenance mode on or off',
+    'telegram' => 'Connect or change Telegram sign-in',
 ];
+
+/** 10 minutes, or longer on a device the user trusted (Settings → Security & Login). */
+function stepup_window(int $userId): int
+{
+    $min = (int) setting('stepup_trusted_minutes', 10);
+    return $min > 10 && device_trusted($userId) ? min(240, $min) * 60 : STEPUP_WINDOW;
+}
 
 function stepup_valid(): bool
 {
@@ -42,7 +50,7 @@ function stepup_remaining(): int
 
 function stepup_grant(array $user, string $method): void
 {
-    $_SESSION['stepup'] = ['uid' => (int) $user['id'], 'until' => time() + STEPUP_WINDOW, 'ver' => session_fingerprint((int) $user['id']), 'method' => $method];
+    $_SESSION['stepup'] = ['uid' => (int) $user['id'], 'until' => time() + stepup_window((int) $user['id']), 'ver' => session_fingerprint((int) $user['id']), 'method' => $method];
     auth_log('stepup_ok', (int) $user['id'], $user['email']);
 }
 

@@ -127,7 +127,7 @@ function maintenance_gate(string $path, string $method): void
             redirect(ltrim($path, '/') . ($qs ? '?' . http_build_query($qs) : ''));
         }
     }
-    if (str_starts_with($path, '/admin') || $path === '/install' || str_starts_with($path, '/cron/')) return;
+    if (str_starts_with($path, '/admin') || $path === '/install' || str_starts_with($path, '/cron/') || $path === '/telegram/webhook') return;
     if (in_array($path, ['/robots.txt', '/site.webmanifest', '/browserconfig.xml'], true)) return;
 
     // Team members can see exactly what visitors see (even before switching it on)

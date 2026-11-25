@@ -40,6 +40,21 @@
       </ul>
     </div>
     <?php endif ?>
+    <?php if ($tab === 'telegram'):
+        $tgOn = telegram_enabled();
+        $tgBot = (string) setting('telegram_bot_username', '');
+        $tgUsers = (int) db_val('SELECT COUNT(*) FROM users WHERE telegram_chat_id IS NOT NULL AND active = 1');
+        $tgTotal = (int) db_val('SELECT COUNT(*) FROM users WHERE active = 1');
+    ?>
+    <div class="adm-card mb-6 flex flex-wrap items-center gap-4 p-6">
+      <span class="grid h-12 w-12 shrink-0 place-items-center rounded-full <?= $tgOn ? 'bg-sky-50 text-sky-700' : 'bg-gray-100 text-gray-500' ?>"><?= icon('send', 'h-6 w-6') ?></span>
+      <div class="min-w-0 flex-1">
+        <p class="text-lg font-bold text-navy"><?= $tgOn ? 'Connected to @' . e($tgBot) : 'Telegram is off' ?></p>
+        <p class="text-sm text-charcoal/75"><?= $tgOn ? e($tgUsers . ' of ' . $tgTotal . ' team members connected · updates by ' . (setting('telegram_webhook') ? 'webhook' : 'polling')) : 'Add a bot token below and switch it on. Nobody receives anything until they connect their own Telegram.' ?></p>
+      </div>
+      <?php if ($tgOn): ?><a class="adm-btn adm-btn-light" href="<?= e(url('admin/profile#telegram')) ?>"><?= icon('user-cog', 'h-4 w-4') ?> Connect my Telegram</a><?php endif ?>
+    </div>
+    <?php endif ?>
     <?php if ($tab === 'maintenance'):
         $ms = maintenance_state();
         $link = maintenance_preview_url();

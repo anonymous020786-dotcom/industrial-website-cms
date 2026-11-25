@@ -143,13 +143,15 @@
   if (resume) setTimeout(() => (resume.requestSubmit ? resume.requestSubmit() : resume.submit()), 400);
 
   /* ---------------- QR code for authenticator apps ---------------- */
-  const qrBox = $('[data-qr]');
-  if (qrBox && typeof window.qrcode === 'function') {
-    const qr = window.qrcode(0, 'M');
-    qr.addData(qrBox.dataset.qr);
-    qr.make();
-    qrBox.innerHTML = qr.createSvgTag({ cellSize: 5, margin: 2, scalable: true });
-    const svg = $('svg', qrBox);
-    if (svg) { svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', 'QR code for your authenticator app'); svg.style.width = '200px'; svg.style.height = '200px'; }
+  if (typeof window.qrcode === 'function') {
+    document.querySelectorAll('[data-qr]').forEach((qrBox) => {
+      const qr = window.qrcode(0, 'M');
+      qr.addData(qrBox.dataset.qr);
+      qr.make();
+      qrBox.innerHTML = qr.createSvgTag({ cellSize: 5, margin: 2, scalable: true });
+      const svg = $('svg', qrBox);
+      const size = qrBox.dataset.qrSize || '200';
+      if (svg) { svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', qrBox.getAttribute('aria-label') || 'QR code for your authenticator app'); svg.style.width = size + 'px'; svg.style.height = size + 'px'; }
+    });
   }
 })();

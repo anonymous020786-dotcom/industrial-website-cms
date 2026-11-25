@@ -10,6 +10,7 @@ import sharp from 'sharp';
 import { Client, BASE, ROOT, TS_TOKEN, token, formToken, flashText, sql, setSetting, getSetting, db, php, sleep } from './lib/client.mjs';
 import { SoftAuthenticator } from './lib/authenticator.mjs';
 import { totp } from './lib/totp.mjs';
+import { startFakeTelegram, FAKE_TOKEN } from './lib/fake-telegram.mjs';
 
 const ADMIN = process.env.ADMIN_LOGIN || 'admin@example.com';
 const PASSWORD = process.env.ADMIN_PASSWORD || (existsSync(join(ROOT, 'app/storage/.dev-admin-password')) ? readFileSync(join(ROOT, 'app/storage/.dev-admin-password'), 'utf8').trim() : '');
@@ -744,6 +745,142 @@ test('team access: footer "Team login", /login shortcut, admin toolbar with "Edi
 });
 
 /* ------------------------------------------------------------------ */
+test('telegram: bot setup, connect, codes, one-tap approve/deny, trusted device skips codes, alerts, /stop', async () => {
+  sql('DELETE FROM rate_limits'); // earlier tests deliberately trip the failed-sign-in limits
+  const tg = await startFakeTelegram();
+  const uid = adminId();
+  const CHAT = 7770001;
+  const waitFor = async (fn, what, ms = 9000) => {
+    const end = Date.now() + ms;
+    for (;;) { const v = await fn(); if (v) return v; if (Date.now() > end) throw new Error('timed out waiting for ' + what); await sleep(700); }
+  };
+  setSetting('telegram_api_base', tg.url);
+  setSetting('telegram_update_offset', 0);
+  setSetting('telegram_webhook', false);
+  sql('UPDATE users SET telegram_chat_id = NULL, telegram_username = NULL, telegram_prefs = NULL, telegram_link_hash = NULL WHERE id = ?', [uid]);
+  try {
+    // 1) Admin adds the bot: the token is checked with Telegram (getMe)
+    await admin.stepUp();
+    let st = await admin.get('admin/settings/telegram');
+    const bad = await admin.post('admin/settings/telegram', { _token: token(st.text), telegram_enabled: '1', telegram_bot_token: '123:wrongwrongwrongwrongwrong', telegram_login_approval: '1' });
+    assert.match(bad.text, /rejected the bot token/);
+    st = await admin.get('admin/settings/telegram');
+    const ok = await admin.post('admin/settings/telegram', { _token: token(st.text), telegram_enabled: '1', telegram_bot_token: FAKE_TOKEN, telegram_login_approval: '1' });
+    assert.equal(ok.status, 302);
+    assert.equal(getSetting('telegram_bot_username'), 'e2e_test_bot');
+    assert.doesNotMatch((await admin.get('admin/settings/telegram')).text, new RegExp(FAKE_TOKEN.split(':')[1]), 'token never shown again');
+
+    // 2) Connect: single-use deep link, the user presses Start, the page notices by itself
+    const prof0 = await admin.get('admin/profile');
+    await admin.post('admin/telegram/link', { _token: token(prof0.text) });
+    const prof = await admin.get('admin/profile');
+    const startCode = (prof.text.match(/t\.me\/e2e_test_bot\?start=([\w-]+)/) || [])[1];
+    assert.ok(startCode, 'deep link shown');
+    tg.message(CHAT, '/start ' + startCode, 'e2e_owner');
+    await waitFor(async () => (await admin.postJSON('admin/telegram/status', {}, token(prof.text))).json?.linked, 'link');
+    assert.equal(String(sql('SELECT telegram_chat_id FROM users WHERE id = ?', [uid])[0].telegram_chat_id), String(CHAT));
+    assert.match(tg.lastTo(CHAT).text, /Connected|connected to your control panel/);
+    tg.message(8880002, '/start ' + startCode); // reused link from another chat
+    await sleep(2100);
+    await admin.postJSON('admin/telegram/status', {}, token(prof.text));
+    assert.match(tg.lastTo(8880002)?.text || '', /expired or was already used/);
+
+    // 3) Personal two-step: a Telegram code at every sign-in
+    const pp = await admin.get('admin/profile');
+    await admin.post('admin/telegram/prefs', { _token: token(pp.text), 'tg[codes]': '1', 'tg[approve]': '1', 'tg[require]': '1', 'tg[alerts]': '1', 'tg[leads]': '1' });
+    assert.ok(JSON.parse(sql('SELECT telegram_prefs FROM users WHERE id = ?', [uid])[0].telegram_prefs).require);
+
+    // 4) Sign in on a new device: code goes to Telegram with Approve / Deny; Approve finishes the sign-in
+    const ageCodes = () => sql('UPDATE login_otps SET created_at = created_at - INTERVAL 20 MINUTE WHERE user_id = ?', [uid]);
+    ageCodes();
+    const a = new Client();
+    const lp = await a.get('admin/login');
+    const lr = await a.post('admin/login', { _token: token(lp.text), login: ADMIN, password: PASSWORD, 'cf-turnstile-response': TS_TOKEN });
+    const aTo = lr.location || 'error: ' + (lr.text.match(/role="alert"[^>]*>([\s\S]{0,300}?)<\/div>/) || ['', '?'])[1].replace(/<[^>]+>/g, ' ');
+    assert.match(aTo, /admin\/login\/verify$/, 'a Telegram code is required on a new device');
+    const v = await a.get('admin/login/verify');
+    assert.match(v.text, /Check Telegram/);
+    assert.match(v.text, /data-tg-approval/);
+    const codeMsg = tg.lastTo(CHAT);
+    assert.match(codeMsg.text, /Sign-in code: <code>\d{6}<\/code>/);
+    const approve = codeMsg.buttons.find((b) => /Approve/.test(b.text)).callback_data;
+    tg.press(9990003, approve); // someone else's chat can't approve
+    await sleep(2100);
+    assert.equal((await a.postJSON('admin/login/verify/status', { trust: 1 }, token(v.text))).json.status, 'pending');
+    tg.press(CHAT, approve);
+    const done = await waitFor(async () => { const r = (await a.postJSON('admin/login/verify/status', { trust: 1 }, token(v.text))).json; return r.status === 'approved' && r; }, 'approval');
+    assert.match(done.redirect, /\/admin$/);
+    assert.equal((await a.get('admin')).status, 200, 'signed in by tapping Approve');
+    tg.press(CHAT, approve); // pressing again does nothing
+    await sleep(2100);
+
+    // 5) Trusted device: the next sign-in on that browser skips the Telegram code
+    a.jar.delete('ivadmin');
+    assert.match(await a.login(ADMIN, PASSWORD), /\/admin$/, 'trusted device: no code');
+
+    // 6) Deny blocks the sign-in and alerts the owner
+    ageCodes();
+    const b = new Client();
+    await b.login(ADMIN, PASSWORD);
+    const vb = await b.get('admin/login/verify');
+    const deny = tg.lastTo(CHAT).buttons.find((x) => /Deny/.test(x.text)).callback_data;
+    tg.press(CHAT, deny);
+    const denied = await waitFor(async () => { const r = (await b.postJSON('admin/login/verify/status', {}, token(vb.text))).json; return r.status === 'denied' && r; }, 'deny');
+    assert.match(denied.redirect, /admin\/login$/);
+    assert.equal((await b.get('admin')).status, 302, 'not signed in');
+    assert.ok(sql("SELECT id FROM notifications WHERE user_id = ? AND event = 'telegram_denied'", [uid]).length, 'owner alerted');
+
+    // 7) Typing the code from Telegram also works; "email instead" falls back to email
+    ageCodes();
+    const c = new Client();
+    await c.login(ADMIN, PASSWORD);
+    const vc = await c.get('admin/login/verify');
+    const typed = tg.lastTo(CHAT).text.match(/<code>(\d{6})<\/code>/)[1];
+    const r7 = await c.post('admin/login/verify', { _token: token(vc.text), code: typed });
+    assert.match(r7.location, /\/admin$/);
+    ageCodes();
+    const d = new Client();
+    await d.login(ADMIN, PASSWORD);
+    const vd = await d.get('admin/login/verify');
+    ageCodes();
+    await d.post('admin/login/resend', { _token: token(vd.text), to: 'email' });
+    const ve = await d.get('admin/login/verify');
+    assert.match(ve.text, /Check your email/, 'email fallback: ' + flashText(ve.text).join(' | '));
+
+    // 8) Confirmations for sensitive actions arrive in Telegram too; trusted devices keep them longer
+    setSetting('stepup_trusted_minutes', '60');
+    sql('UPDATE login_otps SET created_at = created_at - INTERVAL 20 MINUTE WHERE user_id = ?', [uid]);
+    const conf = await a.get('admin/confirm');
+    assert.match(conf.text, /Code we sent to your Telegram/);
+    assert.match(tg.lastTo(CHAT).text, /Confirmation code/);
+    const code8 = conf.text.match(/Debug mode — code: <code class="font-bold">(\d{6})/)[1];
+    await a.post('admin/confirm', { _token: token(conf.text), method: 'email', code: code8 });
+    const mins = Number(((await a.get('admin')).text.match(/confirmed for (\d+) more minute/) || [])[1]);
+    assert.ok(mins > 50, `trusted device keeps the confirmation ~60 min (got ${mins})`);
+
+    // 9) Alerts: security notices and new leads
+    sql('DELETE FROM rate_limits');
+    const visitor = new Client();
+    const qp = await visitor.get('contact');
+    await sleep(3200);
+    await visitor.post('lead', { form: 'contact', _ft: formToken(qp.text), fullName: 'E2E Telegram Lead', company: 'E2E Ltd', email: 'e2e+tg@example.com', phone: '+44 20 0000 0001', product: 'Hydraulic Cylinders', message: 'Hydraulic cylinder repair', consent: '1', 'cf-turnstile-response': TS_TOKEN }, { Accept: 'application/json' });
+    assert.ok(tg.state.sent.some((s) => s.chat === String(CHAT) && /New enquiry/.test(s.text) && /E2E Telegram Lead/.test(s.text)), 'lead alert');
+
+    // 10) /stop in Telegram disconnects
+    tg.message(CHAT, '/stop');
+    await waitFor(async () => { await admin.postJSON('admin/telegram/status', {}, token(prof.text)); return !sql('SELECT telegram_chat_id FROM users WHERE id = ?', [uid])[0].telegram_chat_id; }, '/stop');
+  } finally {
+    sql('UPDATE users SET telegram_chat_id = NULL, telegram_username = NULL, telegram_prefs = NULL, telegram_link_hash = NULL, telegram_link_expires = NULL WHERE id = ?', [uid]);
+    sql("UPDATE known_devices SET trusted_until = NULL WHERE user_id = ?", [uid]);
+    sql("DELETE FROM leads WHERE email LIKE 'e2e+%@example.com'");
+    setSetting('telegram_enabled', false);
+    setSetting('telegram_api_base', '');
+    setSetting('stepup_trusted_minutes', '10');
+    await tg.close();
+  }
+});
+
+/* ------------------------------------------------------------------ */
 test('keep me signed in: survives a browser restart, rotates, is device-bound, detects stolen tokens, ends on sign-out', async () => {
   setSetting('remember_enabled', true);
   setSetting('remember_days', 30);
@@ -774,6 +911,7 @@ test('keep me signed in: survives a browser restart, rotates, is device-bound, d
 });
 
 test('trusted device: skips the sign-in code until trust is removed; sign out everywhere ends other sessions', async () => {
+  sql('DELETE FROM rate_limits');
   const uid = adminId();
   const ageCodes = () => sql('UPDATE login_otps SET created_at = created_at - INTERVAL 20 MINUTE WHERE user_id = ?', [uid]);
   setSetting('admin_otp_enabled', true);

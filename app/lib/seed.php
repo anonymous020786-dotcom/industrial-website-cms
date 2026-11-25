@@ -202,7 +202,7 @@ function finish_install(): void
 /* Migrations for sites installed before newer columns existed.        */
 /* Portable across MySQL and MariaDB (checks information_schema).      */
 /* ------------------------------------------------------------------ */
-const SCHEMA_VERSION = 9;
+const SCHEMA_VERSION = 10;
 
 function column_exists(string $table, string $column): bool
 {
@@ -230,6 +230,12 @@ function run_migrations(): array
             'avatar' => 'VARCHAR(500) NULL AFTER totp_enabled_at',
             'notify_prefs' => 'TEXT NULL AFTER avatar',
             'session_salt' => 'VARCHAR(32) NULL AFTER notify_prefs',
+            'telegram_chat_id' => 'VARCHAR(32) NULL AFTER session_salt',
+            'telegram_username' => 'VARCHAR(64) NULL AFTER telegram_chat_id',
+            'telegram_linked_at' => 'DATETIME NULL AFTER telegram_username',
+            'telegram_prefs' => 'TEXT NULL AFTER telegram_linked_at',
+            'telegram_link_hash' => 'CHAR(64) NULL AFTER telegram_prefs',
+            'telegram_link_expires' => 'DATETIME NULL AFTER telegram_link_hash',
         ],
         'known_devices' => [
             'trusted_until' => 'DATETIME NULL AFTER ip',
@@ -244,6 +250,10 @@ function run_migrations(): array
         'login_otps' => [
             'purpose' => "VARCHAR(30) NOT NULL DEFAULT 'login' AFTER user_id",
             'target' => 'VARCHAR(190) NULL AFTER purpose',
+            'channel' => "VARCHAR(10) NOT NULL DEFAULT 'email' AFTER target",
+            'approval' => 'VARCHAR(10) NULL AFTER channel',
+            'approval_nonce' => 'CHAR(24) NULL AFTER approval',
+            'tg_message_id' => 'BIGINT NULL AFTER approval_nonce',
         ],
     ];
     foreach ($columns as $table => $cols) {
