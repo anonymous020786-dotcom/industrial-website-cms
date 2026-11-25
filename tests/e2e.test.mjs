@@ -1311,6 +1311,86 @@ test('site search: ranks products first, highlights words, finds part numbers, j
   cleanupMore();
 });
 
+test('content approval: editors\' changes to live posts wait for an administrator; diff, send back, approve; activity log', async () => {
+  const EDITOR = 'e2e-editor@example.com';
+  const pw = 'E2e-Editor-Pass-91!';
+  const cleanup = () => {
+    sql("DELETE FROM content_reviews WHERE title LIKE 'e2e%'");
+    sql("DELETE FROM content_log WHERE title LIKE 'e2e%'");
+    sql("DELETE FROM revisions WHERE title LIKE 'e2e%'");
+    sql("DELETE FROM posts WHERE slug LIKE 'e2e-approval%'");
+    sql('DELETE FROM notifications WHERE user_id IN (SELECT id FROM users WHERE email = ?)', [EDITOR]);
+    sql('DELETE FROM users WHERE email = ?', [EDITOR]);
+    setSetting('content_approval', false);
+  };
+  cleanup();
+  const hash = php(['-r', `echo password_hash('${pw}', PASSWORD_DEFAULT);`]);
+  sql("INSERT INTO users (name, email, username, password_hash, role, active) VALUES ('E2E Editor', ?, 'e2e-editor', ?, 'editor', 1)", [EDITOR, hash]);
+  const editorId = Number(sql('SELECT id FROM users WHERE email = ?', [EDITOR])[0].id);
+  const post = (over) => ({ _token: csrf, title: 'e2e Approval post', slug: 'e2e-approval-post', content: '<p>Original live text about crane hooks.</p>', excerpt: 'Live excerpt',
+    status: 'published', published_at: '', category_id: '', tags: '', author_id: '', featured_image: '', featured_alt: '', focus_keyword: '', meta_title: '', meta_description: '', canonical_url: '', noindex: '0', ...over });
+  let r = await admin.post('admin/posts/new', post({}));
+  const pid = Number(new URL(r.location, BASE).pathname.match(/posts\/(\d+)/)[1]);
+  setSetting('content_approval', true);
+  try {
+    sql('DELETE FROM rate_limits');
+    const ed = new Client();
+    assert.match(await ed.login(EDITOR, pw), /\/admin$/);
+    let page = await ed.get(`admin/posts/${pid}/edit`);
+    const et = token(page.text);
+    r = await ed.post(`admin/posts/${pid}/edit`, post({ _token: et, content: '<p>Updated text about forged crane hooks.</p>' }));
+    page = await ed.get(new URL(r.location, BASE).pathname.slice(1));
+    assert.ok(flashText(page.text).some((f) => /sent to an administrator for approval/.test(f)), flashText(page.text).join('|'));
+    assert.match(page.text, /data-review-pending[\s\S]*Your changes are waiting for approval/);
+    assert.match(page.text, /Updated text about forged crane hooks/, 'editor keeps editing their pending version');
+    assert.match(sql('SELECT content FROM posts WHERE id = ?', [pid])[0].content, /Original live text/, 'live post unchanged');
+    assert.match((await new Client().get('blog/e2e-approval-post')).text, /Original live text/);
+    const rev = sql("SELECT * FROM content_reviews WHERE entity = 'post' AND entity_id = ? AND status = 'pending'", [pid])[0];
+    assert.ok(rev, 'pending review stored');
+    assert.ok(sql("SELECT id FROM notifications WHERE event = 'content_review' AND link = ?", [`admin/reviews/${rev.id}`]).length, 'administrators notified');
+    // Editors cannot skip approval through bulk publish or restoring a revision
+    r = await ed.post('admin/posts/bulk', { _token: et, bulk_action: 'publish', 'ids[]': String(pid) });
+    assert.ok(flashText((await ed.get('admin/posts')).text).some((f) => /needs an administrator/.test(f)));
+    assert.equal((await ed.get('admin/reviews')).status, 403, 'editors cannot open the review queue');
+
+    // Administrator: queue, diff, send back (note required), then approve a resubmission
+    assert.match((await admin.get('admin/reviews')).text, /data-review-row[\s\S]*e2e Approval post/);
+    const diff = await admin.get(`admin/reviews/${rev.id}`);
+    assert.match(diff.text, /data-review-change="Content"[\s\S]*<del>Original<\/del><ins>Updated<\/ins> <del>live <\/del>text about<ins> forged<\/ins> crane hooks/);
+    r = await admin.post(`admin/reviews/${rev.id}/decide`, { _token: csrf, decision: 'reject', note: '' });
+    assert.equal(sql('SELECT status FROM content_reviews WHERE id = ?', [rev.id])[0].status, 'pending', 'note required to send back');
+    await admin.post(`admin/reviews/${rev.id}/decide`, { _token: csrf, decision: 'reject', note: 'Say which standard the hooks meet.' });
+    assert.equal(sql('SELECT status FROM content_reviews WHERE id = ?', [rev.id])[0].status, 'rejected');
+    assert.ok(sql("SELECT id FROM notifications WHERE user_id = ? AND event = 'content_review_rejected'", [editorId]).length, 'editor told why');
+
+    page = await ed.get(`admin/posts/${pid}/edit`);
+    await ed.post(`admin/posts/${pid}/edit`, post({ _token: token(page.text), content: '<p>Updated text about forged crane hooks to DIN 15400.</p>' }));
+    const rev2 = sql("SELECT id FROM content_reviews WHERE entity = 'post' AND entity_id = ? AND status = 'pending'", [pid])[0];
+    await admin.post(`admin/reviews/${rev2.id}/decide`, { _token: csrf, decision: 'approve', note: '' });
+    assert.match(sql('SELECT content FROM posts WHERE id = ?', [pid])[0].content, /DIN 15400/, 'approved change is live');
+    assert.match((await new Client().get('blog/e2e-approval-post')).text, /DIN 15400/);
+    assert.ok(sql("SELECT id FROM notifications WHERE user_id = ? AND event = 'content_review_approved'", [editorId]).length);
+
+    // New posts an editor wants to publish start as drafts until approved
+    page = await ed.get('admin/posts/new');
+    r = await ed.post('admin/posts/new', post({ _token: token(page.text), title: 'e2e Approval new', slug: 'e2e-approval-new' }));
+    assert.equal(sql("SELECT status FROM posts WHERE slug = 'e2e-approval-new'")[0].status, 'draft');
+    assert.equal((await new Client().get('blog/e2e-approval-new')).status, 404);
+
+    const act = await admin.get('admin/activity?user=' + editorId);
+    assert.match(act.text, /data-activity="post:submitted"/);
+    assert.match((await admin.get('admin/activity?entity=post&action=approved')).text, /data-activity="post:approved"[\s\S]*e2e Approval post/);
+
+    // Approval off: editors publish directly
+    setSetting('content_approval', false);
+    page = await ed.get(`admin/posts/${pid}/edit`);
+    await ed.post(`admin/posts/${pid}/edit`, post({ _token: token(page.text), content: '<p>Direct edit by editor.</p>' }));
+    assert.match(sql('SELECT content FROM posts WHERE id = ?', [pid])[0].content, /Direct edit by editor/);
+  } finally {
+    cleanup();
+  }
+});
+
 test('keep me signed in: survives a browser restart, rotates, is device-bound, detects stolen tokens, ends on sign-out', async () => {
   setSetting('remember_enabled', true);
   setSetting('remember_days', 30);

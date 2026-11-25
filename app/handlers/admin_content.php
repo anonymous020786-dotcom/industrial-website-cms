@@ -60,6 +60,7 @@ function admin_revision_restore(string $type, string $id, string $rid): void
     $row = db_one("SELECT * FROM `{$table}` WHERE id = ?", [(int) $id]);
     $rev = db_one('SELECT * FROM revisions WHERE id = ? AND entity = ? AND entity_id = ?', [(int) $rid, $entity, (int) $id]);
     if (!$row || !$rev) abort(404);
+    if (approval_required() && content_is_live($row)) { flash('error', 'This is live content: restoring an older version needs an administrator. Ask an administrator, or copy the text into the editor and send it for approval.'); redirect("admin/{$type}/{$id}/edit"); }
     $snap = json_decode($rev['snapshot'], true) ?: [];
     // Restore content only: keep the current publishing state, system-page URL/template and identity columns
     $skip = ['id', 'status', 'published_at', 'created_at', 'updated_at', 'views', 'deleted_at', 'is_system'];
@@ -68,6 +69,7 @@ function admin_revision_restore(string $type, string $id, string $rid): void
     if (isset($data['slug'])) $data['slug'] = unique_slug($table, (string) $data['slug'], (int) $id);
     revision_save($entity, $row);
     if ($data) db_update($table, $data, (int) $id);
+    content_log($entity, (int) $id, 'restored', (string) $row['title'], 'Restored the version from ' . $rev['created_at']);
     flash('success', 'Restored the version from ' . format_date($rev['created_at'], 'j M Y H:i') . '. The version you replaced is kept in the history.');
     redirect("admin/{$type}/{$id}/edit");
 }
@@ -253,6 +255,15 @@ function admin_post_edit(?string $id = null): void
             elseif (strtotime($v['published_at']) <= time()) $v['status'] = 'published';
         }
         $v['reading_minutes'] = reading_minutes((string) $v['content']);
+        if (!$errors && approval_required() && (content_is_live($post) || in_array($v['status'], ['published', 'scheduled'], true))) {
+            // Live post: keep it unchanged. Draft / new: save as draft. Either way an administrator approves going live.
+            if (content_is_live($post)) $pid = (int) $post['id'];
+            elseif ($post) { revision_save('post', $post); db_update('posts', ['status' => 'draft'] + $v, (int) $post['id']); $pid = (int) $post['id']; }
+            else $pid = db_insert('posts', ['status' => 'draft'] + $v);
+            review_submit('post', $pid, $v, (string) $v['title']);
+            flash('success', 'Saved and sent to an administrator for approval. ' . (content_is_live($post) ? 'The live post stays as it is until the change is approved.' : 'It goes live once approved.'));
+            redirect('admin/posts/' . $pid . '/edit');
+        }
         if (!$errors) {
             if ($post) {
                 revision_save('post', $post);
@@ -264,6 +275,7 @@ function admin_post_edit(?string $id = null): void
                 }
             }
             else $pid = db_insert('posts', $v);
+            content_log('post', $pid, $post ? 'updated' : 'created', (string) $v['title'], $post ? history_changed_fields($post, $v, ['data' => 'sections']) : null);
             flash('success', 'Post saved' . ($v['status'] === 'published' ? ' and published.' : ($v['status'] === 'scheduled' ? ' — scheduled for ' . format_date($v['published_at'], 'j M Y H:i') . '.' : ' as draft.')));
             redirect('admin/posts/' . $pid . '/edit');
         }
@@ -273,7 +285,10 @@ function admin_post_edit(?string $id = null): void
 
     $actions = $post ? '<a class="adm-btn adm-btn-light" target="_blank" href="' . e(url('blog/' . $post['slug']) . ($post['status'] === 'published' && strtotime((string) $post['published_at']) <= time() ? '' : '?preview=1')) . '">' . icon('eye', 'h-4 w-4') . ' View</a>' : '';
     $revisions = $post ? revisions_for('post', $post) : [];
-    admin_render($post ? 'Edit post' : 'New post', 'posts/edit', ['post' => $post, 'schema' => $schema, 'values' => $values, 'errors' => $errors, 'revisions' => $revisions], ['actions' => $actions, 'crumbs' => [['Blog Posts', 'admin/posts']], 'wide' => true]);
+    $pending = $post ? review_pending_for('post', (int) $post['id']) : null;
+    // An editor continues from the change they already sent
+    if ($pending && !is_post() && (int) $pending['user_id'] === (int) $user['id']) $values = array_merge($values, array_intersect_key(json_decode($pending['snapshot'], true) ?: [], $schema));
+    admin_render($post ? 'Edit post' : 'New post', 'posts/edit', ['post' => $post, 'schema' => $schema, 'values' => $values, 'errors' => $errors, 'revisions' => $revisions, 'pending' => $pending], ['actions' => $actions, 'crumbs' => [['Blog Posts', 'admin/posts']], 'wide' => true]);
 }
 
 function admin_post_delete(string $id): void
@@ -281,6 +296,7 @@ function admin_post_delete(string $id): void
     require_login('content');
     csrf_check();
     content_trash('posts', [(int) $id]);
+    content_log('post', (int) $id, 'deleted', (string) db_val('SELECT title FROM posts WHERE id = ?', [(int) $id]), 'Moved to the Trash');
     flash('success', 'Post moved to the Trash and unpublished. You can restore it for ' . TRASH_DAYS . ' days.');
     redirect('admin/posts');
 }
@@ -295,6 +311,7 @@ function admin_posts_bulk(): void
     $in = implode(',', array_fill(0, count($ids), '?'));
     switch ($action) {
         case 'publish':
+            if (approval_required()) { flash('error', 'Publishing needs an administrator’s approval. Open the post, choose Published and save to send it for approval.'); back('admin/posts'); }
             db_query("UPDATE posts SET status = 'published', published_at = COALESCE(LEAST(published_at, NOW()), NOW()) WHERE id IN ({$in})", $ids);
             flash('success', count($ids) . ' post(s) published.');
             break;
@@ -397,6 +414,7 @@ function admin_pages_bulk(): void
     $in = implode(',', array_fill(0, count($ids), '?'));
     switch ($action) {
         case 'publish':
+            if (approval_required()) { flash('error', 'Publishing needs an administrator’s approval. Open the page, choose Published and save to send it for approval.'); back('admin/pages'); }
             db_query("UPDATE pages SET status = 'published' WHERE deleted_at IS NULL AND id IN ({$in})", $ids);
             flash('success', count($ids) . ' page(s) published.');
             break;
@@ -454,6 +472,14 @@ function admin_page_edit(?string $id = null): void
         $v['noindex'] = (int) $v['noindex'];
         if (template_def($v['template'])['content']) $v['content'] = sanitize_html((string) ($_POST['content'] ?? ''));
         $v['data'] = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if (!$errors && approval_required() && (content_is_live($page) || $v['status'] === 'published')) {
+            if (content_is_live($page)) $pid = (int) $page['id'];
+            elseif ($page) { revision_save('page', $page); db_update('pages', ['status' => 'draft'] + $v, (int) $page['id']); $pid = (int) $page['id']; }
+            else $pid = db_insert('pages', ['status' => 'draft'] + $v);
+            review_submit('page', $pid, $v, (string) $v['title']);
+            flash('success', 'Saved and sent to an administrator for approval. ' . (content_is_live($page) ? 'The live page stays as it is until the change is approved.' : 'It goes live once approved.'));
+            redirect('admin/pages/' . $pid . '/edit');
+        }
         if (!$errors) {
             if ($page) {
                 revision_save('page', $page);
@@ -465,6 +491,7 @@ function admin_page_edit(?string $id = null): void
                 }
             }
             else $pid = db_insert('pages', $v);
+            content_log('page', $pid, $page ? 'updated' : 'created', (string) $v['title'], $page ? history_changed_fields($page, $v, ['data' => 'sections']) : null);
             if (!$page && !empty($_POST['add_to_menu'])) {
                 $menu = header_menu();
                 $menu[] = ['label' => $v['title'], 'url' => $v['slug'], 'mega' => false];
@@ -479,7 +506,13 @@ function admin_page_edit(?string $id = null): void
 
     $actions = $page ? '<a class="adm-btn adm-btn-light" target="_blank" href="' . e(page_url($page) . ($page['status'] === 'draft' ? '?preview=1' : '')) . '">' . icon('eye', 'h-4 w-4') . ' View page</a>' : '';
     $revisions = $page ? revisions_for('page', $page) : [];
-    admin_render($page ? 'Edit page: ' . $page['title'] : 'New page', 'pages/edit', compact('page', 'base', 'tdef', 'values', 'errors', 'template', 'revisions'), ['actions' => $actions, 'crumbs' => [['Pages', 'admin/pages']], 'wide' => true]);
+    $pending = $page ? review_pending_for('page', (int) $page['id']) : null;
+    if ($pending && !is_post() && (int) $pending['user_id'] === (int) current_user()['id']) {
+        $snap = array_intersect_key(json_decode($pending['snapshot'], true) ?: [], $page);
+        if (isset($snap['data'])) $snap['data'] = json_decode((string) $snap['data'], true) ?: [];
+        $values = array_merge($values, $snap);
+    }
+    admin_render($page ? 'Edit page: ' . $page['title'] : 'New page', 'pages/edit', compact('page', 'base', 'tdef', 'values', 'errors', 'template', 'revisions', 'pending'), ['actions' => $actions, 'crumbs' => [['Pages', 'admin/pages']], 'wide' => true]);
 }
 
 function admin_page_delete(string $id): void
@@ -490,6 +523,7 @@ function admin_page_delete(string $id): void
     if (!$page) abort(404);
     if ($page['is_system']) { flash('error', 'System pages cannot be deleted. Set them to Draft instead.'); redirect('admin/pages'); }
     content_trash('pages', [(int) $id]);
+    content_log('page', (int) $id, 'deleted', (string) $page['title'], 'Moved to the Trash');
     flash('success', 'Page moved to the Trash and unpublished. You can restore it for ' . TRASH_DAYS . ' days.');
     redirect('admin/pages');
 }

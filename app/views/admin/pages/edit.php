@@ -3,6 +3,7 @@ $pick = fn(array $keys) => array_intersect_key($base, array_flip($keys));
 $dataErrors = [];
 foreach ($errors as $k => $v) if (str_starts_with($k, 'data.')) $dataErrors[substr($k, 5)] = $v;
 ?>
+<?= view('admin/_review_banner', ['pending' => $pending ?? null, 'entity' => 'page']) ?>
 <?php if (!$page): ?>
 <div class="adm-flash adm-flash-info mb-4"><?= icon('info', 'h-5 w-5 shrink-0') ?><span>Choose <strong>Standard page</strong> for general content or <strong>Legal / policy page</strong> for policies with a numbered table of contents.</span></div>
 <?php endif ?>

@@ -155,6 +155,18 @@ function settings_tabs(): array
             'quote_terms' => ['type' => 'textarea', 'label' => 'Terms & conditions', 'rows' => 5, 'default' => "Prices are ex-works and exclusive of freight and insurance unless stated.\nDelivery time starts from receipt of the purchase order and advance payment.\nThis quotation is valid until the date shown."],
             'quote_bank' => ['type' => 'textarea', 'label' => 'Bank details (printed on the PDF)', 'rows' => 4, 'placeholder' => "Account name\nBank, branch\nAccount number · IFSC"],
         ]],
+        'workflow' => ['Workflow & Reports', 'git-pull-request-arrow', [
+            'h_ap' => ['type' => 'heading', 'label' => 'Content approval', 'help' => 'When on, changes editors make to live pages and blog posts — and anything they want to publish — wait in <strong>Approvals</strong> until an administrator approves them. Drafts can still be edited freely. Administrators publish directly.'],
+            'content_approval' => ['type' => 'checkbox', 'label' => 'Approval', 'text' => 'Editors need an administrator’s approval to publish or change live content', 'wide' => true],
+            'h_careers' => ['type' => 'heading', 'label' => 'Careers', 'help' => 'Job applications (with CVs) go to administrators only, separate from sales leads.'],
+            'careers_email' => ['type' => 'email', 'label' => 'Also email applications to', 'placeholder' => 'hr@yourcompany.com', 'help' => 'Optional, e.g. your HR inbox. Also shown on the careers page when there are no openings.'],
+            'h_rep' => ['type' => 'heading', 'label' => 'Weekly owner report', 'help' => 'Every week: new enquiries, quotations sent and won, service requests, top pages, part numbers people could not find, errors and backup status — by email and Telegram.'],
+            'report_weekly' => ['type' => 'checkbox', 'label' => 'Weekly report', 'text' => 'Send the weekly report', 'default' => true, 'wide' => true],
+            'report_day' => ['type' => 'select', 'label' => 'Send on', 'options' => [1 => 'Monday', 2 => 'Tuesday', 3 => 'Wednesday', 4 => 'Thursday', 5 => 'Friday', 6 => 'Saturday', 7 => 'Sunday'], 'default' => 1],
+            'report_hour' => ['type' => 'select', 'label' => 'At', 'options' => array_combine(range(0, 23), array_map(fn($h) => sprintf('%02d:00', $h), range(0, 23))), 'default' => 8],
+            'report_recipients' => ['type' => 'text', 'label' => 'Send to', 'placeholder' => 'owner@company.com, manager@company.com', 'wide' => true, 'help' => 'Comma-separated. Leave empty to send to every active administrator.'],
+            'report_telegram' => ['type' => 'checkbox', 'label' => 'Telegram', 'text' => 'Also send a short summary to administrators who connected Telegram', 'default' => true, 'wide' => true],
+        ]],
         'telegram' => ['Telegram', 'send', [
             'h_tg' => ['type' => 'heading', 'label' => 'Telegram bot', 'help' => 'Send sign-in codes, one-tap sign-in approval, security alerts and new-lead alerts through your own Telegram bot. In Telegram, open <strong>@BotFather</strong>, send <code>/newbot</code>, choose a name, then paste the token it gives you here. Each team member then connects their own Telegram in My profile.'],
             'telegram_enabled' => ['type' => 'checkbox', 'label' => 'Telegram', 'text' => 'Use Telegram for codes and alerts', 'wide' => true],

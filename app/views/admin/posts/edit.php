@@ -2,6 +2,7 @@
 $pick = fn(array $keys) => array_intersect_key($schema, array_flip($keys));
 $previewUrl = abs_url('blog/' . ($values['slug'] ?? 'your-post'));
 ?>
+<?= view('admin/_review_banner', ['pending' => $pending ?? null, 'entity' => 'post']) ?>
 <?php if ($post && $post['deleted_at']): ?><?= view('admin/_trash_banner', ['type' => 'posts', 'item' => $post]) ?><?php endif ?>
 <form method="post" class="grid gap-6 xl:grid-cols-3" data-seo-form data-seo-url="<?= e($previewUrl) ?>" data-site-name="<?= e(company('name')) ?>">
   <?= csrf_field() ?>

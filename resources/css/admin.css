@@ -352,3 +352,10 @@ html.theme-anim, html.theme-anim *, html.theme-anim *::before { transition: back
   html.sidebar-collapsed .adm-sidebar > div:last-child { padding-left: .6rem; padding-right: .6rem; }
 }
 @media (prefers-reduced-motion: reduce) { .adm-sidebar, .adm-main { transition: none !important; } }
+
+/* Content approval diff */
+.review-diff { white-space: normal; overflow-wrap: anywhere; }
+.review-diff del, .review-del { background: #fee2e2; color: #991b1b; text-decoration: line-through; text-decoration-thickness: 1px; }
+.review-diff ins, .review-ins { background: #dcfce7; color: #166534; text-decoration: none; }
+html.dark .review-diff del, html.dark .review-del { background: rgb(127 29 29 / .45); color: #fecaca; }
+html.dark .review-diff ins, html.dark .review-ins { background: rgb(20 83 45 / .5); color: #bbf7d0; }

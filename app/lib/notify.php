@@ -14,6 +14,7 @@ const NOTIFY_CATEGORIES = [
     'signin' => ['Sign-in alerts', 'New browser or device sign-ins and account lockouts.', true],
     'admin' => ['Administrator activity', 'User accounts, security/email/integration settings, backups and lead exports changed by anyone.', true],
     'system' => ['Site errors & maintenance', 'Unexpected errors visitors run into, and maintenance mode being switched on or off.', true],
+    'reviews' => ['Content approvals', 'Changes editors send for approval (administrators), and decisions on changes you sent.', true],
     'content' => ['Permanent deletions', 'Pages, posts or files deleted for good (Trash emptied).', false],
 ];
 
