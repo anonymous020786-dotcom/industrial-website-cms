@@ -9,6 +9,7 @@
  *   php app/cli.php maintenance --on|--off     Maintenance mode [--until="+2 hours"] [--message="…"]; no flag = status
  *   php app/cli.php stock-ids                  List Unsplash photo ids used in the database (for npm run images)
  *   php app/cli.php cron [--force]             Run scheduled tasks (add to the server's cron every 5-15 min)
+ *   php app/cli.php update [--check|--force]   Install the latest tested release from GitHub (if configured)
  *   php app/cli.php backup [--uploads]         Create a backup now
  *   php app/cli.php restore <file> --yes       Restore a .sql.gz backup (OVERWRITES the database)
  *   php app/cli.php create-admin --email=… --pass=… [--name=…]
@@ -45,6 +46,18 @@ switch ($cmd) {
         break;
     case 'cron':
         foreach (cron_run(in_array('--force', $argv, true)) as $task => $result) echo str_pad($task, 14) . $result . PHP_EOL;
+        break;
+    case 'update':
+        if (!updater_enabled()) { echo "Automatic updates are off. Add 'auto_update' => ['repo' => 'owner/name', 'branch' => 'release'] to app/config.php.\n"; exit(1); }
+        if (in_array('--check', $argv, true)) {
+            $remote = updater_remote_sha();
+            $local = (string) setting('deployed_sha', '');
+            echo 'Release: ' . substr($remote, 0, 7) . ' · installed: ' . ($local !== '' ? substr($local, 0, 7) : 'unknown') . ($remote === $local ? ' (up to date)' : ' (update available)') . PHP_EOL;
+            break;
+        }
+        $r = updater_run(in_array('--force', $argv, true));
+        echo $r . PHP_EOL;
+        if (str_starts_with($r, 'ERROR')) exit(1);
         break;
     case 'backup':
         $b = backup_create(in_array('--uploads', $argv, true));

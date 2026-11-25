@@ -95,7 +95,23 @@ php app/cli.php install --db-name=industrial_cms --db-user=root --db-pass= \
    - **Otherwise:** upload everything into `public_html`. The root `.htaccess` routes requests into
      `/public` and blocks `app/`, `database/` and the like.
 
-   **Automatic deploys:** `.github/workflows/deploy.yml` (SSH or FTPS secrets) uses
+   **Automatic updates without SSH, FTP or secrets (recommended for shared hosting):** add this to
+   the server's private `app/config.php`:
+
+   ```php
+   'auto_update' => ['repo' => 'owner/repository', 'branch' => 'release'],
+   ```
+
+   - When CI passes on `main`, the Deploy workflow moves the `release` branch to that commit.
+   - The site's own cron (every 10 minutes) downloads that commit and swaps the files in, in the
+     same layout. Config, backups, uploads and `.well-known` are never touched.
+   - Files deleted from the repo are removed, database migrations run, and admins get a "Website
+     updated" alert.
+   - Manually: `php app/cli.php update --check` or `php app/cli.php update`. Status is under
+     Settings → System.
+   - Only the server config can turn this on, so an admin login can't point the site at other code.
+
+   **Push deploys:** `.github/workflows/deploy.yml` (SSH or FTPS secrets) uses
    `scripts/deploy-sync.sh`. Set the repository variable `DEPLOY_WEB_DIR=public_html` for the
    first layout above.
    - The config, `app/storage` (backups, logs), uploads and `.well-known` are never overwritten

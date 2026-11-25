@@ -115,7 +115,10 @@
             ['Debug mode', config('debug') ? 'ON — disable in app/config.php for production' : 'Off', !config('debug')],
             ['Upload limit', ini_get('upload_max_filesize') . ' per file / ' . ini_get('post_max_size') . ' per request', true],
             ['Cloudflare', !empty($_SERVER['HTTP_CF_RAY']) ? 'Requests are coming through Cloudflare' : 'Not detected', true],
-            ['App version', APP_VERSION, true],
+            ['App version', APP_VERSION . (setting('deployed_sha') ? ' · release ' . substr((string) setting('deployed_sha'), 0, 7) . ' installed ' . time_ago((string) setting('deployed_at')) : ''), true],
+            ['Automatic updates', updater_enabled()
+                ? 'On — ' . updater_config()['repo'] . ' (' . updater_config()['branch'] . '), checked ' . (setting('update_checked_at') ? time_ago((string) setting('update_checked_at')) : 'not yet') . (setting('update_error') ? ' · last error: ' . setting('update_error') : '')
+                : 'Off — set auto_update in app/config.php to install tested releases automatically', !setting('update_error')],
         ];
         foreach ($checks as [$l, $v, $ok]): ?>
         <div class="flex items-center justify-between gap-4 px-6 py-3.5"><span class="text-sm font-medium text-navy"><?= e($l) ?></span><span class="flex items-center gap-2 text-right text-sm <?= $ok ? 'text-charcoal/70' : 'font-semibold text-red-600' ?>"><?= icon($ok ? 'circle-check' : 'circle-alert', 'h-4 w-4 ' . ($ok ? 'text-emerald-600' : 'text-red-600')) ?><?= e($v) ?></span></div>

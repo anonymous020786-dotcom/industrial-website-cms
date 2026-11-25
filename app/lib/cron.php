@@ -21,6 +21,7 @@ function cron_run(bool $force = false): array
         'digest' => [0, 'cron_lead_digest'],          // time-of-day gated inside
         'backup' => [0, 'cron_backup'],               // time-of-day gated inside
         'certificates' => [86400, 'cron_certificate_alerts'],
+        'update' => [0, 'cron_auto_update'],        // last: installs a newer tested release, if configured
     ];
     foreach ($tasks as $name => [$every, $fn]) {
         $last = (int) setting("cron_last_{$name}", 0);
@@ -151,4 +152,11 @@ function cron_key(): string
     $k = (string) setting('cron_key', '');
     if (strlen($k) < 32) { $k = bin2hex(random_bytes(24)); setting_set('cron_key', $k); }
     return $k;
+}
+
+
+/** Install a newer release that passed CI (see app/lib/updater.php). Off unless configured. */
+function cron_auto_update(bool $force): ?string
+{
+    return updater_enabled() ? updater_run(false) : null;
 }

@@ -33,6 +33,27 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Servers with automatic updates (app/lib/updater.php, 'auto_update' in app/config.php) install
+  # whatever the `release` branch points at. Only commits whose full CI run passed get there.
+  promote:
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 0
+      - name: Move the release branch to the tested commit
+        env:
+          SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          # release only ever points at a commit that passed CI; servers pick it up within 10 minutes
+          git push --force origin "$SHA:refs/heads/release"
+          echo "::notice::release → ${SHA:0:7}"
+
   deploy:
     if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     runs-on: ubuntu-24.04
