@@ -1391,6 +1391,51 @@ test('content approval: editors\' changes to live posts wait for an administrato
   }
 });
 
+test('weekly owner report: figures, needs-attention list, preview, send now, once a week from cron', async () => {
+  const keep = ['report_recipients', 'report_day', 'report_hour', 'report_weekly'].map((k) => [k, getSetting(k)]);
+  sql("INSERT INTO leads (type, status, priority, name, email, product, message, source_page, created_at) VALUES ('quote', 'new', 'high', 'E2E Weekly', 'e2e+weekly@example.com', 'Hydraulic Cylinders', 'x', 'http://localhost/products/e2e-weekly-page', NOW() - INTERVAL 30 HOUR)");
+  sql("INSERT INTO events (type, page) VALUES ('part_missing', 'e2e-miss-7781'), ('part_missing', 'e2e-miss-7781'), ('search_empty', 'e2e nothing here')");
+  try {
+    const pv = await admin.get('admin/reports/weekly');
+    assert.equal(pv.status, 200);
+    assert.match(pv.text, /data-weekly-preview/);
+    assert.match(pv.text, /New enquiries/);
+    assert.match(pv.text, /not been contacted for more than 24 hours/);
+    assert.match(pv.text, /Pages bringing enquiries[\s\S]*\/products\/e2e-weekly-page/);
+    assert.match(pv.text, /could not find[\s\S]*e2e-miss-7781[\s\S]*>2</);
+    assert.match(pv.text, /Searches with no results[\s\S]*e2e nothing here/);
+
+    setSetting('report_recipients', 'e2e+owner@example.com, not-an-email');
+    const before = Date.now();
+    await admin.post('admin/reports/weekly/send', { _token: csrf });
+    if (DEBUG) {
+      const dir = join(ROOT, 'app/storage/mail');
+      const newest = readdirSync(dir).filter((f) => f.endsWith('.html')).sort().slice(-5).map((f) => readFileSync(join(dir, f), 'utf8'));
+      assert.ok(newest.some((h) => /Weekly report: \d+ enquiries/.test(h) && /e2e\+owner@example\.com/.test(h) && /e2e-miss-7781/.test(h)), 'report emailed to the chosen recipients');
+    }
+    assert.ok(sql("SELECT id FROM content_log WHERE entity = 'report' AND created_at >= NOW() - INTERVAL 1 MINUTE").length);
+
+    // Cron: due on the chosen day/hour, then not again the same week
+    const run = () => php(['-r', "require 'app/bootstrap.php'; echo cron_weekly_report(false) ?? 'not due';"]).trim();
+    const dow = Number(php(['-r', "require 'app/bootstrap.php'; echo date('N');"]));
+    setSetting('report_weekly', true);
+    setSetting('report_day', dow === 7 ? 1 : dow + 1);
+    setSetting('report_hour', 0);
+    setSetting('cron_last_weekly', 0);
+    assert.equal(run(), 'not due', 'wrong weekday');
+    setSetting('report_day', dow);
+    assert.match(run(), /^weekly report sent \(1 email recipient/);
+    setSetting('cron_last_weekly', Math.floor(before / 1000));
+    assert.equal(run(), 'not due', 'only once a week');
+  } finally {
+    for (const [k, v] of keep) setSetting(k, v);
+    setSetting('cron_last_weekly', 0);
+    sql("DELETE FROM events WHERE page LIKE 'e2e%'");
+    sql("DELETE FROM leads WHERE email = 'e2e+weekly@example.com'");
+    sql("DELETE FROM content_log WHERE entity = 'report'");
+  }
+});
+
 test('keep me signed in: survives a browser restart, rotates, is device-bound, detects stolen tokens, ends on sign-out', async () => {
   setSetting('remember_enabled', true);
   setSetting('remember_days', 30);

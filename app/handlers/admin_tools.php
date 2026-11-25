@@ -142,7 +142,8 @@ function admin_reports(): void
     $months = db_all("SELECT DATE_FORMAT(created_at, '%Y-%m') m, COUNT(*) n, SUM(status = 'won') won FROM leads WHERE status <> 'spam' AND created_at >= DATE_FORMAT(CURDATE() - INTERVAL 11 MONTH, '%Y-%m-01') GROUP BY m ORDER BY m");
     $events = array_column(db_all("SELECT type, COUNT(*) n FROM events WHERE created_at >= ? AND created_at < ? + INTERVAL 1 DAY GROUP BY type ORDER BY n DESC", [$from, $to]), 'n', 'type');
     $downloads = db_all("SELECT page, COUNT(*) n FROM events WHERE type IN ('datasheet','catalogue') AND created_at >= ? AND created_at < ? + INTERVAL 1 DAY GROUP BY page ORDER BY n DESC LIMIT 10", [$from, $to]);
-    $actions = '<a class="adm-btn adm-btn-light" href="' . e(url('admin/reports') . qs(['export' => 'csv'])) . '">' . icon('download', 'h-4 w-4') . ' Export CSV</a>';
+    $actions = '<a class="adm-btn adm-btn-light" href="' . e(url('admin/reports') . qs(['export' => 'csv'])) . '">' . icon('download', 'h-4 w-4') . ' Export CSV</a>'
+        . (can('settings') ? '<a class="adm-btn adm-btn-light" href="' . e(url('admin/reports/weekly')) . '">' . icon('mail', 'h-4 w-4') . ' Weekly report</a>' : '');
     admin_render('Lead reports', 'reports', compact('rows', 'totals', 'group', 'from', 'to', 'range', 'months', 'events', 'downloads'), ['actions' => $actions, 'wide' => true]);
 }
 

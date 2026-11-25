@@ -136,7 +136,7 @@ function admin_review_decide(string $id): void
 
 const ACTIVITY_ENTITIES = ['page' => 'Pages', 'post' => 'Blog posts', 'products' => 'Products', 'projects' => 'Projects', 'categories' => 'Categories', 'product_categories' => 'Product categories',
     'industries' => 'Industries', 'certificates' => 'Certificates', 'testimonials' => 'Testimonials', 'downloads' => 'Downloads', 'part_refs' => 'Part numbers', 'distributors' => 'Distributors',
-    'jobs' => 'Job openings', 'users' => 'Users', 'quote' => 'Quotations'];
+    'jobs' => 'Job openings', 'users' => 'Users', 'quote' => 'Quotations', 'report' => 'Reports'];
 
 function activity_link(array $r): ?string
 {
@@ -164,4 +164,36 @@ function admin_activity(): void
     $rows = db_all("SELECT l.*, u.name AS user_name FROM content_log l LEFT JOIN users u ON u.id = l.user_id WHERE {$w} ORDER BY l.id DESC LIMIT {$pager['per']} OFFSET {$pager['offset']}", $params);
     $users = array_column(db_all('SELECT id, name FROM users ORDER BY name'), 'name', 'id');
     admin_render('Activity', 'workflow/activity', compact('rows', 'pager', 'users'), ['wide' => true]);
+}
+
+/* ------------------------------------------------------------------ */
+/* Weekly owner report: preview and send now                          */
+/* ------------------------------------------------------------------ */
+
+function admin_report_weekly(): void
+{
+    require_login('settings');
+    $d = weekly_report_data();
+    $html = weekly_report_html($d);
+    $next = null;
+    if (setting('report_weekly', true)) {
+        $day = (int) setting('report_day', 1);
+        $hour = (int) setting('report_hour', 8);
+        $t = strtotime('today ' . $hour . ':00');
+        while ((int) date('N', $t) !== $day || $t <= time() || date('o-W', $t) === date('o-W', (int) setting('cron_last_weekly', 0))) $t += 86400;
+        $next = $t;
+    }
+    $actions = '<a class="adm-btn adm-btn-light" href="' . e(url('admin/settings/workflow')) . '">' . icon('settings', 'h-4 w-4') . ' Schedule & recipients</a>';
+    admin_render('Weekly report', 'workflow/weekly', compact('html', 'next'), ['actions' => $actions, 'crumbs' => [['Reports', 'admin/reports']]]);
+}
+
+function admin_report_weekly_send(): void
+{
+    require_login('settings');
+    csrf_check();
+    if (!rate_limit('weekly-report-now', 5, 3600)) { flash('error', 'The report was sent several times in the last hour. Please try later.'); redirect('admin/reports/weekly'); }
+    $r = weekly_report_send();
+    content_log('report', null, 'sent', 'Weekly report', $r['emails'] . ' email recipient(s), ' . $r['telegram'] . ' Telegram');
+    flash($r['emails'] || $r['telegram'] ? 'success' : 'error', $r['emails'] || $r['telegram'] ? 'Weekly report sent to ' . $r['emails'] . ' email recipient(s)' . ($r['telegram'] ? ' and ' . $r['telegram'] . ' Telegram chat(s)' : '') . '.' : 'Nothing was sent — check the recipients and email settings.');
+    redirect('admin/reports/weekly');
 }

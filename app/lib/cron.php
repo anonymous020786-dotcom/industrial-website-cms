@@ -21,6 +21,7 @@ function cron_run(bool $force = false): array
         'digest' => [0, 'cron_lead_digest'],          // time-of-day gated inside
         'backup' => [0, 'cron_backup'],               // time-of-day gated inside
         'certificates' => [86400, 'cron_certificate_alerts'],
+        'weekly' => [0, 'cron_weekly_report'],     // day/time gated inside
         'update' => [0, 'cron_auto_update'],        // last: installs a newer tested release, if configured
     ];
     foreach ($tasks as $name => [$every, $fn]) {

@@ -87,6 +87,8 @@ function routes(): array
         ['POST', '/admin/redirects/404', 'admin_404_action', 'admin_tools'],
         ['POST', '/admin/redirects/{id}/delete', 'admin_redirect_delete', 'admin_tools'],
         ['GET', '/admin/reports', 'admin_reports', 'admin_tools'],
+        ['GET', '/admin/reports/weekly', 'admin_report_weekly', 'admin_workflow'],
+        ['POST', '/admin/reports/weekly/send', 'admin_report_weekly_send', 'admin_workflow'],
         ['GET', '/admin/backups', 'admin_backups', 'admin_tools'],
         ['POST', '/admin/backups/create', 'admin_backup_create', 'admin_tools'],
         ['POST', '/admin/backups/download', 'admin_backup_download', 'admin_tools'],
