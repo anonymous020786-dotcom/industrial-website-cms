@@ -688,3 +688,10 @@ CREATE TABLE IF NOT EXISTS reviews (
   KEY idx_reviews_product (product_id, status),
   KEY idx_reviews_status (status, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Form tokens that were already used (single-use public forms; rows expire after 2 hours)
+CREATE TABLE IF NOT EXISTS form_nonces (
+  nonce      CHAR(40) NOT NULL PRIMARY KEY,
+  expires_at DATETIME NOT NULL,
+  KEY idx_form_nonces_expires (expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

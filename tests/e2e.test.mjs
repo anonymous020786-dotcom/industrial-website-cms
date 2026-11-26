@@ -1571,17 +1571,20 @@ test('newsletter: double opt-in, welcome, campaign with test, batch send, open/c
     assert.match(home.text, /data-newsletter/);
     await sleep(3200);
     const ft = formToken(home.text);
-    let r = await v.post('newsletter/subscribe', { _ft: ft, email: 'not-an-email', source: 'footer' }, { Accept: 'application/json' });
+    const TS = { 'cf-turnstile-response': TS_TOKEN };
+    let r = await v.post('newsletter/subscribe', { _ft: ft, email: 'not-an-email', source: 'footer', ...TS }, { Accept: 'application/json' });
     assert.equal(r.status, 422);
-    r = await v.post('newsletter/subscribe', { _ft: ft, email: 'E2E+NL@example.com', source: 'footer' }, { Accept: 'application/json' });
-    assert.match(JSON.parse(r.text).message, /check your inbox/);
+    r = await v.post('newsletter/subscribe', { _ft: ft, email: 'E2E+NL@example.com', source: 'footer', ...TS }, { Accept: 'application/json' });
+    const first = JSON.parse(r.text);
+    assert.match(first.message, /check your inbox/);
     let sub = sql("SELECT * FROM subscribers WHERE email = 'e2e+nl@example.com'")[0];
     assert.equal(sub.status, 'pending');
     if (DEBUG) assert.ok(findMail(new RegExp(`newsletter/confirm/${sub.token}`)), 'confirmation email with link');
     r = await v.get(`newsletter/confirm/${sub.token}`);
     assert.match(r.text, /You are subscribed/);
     assert.equal(sql("SELECT status FROM subscribers WHERE email = 'e2e+nl@example.com'")[0].status, 'subscribed');
-    r = await v.post('newsletter/subscribe', { _ft: ft, email: 'e2e+nl@example.com' }, { Accept: 'application/json' });
+    await sleep(3200); // the fresh token from the answer is valid after a few seconds, like any form
+    r = await v.post('newsletter/subscribe', { _ft: first.ft, email: 'e2e+nl@example.com', ...TS }, { Accept: 'application/json' });
     assert.match(JSON.parse(r.text).message, /check your inbox/, 'same answer for existing addresses (no list disclosure)');
 
     // Campaign: draft, test, send
@@ -1780,6 +1783,46 @@ test('reviews: moderated star reviews on product pages, verified customers, team
     clean();
     setSetting('reviews_moderation', 'all');
   }
+});
+
+test('form protection: single-use form tokens, spam filed without alerts, newsletter needs Turnstile, tokens are signed', async () => {
+  sql("DELETE FROM leads WHERE email IN ('e2e+once@example.com', 'e2e+spamlead@example.com')");
+  sql('DELETE FROM rate_limits');
+  const v = new Client();
+  const page = await v.get('contact');
+  await sleep(3200);
+  const base = { form: 'contact', _ft: formToken(page.text), fullName: 'E2E Once', email: 'e2e+once@example.com', product: 'Hydraulic Cylinders', message: 'Please call me about 80 mm cylinders.', consent: '1', 'cf-turnstile-response': TS_TOKEN };
+  let r = await v.post('lead', base, { Accept: 'application/json' });
+  assert.equal(r.status, 200, r.text);
+  r = await v.post('lead', base, { Accept: 'application/json' });
+  assert.equal(JSON.parse(r.text).duplicate, true, 'a replayed form is ignored');
+  assert.equal(sql("SELECT COUNT(*) n FROM leads WHERE email = 'e2e+once@example.com'")[0].n, 1, 'no duplicate lead');
+
+  // A tampered or unsigned token is refused
+  r = await v.post('lead', { ...base, _ft: '1700000000.0123456789abcdef.' + '0'.repeat(32), email: 'e2e+forged@example.com' }, { Accept: 'application/json' });
+  assert.equal(r.status, 422);
+
+  // Spam is kept (marked) but nobody is alerted
+  const before = Number(sql("SELECT COUNT(*) n FROM notifications")[0].n);
+  const p2 = await v.get('contact');
+  await sleep(3200);
+  r = await v.post('lead', { ...base, _ft: formToken(p2.text), email: 'e2e+spamlead@example.com', message: 'Cheap seo http://a.example http://b.example http://c.example http://d.example http://e.example http://f.example' }, { Accept: 'application/json' });
+  assert.equal(r.status, 200);
+  const spam = sql("SELECT id, status FROM leads WHERE email = 'e2e+spamlead@example.com'")[0];
+  assert.equal(spam.status, 'spam');
+  assert.ok(sql("SELECT id FROM lead_notes WHERE lead_id = ? AND body LIKE 'Filed as spam automatically%'", [spam.id]).length);
+  assert.equal(Number(sql("SELECT COUNT(*) n FROM notifications")[0].n), before, 'no alerts for spam');
+
+  // Newsletter: Turnstile is checked on the server when it is configured
+  if (getSetting('turnstile_site_key') && getSetting('turnstile_secret')) {
+    const home = await v.get('');
+    assert.match(home.text, /data-ts-lazy data-sitekey=/);
+    await sleep(3200);
+    r = await v.post('newsletter/subscribe', { _ft: formToken(home.text), email: 'e2e+nots@example.com' }, { Accept: 'application/json' });
+    assert.equal(r.status, 422);
+    assert.equal(sql("SELECT COUNT(*) n FROM subscribers WHERE email = 'e2e+nots@example.com'")[0].n, 0);
+  }
+  sql("DELETE FROM leads WHERE email IN ('e2e+once@example.com', 'e2e+spamlead@example.com')");
 });
 
 test('keep me signed in: survives a browser restart, rotates, is device-bound, detects stolen tokens, ends on sign-out', async () => {

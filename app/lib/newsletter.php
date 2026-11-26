@@ -195,5 +195,6 @@ function newsletter_form(string $variant = 'footer'): string
         . '<div class="newsletter-row"><input id="' . $id . '" type="email" name="email" required placeholder="Your work email" autocomplete="email">'
         . '<button type="submit" class="btn btn-primary">' . e((string) setting('newsletter_button', 'Subscribe')) . '</button></div>'
         . '<p class="newsletter-note">' . e((string) setting('newsletter_note', 'Monthly engineering notes. No spam — unsubscribe any time.')) . '</p>'
+        . (turnstile_enabled() ? '<div class="newsletter-ts" data-ts-lazy data-sitekey="' . e((string) setting('turnstile_site_key')) . '"></div>' : '')
         . '<p class="newsletter-msg" data-newsletter-msg role="status" hidden></p></form>';
 }

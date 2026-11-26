@@ -11,7 +11,7 @@ define('APP_DIR', __DIR__);
 define('PUBLIC_DIR', is_dir(APP_ROOT . '/public') ? APP_ROOT . '/public' : APP_ROOT . '/public_html');
 define('STORAGE_DIR', APP_DIR . '/storage');
 define('APP_VERSION', '2.0.0');
-define('SCHEMA_VERSION', 15); // bump with every database change in app/lib/seed.php run_migrations()
+define('SCHEMA_VERSION', 16); // bump with every database change in app/lib/seed.php run_migrations()
 
 $configFile = APP_DIR . '/config.php';
 $GLOBALS['__config'] = is_file($configFile) ? require $configFile : [];

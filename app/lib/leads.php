@@ -40,15 +40,46 @@ function lead_status_badge(string $status): string
 function form_token(): string
 {
     $ts = (string) time();
-    return $ts . '.' . substr(hash_hmac('sha256', $ts, (string) config('app_key')), 0, 32);
+    $nonce = bin2hex(random_bytes(8));
+    return $ts . '.' . $nonce . '.' . substr(hash_hmac('sha256', $ts . '|' . $nonce, (string) config('app_key')), 0, 32);
 }
 
 function form_token_valid(string $token): bool
 {
-    [$ts, $sig] = array_pad(explode('.', $token, 2), 2, '');
-    if (!ctype_digit($ts) || !hash_equals(substr(hash_hmac('sha256', $ts, (string) config('app_key')), 0, 32), $sig)) return false;
+    [$ts, $nonce, $sig] = array_pad(explode('.', $token, 3), 3, '');
+    if (!ctype_digit($ts) || !preg_match('~^[a-f0-9]{16}$~', $nonce) || !hash_equals(substr(hash_hmac('sha256', $ts . '|' . $nonce, (string) config('app_key')), 0, 32), $sig)) return false;
     $age = time() - (int) $ts;
     return $age >= 3 && $age <= 7200; // humans take >3 s; tokens expire after 2 h
+}
+
+/**
+ * Mark a form token as used. Call it once a submission is accepted (not on validation errors, so people
+ * can correct the form and send it again). Returns false when the same form was already sent: a double
+ * click, or a bot replaying a captured form.
+ */
+function form_token_consume(string $token): bool
+{
+    if (!form_token_valid($token)) return false;
+    try {
+        db_query('INSERT INTO form_nonces (nonce, expires_at) VALUES (?, NOW() + INTERVAL 2 HOUR)', [substr(hash('sha256', $token), 0, 40)]);
+        return true;
+    } catch (PDOException $e) {
+        if (($e->errorInfo[1] ?? 0) === 1062) return false; // duplicate key: this form was already sent
+        throw $e;
+    }
+}
+
+/** Why a public submission looks like spam (null = it doesn't). Shared by forms, comments and reviews. */
+function content_spam_reason(string $text, int $maxLinks): ?string
+{
+    $low = mb_strtolower($text);
+    foreach (array_filter(array_map('trim', preg_split('~[\n,]~', (string) setting('comments_blocked_words', '')) ?: [])) as $w) {
+        if ($w !== '' && str_contains($low, mb_strtolower($w))) return 'Blocked word: ' . $w;
+    }
+    if (preg_match_all('~https?://|www\.~i', $text) > $maxLinks) return 'Too many links';
+    if (preg_match('~\[url=|<a\s+href~i', $text)) return 'Link markup (BBCode/HTML)';
+    if (preg_match('~[\x{0400}-\x{04FF}]{20,}~u', $text) && !setting('spam_allow_cyrillic', false)) return 'Text in an unexpected script';
+    return null;
 }
 
 function turnstile_enabled(): bool
@@ -189,6 +220,10 @@ function lead_submit(array $in, array $files): array
 
     if ($type === 'job' && !$uploads && !isset($errors['attachments'])) $errors['attachments'] = 'Please attach your CV (PDF or Word).';
     if ($errors) return ['ok' => false, 'errors' => $errors, 'message' => 'Please correct the highlighted fields.'];
+    // The same form can only be sent once (double clicks and replayed forms don't create duplicates)
+    if (!form_token_consume((string) ($in['_ft'] ?? ''))) return ['ok' => true, 'id' => 0, 'duplicate' => true];
+    $spam = content_spam_reason($data['message'] . ' ' . $data['name'] . ' ' . $data['company'], (int) setting('leads_max_links', 5));
+    if ($spam) $data['status'] = 'spam';
 
     $ref = (string) ($_SERVER['HTTP_REFERER'] ?? '');
     $utm = [];
@@ -220,6 +255,7 @@ function lead_submit(array $in, array $files): array
         }
     }
     lead_note($id, 'system', 'Received via the ' . strtolower(LEAD_FORMS[$type]) . ' form.');
+    if ($spam) { lead_note($id, 'system', 'Filed as spam automatically (' . $spam . '). No alerts were sent. Change the status if it is genuine.'); return ['ok' => true, 'id' => $id]; }
     if ($type === 'job') { job_application_notify($id); return ['ok' => true, 'id' => $id]; }
     lead_notify($id);
     if ($type === 'service') return ['ok' => true, 'id' => $id] + service_after_submit($id);

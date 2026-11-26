@@ -147,6 +147,7 @@ function download_lead_submit(array $in, string $what): bool|array
     if ($v('company') === '') $errors['company'] = 'Please enter your company.';
     if (empty($in['consent'])) $errors['consent'] = 'Please confirm to continue.';
     if ($errors) return ['Please correct the highlighted fields.', $errors];
+    if (!form_token_consume((string) ($in['_ft'] ?? ''))) return true; // already sent (double click): just continue to the file
     // One lead per email + document per day (repeat downloads don't create duplicates)
     $dup = db_val("SELECT id FROM leads WHERE type = 'download' AND email = ? AND product = ? AND created_at >= NOW() - INTERVAL 1 DAY", [$v('email'), mb_substr($what, 0, 190)]);
     if (!$dup) {

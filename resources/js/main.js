@@ -599,18 +599,37 @@
   function initMisc() {
     if ($('[data-mobile-bar]')) document.documentElement.classList.add('has-mobile-bar');
     $$('[data-print]').forEach((b) => b.addEventListener('click', () => window.print()));
-    // Newsletter sign-up
+    // Newsletter sign-up (Cloudflare Turnstile renders invisibly once someone starts typing)
     $$('form[data-newsletter]').forEach((f) => {
+      const slot = $('[data-ts-lazy]', f);
+      let widget = null;
+      const render = () => {
+        if (!slot || widget !== null || !window.turnstile) return;
+        widget = window.turnstile.render(slot, { sitekey: slot.dataset.sitekey, appearance: 'interaction-only', size: 'flexible', 'response-field-name': 'cf-turnstile-response' });
+      };
+      f.addEventListener('focusin', render);
+      const tsToken = async () => {
+        if (!slot) return true;
+        render();
+        for (let i = 0; i < 50; i++) { // wait up to 10 s for the check
+          if (widget !== null && window.turnstile.getResponse(widget)) return true;
+          await new Promise((r) => setTimeout(r, 200));
+        }
+        return false;
+      };
       f.addEventListener('submit', async (e) => {
         e.preventDefault();
         const msg = $('[data-newsletter-msg]', f);
         const btn = $('button[type="submit"]', f);
         btn.disabled = true;
+        if (!(await tsToken())) { msg.textContent = 'Please complete the security check.'; msg.hidden = false; msg.classList.add('is-error'); btn.disabled = false; return; }
         try {
           const r = await fetch(f.action, { method: 'POST', body: new FormData(f), headers: { Accept: 'application/json' } });
           const j = await r.json();
           msg.textContent = j.message; msg.hidden = false; msg.classList.toggle('is-error', !j.ok);
           if (j.ok) { f.classList.add('is-done'); f.elements.email.value = ''; }
+          if (widget !== null) window.turnstile.reset(widget); // tokens are single-use
+          const ft = f.elements._ft; if (ft && j.ft) ft.value = j.ft;
         } catch { msg.textContent = 'Something went wrong. Please try again.'; msg.hidden = false; msg.classList.add('is-error'); }
         btn.disabled = false;
       });

@@ -184,6 +184,7 @@ function site_comment_submit(string $slug): void
     if (mb_strlen($body) < 3) $fail('Please write a comment.');
     if (mb_strlen($body) > 5000) $fail('Comments can be up to 5,000 characters.');
 
+    if (!$staff && !form_token_consume((string) ($_POST['_ft'] ?? ''))) $back('pending'); // already sent
     // Replies attach to the top-level comment (one level of threading)
     $parent = null;
     if (ctype_digit((string) ($_POST['parent_id'] ?? ''))) {
@@ -222,13 +223,16 @@ function site_newsletter_subscribe(): void
 {
     $json = wants_json();
     $reply = function (bool $ok, string $msg, int $code = 200) use ($json) {
-        if ($json) json_response(['ok' => $ok, 'message' => $msg], $code);
+        if ($json) json_response(['ok' => $ok, 'message' => $msg, 'ft' => form_token()], $code); // a fresh token for another sign-up
         newsletter_page($ok ? 'Almost there' : 'Subscription not completed', '<p class="mt-4 text-lg text-charcoal/80">' . e($msg) . '</p><a class="btn btn-primary mt-8" href="' . e(url('')) . '">Back to the website</a>', $code);
     };
     if (!newsletter_enabled()) $reply(false, 'The newsletter is not available right now.', 404);
     if (!empty($_POST['website'])) $reply(true, 'Thank you! Please check your inbox to confirm.'); // honeypot
     if (!form_token_valid((string) ($_POST['_ft'] ?? ''))) $reply(false, 'The form expired. Please refresh the page and try again.', 422);
+    if (!turnstile_verify((string) ($_POST['cf-turnstile-response'] ?? ''))) $reply(false, 'The security check did not complete. Please try again.', 422);
     if (!rate_limit(ip_bucket('newsletter'), 5, 3600)) $reply(false, 'Too many attempts. Please try again later.', 429);
+    if (!filter_var(trim((string) ($_POST['email'] ?? '')), FILTER_VALIDATE_EMAIL)) $reply(false, 'Please enter a valid email address.', 422);
+    if (!form_token_consume((string) ($_POST['_ft'] ?? ''))) $reply(true, 'Thank you! Please check your inbox and click the link to confirm your subscription.');
     $src = preg_match('~^[a-z]{2,20}$~', (string) ($_POST['source'] ?? '')) ? (string) $_POST['source'] : 'website';
     $r = newsletter_subscribe((string) ($_POST['email'] ?? ''), (string) ($_POST['name'] ?? ''), $src);
     match ($r) {
@@ -332,6 +336,7 @@ function site_review_submit(): void
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) $fail('Please enter a valid email address (it is not published).');
     if (empty($_POST['consent'])) $fail('Please confirm that your review may be published.');
     if (db_val("SELECT 1 FROM reviews WHERE email = ? AND COALESCE(product_id, 0) = ? AND created_at >= NOW() - INTERVAL 30 DAY", [$email, (int) $pid])) $fail('You already reviewed this recently — thank you!');
+    if (!form_token_consume((string) ($_POST['_ft'] ?? ''))) redirect($backUrl . '?review=pending#reviews'); // already sent
     $spam = comment_spam_reason($body, $v('fullName', 120), $email);
     $verified = review_is_verified($email);
     $auto = setting('reviews_moderation', 'all') === 'verified' && $verified && !$spam;

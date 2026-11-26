@@ -142,6 +142,7 @@ function comment_html(string $body): string
 /** Why a comment looks like spam (null = it doesn't). */
 function comment_spam_reason(string $body, string $name, string $email): ?string
 {
+    if ($r = content_spam_reason($body . ' ' . $name, (int) setting('comments_max_links', 2))) return $r;
     $text = mb_strtolower($body . ' ' . $name);
     foreach (array_filter(array_map('trim', preg_split('~[\n,]~', (string) setting('comments_blocked_words', '')) ?: [])) as $w) {
         if ($w !== '' && str_contains($text, mb_strtolower($w))) return 'Blocked word: ' . $w;

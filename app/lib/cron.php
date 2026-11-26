@@ -59,6 +59,7 @@ function cron_cleanup(bool $force): string
     $n += db_query('DELETE FROM auth_events WHERE created_at < NOW() - INTERVAL 180 DAY')->rowCount();
     $n += db_query('DELETE FROM app_errors WHERE created_at < NOW() - INTERVAL 60 DAY')->rowCount();
     $n += analytics_cleanup();
+    $n += db_query('DELETE FROM form_nonces WHERE expires_at < NOW()')->rowCount();
     return "{$n} old rows removed";
 }
 
