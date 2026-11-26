@@ -720,3 +720,19 @@ html.headings-editorial .section-title { font-size: clamp(2.1rem, 3.9vw, 3.3rem)
 .star-input label:hover { transform: scale(1.1); }
 .star-input input:focus-visible + label { outline: 2px solid #174A78; outline-offset: 2px; }
 .star-input input:checked + label svg, .star-input input:checked ~ label svg { fill: currentColor; }
+
+/* Booking */
+.booking-steps { display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; font-size: .85rem; font-weight: 600; color: rgb(var(--text-rgb) / .5); }
+.booking-steps li { display: flex; align-items: center; gap: .5rem; }
+.booking-steps span { display: grid; place-items: center; width: 1.75rem; height: 1.75rem; border-radius: 999px; border: 2px solid currentColor; font-size: .8rem; }
+.booking-steps .is-current { color: var(--ink); }
+.booking-steps .is-current span { background: #F28C28; border-color: #F28C28; color: #101D32; }
+.booking-steps .is-done { color: #15803d; }
+.booking-days { display: grid; grid-template-columns: repeat(auto-fill, minmax(4.25rem, 1fr)); gap: .5rem; }
+.booking-day { display: flex; flex-direction: column; align-items: center; padding: .6rem .25rem; border: 1px solid var(--line-strong); color: var(--ink); line-height: 1.15; }
+.booking-day strong { font-size: 1.35rem; }
+.booking-day:hover { border-color: #174A78; }
+.booking-day.is-active { background: #101D32; border-color: #101D32; color: #fff; }
+.booking-slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr)); gap: .5rem; }
+.booking-slot { padding: .7rem .5rem; text-align: center; font-weight: 700; border: 1px solid #174A78; color: #174A78; }
+.booking-slot:hover, .booking-slot:focus-visible { background: #174A78; color: #fff; }

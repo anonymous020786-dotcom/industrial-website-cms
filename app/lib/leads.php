@@ -16,7 +16,7 @@ const LEAD_OPEN = ['new', 'contacted', 'qualified', 'quoted', 'negotiation'];
 const LEAD_FILE_EXT = ['pdf', 'dwg', 'dxf', 'jpg', 'jpeg', 'png'];
 const LEAD_CV_EXT = ['pdf', 'doc', 'docx'];
 /** Public forms that create a lead (type => label). Job applications are kept apart from sales leads. */
-const LEAD_FORMS = ['contact' => 'Contact', 'quote' => 'Quote request', 'service' => 'Service / breakdown', 'part' => 'Part request', 'distributor' => 'Distributor application', 'job' => 'Job application'];
+const LEAD_FORMS = ['contact' => 'Contact', 'quote' => 'Quote request', 'service' => 'Service / breakdown', 'part' => 'Part request', 'distributor' => 'Distributor application', 'job' => 'Job application', 'appointment' => 'Appointment'];
 const SERVICE_STATUSES = [
     'received' => ['Received', 'We have your request and are reviewing it.'],
     'scheduled' => ['Visit scheduled', 'An engineer visit or call-back is scheduled.'],

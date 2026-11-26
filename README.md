@@ -282,6 +282,24 @@ All of these are set up in Settings → Comments, Sharing & Newsletter.
   - Subscribers: add (with consent), CSV import (with consent), CSV export (administrators, step-up),
     unsubscribe, and delete all data.
 
+## Appointment booking
+
+- **`/book`**: customers pick an appointment type, a day and a free time, then enter their details. It
+  works without JavaScript.
+  - It starts with three types: site inspection (90 min, at the customer's site), factory visit and video
+    call. Edit them in Admin → Appointments → Appointment types (length, buffer, how it happens).
+  - Free times come from the working hours per weekday, minus existing bookings, holidays and the
+    minimum notice (Settings → Bookings). Several parallel bookings can be allowed.
+- **Confirmation.**
+  - Bookings are confirmed at once, or wait for your approval.
+  - The customer gets an email with a calendar invite (`.ics`) and a private link to reschedule or
+    cancel. Every change sends an updated invite.
+  - Reminders go out the day before.
+  - Each booking creates a lead and alerts the team.
+- **Admin → Appointments.** Today and upcoming, grouped by day.
+  - Confirm, complete, no-show, cancel (with an optional email to the customer).
+  - Move to another free time, keep internal notes, and open the linked lead.
+
 ## Visitor analytics and reviews
 
 - **Analytics** (Admin → Analytics). Built in, with no cookies and no third parties.

@@ -695,3 +695,44 @@ CREATE TABLE IF NOT EXISTS form_nonces (
   expires_at DATETIME NOT NULL,
   KEY idx_form_nonces_expires (expires_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Appointment booking: types (site inspection, factory visit, video call…) and bookings
+CREATE TABLE IF NOT EXISTS appointment_types (
+  id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name          VARCHAR(150) NOT NULL,
+  slug          VARCHAR(160) NOT NULL UNIQUE,
+  mode          VARCHAR(20) NOT NULL DEFAULT 'video',
+  duration_min  SMALLINT UNSIGNED NOT NULL DEFAULT 30,
+  buffer_min    SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  description   VARCHAR(300) NULL,
+  location_note VARCHAR(300) NULL,
+  status        ENUM('draft','published') NOT NULL DEFAULT 'published',
+  sort_order    INT NOT NULL DEFAULT 0,
+  created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS appointments (
+  id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  type_id       INT UNSIGNED NOT NULL,
+  mode          VARCHAR(20) NOT NULL DEFAULT 'video',
+  starts_at     DATETIME NOT NULL,
+  ends_at       DATETIME NOT NULL,
+  name          VARCHAR(150) NOT NULL,
+  company       VARCHAR(190) NULL,
+  email         VARCHAR(190) NOT NULL,
+  phone         VARCHAR(50) NULL,
+  location      VARCHAR(255) NULL,
+  notes         TEXT NULL,
+  staff_notes   TEXT NULL,
+  status        VARCHAR(20) NOT NULL DEFAULT 'confirmed',
+  token         CHAR(32) NOT NULL,
+  sequence      INT UNSIGNED NOT NULL DEFAULT 0,
+  lead_id       INT UNSIGNED NULL,
+  ip            VARCHAR(45) NULL,
+  reminded_at   DATETIME NULL,
+  cancelled_at  DATETIME NULL,
+  cancel_reason VARCHAR(500) NULL,
+  created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_appointments_token (token),
+  KEY idx_appointments_time (starts_at, status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

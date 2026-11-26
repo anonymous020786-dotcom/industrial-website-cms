@@ -15,6 +15,7 @@ $fmt = function (string $col, array $row) use ($r) {
             : '<span class="adm-badge bg-emerald-100 text-emerald-800">' . e(date('j M Y', strtotime((string) $v))) . '</span>')),
         'type' => e($v === 'post' ? 'Blog posts' : 'Pages'),
         'role' => e(ucfirst((string) $v)),
+        'mode' => e(APPOINTMENT_MODES[$v][0] ?? (string) $v),
         'product_id' => e($v ? (string) db_val('SELECT name FROM products WHERE id = ?', [(int) $v]) : '— Ask us —'),
         'applicants' => ($n = (int) db_val("SELECT COUNT(*) FROM leads WHERE type = 'job' AND job_id = ?", [(int) $row['id']])) && can('users')
             ? '<a class="font-semibold text-steel hover:underline" href="' . e(url('admin/careers/applications') . '?job=' . (int) $row['id']) . '">' . $n . '</a>' . (($new = (int) db_val("SELECT COUNT(*) FROM leads WHERE type = 'job' AND job_id = ? AND COALESCE(stage, 'new') = 'new'", [(int) $row['id']])) ? ' <span class="adm-badge bg-blue-100 text-blue-800">' . $new . ' new</span>' : '') : (string) $n,

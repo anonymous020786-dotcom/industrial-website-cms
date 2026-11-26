@@ -731,6 +731,22 @@ function resources(): array
                 'sort_order' => ['type' => 'number', 'label' => 'Display order', 'default' => 0],
             ],
         ],
+        'appointment_types' => [
+            'title' => 'Appointment types', 'singular' => 'Appointment type', 'table' => 'appointment_types', 'perm' => 'leads', 'order' => 'sort_order, name',
+            'columns' => ['name' => 'Name', 'mode' => 'How', 'duration_min' => 'Minutes', 'status' => 'Status'],
+            'view' => fn($r) => url('book') . '?type=' . $r['slug'],
+            'fields' => [
+                'name' => ['type' => 'text', 'label' => 'Name', 'required' => true, 'attrs' => 'data-slug-source'],
+                'slug' => ['type' => 'slug', 'label' => 'URL slug'],
+                'mode' => ['type' => 'select', 'label' => 'How it happens', 'options' => array_map(fn($m) => $m[0], APPOINTMENT_MODES)],
+                'duration_min' => ['type' => 'number', 'label' => 'Length (minutes)', 'default' => 30],
+                'buffer_min' => ['type' => 'number', 'label' => 'Buffer before and after (minutes)', 'default' => 0, 'help' => 'Travel or preparation time kept free around each booking.'],
+                'description' => ['type' => 'textarea', 'label' => 'Description (booking page)', 'rows' => 2],
+                'location_note' => ['type' => 'text', 'label' => 'Note in the confirmation', 'wide' => true, 'placeholder' => 'e.g. We send the Teams link the day before'],
+                'status' => ['type' => 'select', 'label' => 'Status', 'options' => ['published' => 'Bookable', 'draft' => 'Hidden']],
+                'sort_order' => ['type' => 'number', 'label' => 'Display order', 'default' => 0],
+            ],
+        ],
         'users' => [
             'title' => 'Users', 'singular' => 'User', 'table' => 'users', 'perm' => 'users', 'order' => 'name',
             'columns' => ['name' => 'Name', 'username' => 'Username', 'email' => 'Email', 'role' => 'Role', 'active' => 'Active', 'last_login_at' => 'Last login'],
@@ -805,6 +821,7 @@ function admin_resource_edit(string $res, ?string $id = null): void
         if ($res === 'jobs' && !empty($v['description'])) $v['description'] = sanitize_html((string) $v['description']);
         foreach (['sort_order'] as $n) if (array_key_exists($n, $v)) $v[$n] = (int) $v[$n];
         if ($res === 'jobs') $v['remote'] = ($v['remote'] ?? null) ?: 'onsite';
+        if ($res === 'appointment_types') { $v['duration_min'] = max(15, min(480, (int) ($v['duration_min'] ?: 30))); $v['buffer_min'] = max(0, min(240, (int) ($v['buffer_min'] ?? 0))); $v['mode'] = $v['mode'] ?: 'video'; }
         if ($res === 'jobs') $v['openings'] =($v['openings'] ?? '') !== '' && $v['openings'] !== null ? max(1, (int) $v['openings']) : null;
         foreach (['active'] as $b) if (array_key_exists($b, $v)) $v[$b] = (int) $v[$b];
         foreach ($r['json'] ?? [] as $j) if (array_key_exists($j, $v)) $v[$j] = json_encode($v[$j], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);

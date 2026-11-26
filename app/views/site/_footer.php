@@ -39,6 +39,7 @@ $hours = setting('company_hours', []) ?: [];
         <h2 class="footer-heading">Resources</h2>
         <ul class="mt-5 space-y-3 text-sm" data-footer-resources>
           <li><a class="footer-link" href="<?= e(url('service-request')) ?>">Breakdown &amp; service</a></li>
+          <?php if (booking_enabled() && booking_types()): ?><li><a class="footer-link" href="<?= e(url('book')) ?>">Book a visit or call</a></li><?php endif ?>
           <li><a class="footer-link" href="<?= e(url('parts')) ?>">Find a part number</a></li>
           <li><a class="footer-link" href="<?= e(url('calculators')) ?>">Hydraulic calculators</a></li>
           <li><a class="footer-link" href="<?= e(url('downloads')) ?>">Downloads</a></li>

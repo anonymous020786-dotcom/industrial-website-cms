@@ -470,3 +470,94 @@ function admin_review_moderate(string $id): void
     flash('success', $msg);
     back('admin/reviews-moderation');
 }
+
+/* ------------------------------------------------------------------ */
+/* Appointments                                                        */
+/* ------------------------------------------------------------------ */
+
+function appointment_or_404(string $id): array
+{
+    $a = ctype_digit($id) ? db_one('SELECT a.*, t.name AS type_name, t.duration_min FROM appointments a LEFT JOIN appointment_types t ON t.id = a.type_id WHERE a.id = ?', [(int) $id]) : null;
+    if (!$a) abort(404);
+    return $a;
+}
+
+function admin_appointments(): void
+{
+    require_login('leads');
+    $view = in_array($v = (string) query('view', 'upcoming'), ['upcoming', 'past', 'cancelled'], true) ? $v : 'upcoming';
+    $where = match ($view) {
+        'upcoming' => "a.status IN ('pending', 'confirmed') AND a.ends_at >= NOW()",
+        'past' => "a.status <> 'cancelled' AND a.ends_at < NOW()",
+        'cancelled' => "a.status = 'cancelled'",
+    };
+    $rows = db_all("SELECT a.*, t.name AS type_name FROM appointments a LEFT JOIN appointment_types t ON t.id = a.type_id WHERE {$where} ORDER BY a.starts_at " . ($view === 'upcoming' ? 'ASC' : 'DESC') . ' LIMIT 200');
+    $counts = [
+        'today' => (int) db_val("SELECT COUNT(*) FROM appointments WHERE status IN ('pending', 'confirmed') AND DATE(starts_at) = CURDATE()"),
+        'week' => (int) db_val("SELECT COUNT(*) FROM appointments WHERE status IN ('pending', 'confirmed') AND starts_at BETWEEN NOW() AND NOW() + INTERVAL 7 DAY"),
+        'pending' => (int) db_val("SELECT COUNT(*) FROM appointments WHERE status = 'pending' AND ends_at >= NOW()"),
+    ];
+    $actions = '<a class="adm-btn adm-btn-light" href="' . e(url('admin/r/appointment_types')) . '">' . icon('list', 'h-4 w-4') . ' Appointment types</a>'
+        . (can('settings') ? '<a class="adm-btn adm-btn-light" href="' . e(url('admin/settings/bookings')) . '">' . icon('clock', 'h-4 w-4') . ' Hours</a>' : '')
+        . '<a class="adm-btn adm-btn-primary" href="' . e(url('book')) . '" target="_blank">' . icon('external-link', 'h-4 w-4') . ' Booking page</a>';
+    admin_render('Appointments', 'appointments/index', compact('rows', 'view', 'counts'), ['actions' => $actions, 'wide' => true]);
+}
+
+function admin_appointment_show(string $id): void
+{
+    require_login('leads');
+    $a = appointment_or_404($id);
+    $type = db_one('SELECT * FROM appointment_types WHERE id = ?', [(int) $a['type_id']]);
+    $slots = [];
+    if ($type && in_array($a['status'], ['pending', 'confirmed'], true)) {
+        $d = preg_match('~^\d{4}-\d{2}-\d{2}$~', (string) query('date', '')) ? (string) query('date') : date('Y-m-d', strtotime((string) $a['starts_at']));
+        $slots = ['date' => $d, 'times' => booking_slots($type, $d, (int) $a['id'])];
+    }
+    admin_render(appointment_ref($a) . ' · ' . $a['name'], 'appointments/show', compact('a', 'type', 'slots'), ['crumbs' => [['Appointments', 'admin/appointments']]]);
+}
+
+function admin_appointment_action(string $id): void
+{
+    $me = require_login('leads');
+    csrf_check();
+    $a = appointment_or_404($id);
+    $act = (string) input('action', '');
+    $note = fn(string $t) => $a['lead_id'] ? lead_note((int) $a['lead_id'], 'system', $t, (int) $me['id']) : null;
+    switch ($act) {
+        case 'confirm':
+            db_update('appointments', ['status' => 'confirmed', 'sequence' => (int) $a['sequence'] + 1], (int) $a['id']);
+            appointment_email(db_one('SELECT * FROM appointments WHERE id = ?', [(int) $a['id']]), 'confirmed');
+            $note('Appointment ' . appointment_ref($a) . ' confirmed.');
+            $msg = 'Confirmed — the customer got the calendar invite.';
+            break;
+        case 'complete': case 'no_show':
+            db_update('appointments', ['status' => $act === 'complete' ? 'completed' : 'no_show'], (int) $a['id']);
+            $note('Appointment ' . appointment_ref($a) . ($act === 'complete' ? ' completed.' : ': customer did not show up.'));
+            $msg = $act === 'complete' ? 'Marked as completed.' : 'Marked as no-show.';
+            break;
+        case 'cancel':
+            $reason = mb_substr(trim((string) input('reason', '')), 0, 500);
+            db_update('appointments', ['status' => 'cancelled', 'cancelled_at' => now(), 'cancel_reason' => $reason ?: null, 'sequence' => (int) $a['sequence'] + 1], (int) $a['id']);
+            if (!empty($_POST['notify'])) appointment_email(db_one('SELECT * FROM appointments WHERE id = ?', [(int) $a['id']]), 'cancelled');
+            $note('Appointment ' . appointment_ref($a) . ' cancelled by ' . $me['name'] . ($reason ? ': ' . $reason : '.'));
+            $msg = 'Cancelled' . (!empty($_POST['notify']) ? ' and the customer was told.' : '.');
+            break;
+        case 'move':
+            $type = db_one('SELECT * FROM appointment_types WHERE id = ?', [(int) $a['type_id']]);
+            $start = (int) input('start', 0);
+            if (!$type || !in_array($start, booking_slots($type, date('Y-m-d', $start), (int) $a['id']), true)) { flash('error', 'That time is not free any more.'); redirect('admin/appointments/' . $a['id']); }
+            db_update('appointments', ['starts_at' => date('Y-m-d H:i:s', $start), 'ends_at' => date('Y-m-d H:i:s', $start + (int) $type['duration_min'] * 60), 'sequence' => (int) $a['sequence'] + 1, 'reminded_at' => null], (int) $a['id']);
+            appointment_email(db_one('SELECT * FROM appointments WHERE id = ?', [(int) $a['id']]), 'changed');
+            $note('Moved ' . appointment_ref($a) . ' to ' . date('l j F Y, H:i', $start) . '.');
+            $msg = 'Moved to ' . date('D j M, H:i', $start) . ' — the customer got the updated invite.';
+            break;
+        case 'notes':
+            db_update('appointments', ['staff_notes' => mb_substr(trim((string) input('staff_notes', '')), 0, 3000) ?: null], (int) $a['id']);
+            $msg = 'Notes saved.';
+            break;
+        default: abort(400);
+    }
+    content_log('appointment', (int) $a['id'], $act === 'cancel' ? 'deleted' : 'updated', appointment_ref($a) . ' · ' . $a['name'], ucfirst(str_replace('_', '-', $act)));
+    flash('success', $msg);
+    redirect('admin/appointments/' . $a['id']);
+}

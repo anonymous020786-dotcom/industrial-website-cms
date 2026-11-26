@@ -6,6 +6,8 @@ function admin_nav(): array
 {
     $newLeads = can('leads') ? (int) db_val("SELECT COUNT(*) FROM leads WHERE status = 'new'") : 0;
     $newApplications = can('users') ? (int) db_val("SELECT COUNT(*) FROM leads WHERE type = 'job' AND status = 'new'") : 0;
+    $upcomingAppts = 0;
+    if (can('leads')) { try { $upcomingAppts = (int) db_val("SELECT COUNT(*) FROM appointments WHERE (status = 'pending' AND ends_at >= NOW()) OR (status = 'confirmed' AND DATE(starts_at) = CURDATE())"); } catch (Throwable) {} }
     $pendingReviewsC = 0;
     if (can('content')) { try { $pendingReviewsC = (int) db_val("SELECT COUNT(*) FROM reviews WHERE status = 'pending'"); } catch (Throwable) {} }
     $pendingComments = 0;
@@ -18,6 +20,7 @@ function admin_nav(): array
         ['Dashboard', 'admin', 'layout-dashboard', 'dashboard'],
         ['Leads', 'admin/leads', 'inbox', 'leads', $newLeads],
         ['Quotes', 'admin/quotes', 'file-text', 'leads'],
+        ['Appointments', 'admin/appointments', 'calendar-days', 'leads', $upcomingAppts],
         ['_', 'Content'],
         ['Pages', 'admin/pages', 'file-text', 'content'],
         ['Blog Posts', 'admin/posts', 'newspaper', 'content'],

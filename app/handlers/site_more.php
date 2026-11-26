@@ -350,3 +350,124 @@ function site_review_submit(): void
     }
     redirect($backUrl . '?review=pending#reviews');
 }
+
+/* ------------------------------------------------------------------ */
+/* Appointment booking                                                 */
+/* ------------------------------------------------------------------ */
+
+function appointment_by_token(string $token): ?array
+{
+    return preg_match('~^[a-f0-9]{32}$~', $token) ? db_one('SELECT a.*, t.name AS type_name, t.slug AS type_slug FROM appointments a LEFT JOIN appointment_types t ON t.id = a.type_id WHERE a.token = ?', [$token]) : null;
+}
+
+function site_book(): void
+{
+    if (!booking_enabled()) abort(404);
+    $types = booking_types();
+    $type = null;
+    foreach ($types as $t) if ($t['slug'] === (string) query('type', '')) $type = $t;
+    $resched = query('reschedule') ? appointment_by_token((string) query('reschedule')) : null;
+    if ($resched && !in_array($resched['status'], ['pending', 'confirmed'], true)) $resched = null;
+    if ($resched && !$type) foreach ($types as $t) if ((int) $t['id'] === (int) $resched['type_id']) $type = $t;
+    $date = preg_match('~^\d{4}-\d{2}-\d{2}$~', (string) query('date', '')) ? (string) query('date') : null;
+    $days = $type ? booking_days($type) : [];
+    if ($type && !$date && $days) $date = (string) array_key_first($days);
+    $slots = $type && $date ? booking_slots($type, $date, $resched['id'] ?? null) : [];
+    $time = (string) query('time', '');
+    $slot = null;
+    foreach ($slots as $s) if (date('Hi', $s) === $time) $slot = $s;
+    $meta = ['title' => 'Book an appointment — site visit, factory visit or video call', 'description' => 'Book a site inspection, a factory visit or a video call with our engineers. Choose a free time and get a calendar invite straight away.',
+        'canonical' => abs_url('book'), 'noindex' => (bool) ($type || $resched), 'crumbs' => [['label' => 'Book an appointment', 'url' => url('book')]]];
+    site_render($meta, view('site/book', compact('meta', 'types', 'type', 'days', 'date', 'slots', 'slot', 'resched')));
+}
+
+function site_book_submit(): void
+{
+    if (!booking_enabled()) abort(404);
+    $fail = function (string $msg, int $code = 422) {
+        $meta = ['title' => 'Booking not completed', 'description' => '', 'noindex' => true, 'crumbs' => []];
+        site_render($meta, '<section class="section"><div class="mx-auto max-w-2xl px-4"><h1 class="font-display text-4xl font-bold uppercase text-navy">Booking not completed</h1><p class="mt-4 text-charcoal/80">' . e($msg)
+            . '</p><a class="btn btn-primary mt-8" href="' . e(url('book')) . '">Choose another time</a></div></section>', $code);
+        exit;
+    };
+    $type = null;
+    foreach (booking_types() as $t) if ((int) $t['id'] === (int) ($_POST['type_id'] ?? 0)) $type = $t;
+    if (!$type) $fail('Please choose what you would like to book.');
+    $resched = !empty($_POST['reschedule']) ? appointment_by_token((string) $_POST['reschedule']) : null;
+    if (!empty($_POST['reschedule']) && (!$resched || !in_array($resched['status'], ['pending', 'confirmed'], true))) $fail('This booking can no longer be changed.');
+    $start = ctype_digit((string) ($_POST['start'] ?? '')) ? (int) $_POST['start'] : 0;
+    if (!$start || !in_array($start, booking_slots($type, date('Y-m-d', $start), $resched['id'] ?? null), true)) $fail('Sorry — that time was just taken or is no longer available. Please choose another time.', 409);
+    $end = $start + max(15, (int) $type['duration_min']) * 60;
+
+    if ($resched) {
+        // Rescheduling needs only the private link (already proven by the token)
+        if (!rate_limit(ip_bucket('book-change'), 10, 3600)) $fail('Too many changes. Please contact us.', 429);
+        db_update('appointments', ['starts_at' => date('Y-m-d H:i:s', $start), 'ends_at' => date('Y-m-d H:i:s', $end), 'type_id' => (int) $type['id'], 'mode' => $type['mode'],
+            'sequence' => (int) $resched['sequence'] + 1, 'reminded_at' => null], (int) $resched['id']);
+        $a = db_one('SELECT * FROM appointments WHERE id = ?', [(int) $resched['id']]);
+        if ($a['lead_id']) lead_note((int) $a['lead_id'], 'system', 'Customer rescheduled ' . appointment_ref($a) . ' to ' . appointment_when($a) . '.');
+        appointment_email($a, 'changed');
+        appointment_notify_team($a, 'rescheduled');
+        redirect('book/manage/' . $a['token'] . '?changed=1');
+    }
+
+    if (!empty($_POST['website'])) redirect('book');
+    if (!form_token_valid((string) ($_POST['_ft'] ?? ''))) $fail('The form expired or was sent too quickly. Please go back, wait a moment and try again.');
+    if (!turnstile_verify((string) ($_POST['cf-turnstile-response'] ?? ''))) $fail('The security check failed. Please try again.');
+    if (!rate_limit(ip_bucket('book'), 5, 3600)) $fail('Too many bookings from your connection. Please call us instead.', 429);
+    $v = fn($k, $max = 190) => mb_substr(trim((string) ($_POST[$k] ?? '')), 0, $max);
+    $email = mb_strtolower($v('email'));
+    if (mb_strlen($v('fullName', 150)) < 2) $fail('Please enter your name.');
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) $fail('Please enter a valid email address — the calendar invite goes there.');
+    if (!preg_match('~^\+?[\d\s\-()]{7,20}$~', $v('phone', 50))) $fail('Please enter a phone number we can reach you on.');
+    if ($type['mode'] === 'onsite' && mb_strlen($v('location', 255)) < 3) $fail('Please enter the site address for the visit.');
+    if (empty($_POST['consent'])) $fail('Please confirm that we may use your details for this appointment.');
+    if (!form_token_consume((string) $_POST['_ft'])) $fail('This booking was already sent. Check your email for the confirmation.');
+
+    $status = setting('booking_auto_confirm', true) ? 'confirmed' : 'pending';
+    $notes = $v('notes', 3000);
+    $leadId = db_insert('leads', ['type' => 'appointment', 'priority' => $type['mode'] === 'onsite' ? 'high' : 'normal', 'name' => $v('fullName', 150), 'company' => $v('company'), 'email' => $email, 'phone' => $v('phone', 50),
+        'product' => mb_substr('Appointment: ' . $type['name'], 0, 190), 'message' => 'Booked ' . $type['name'] . ' for ' . date('l j F Y, H:i', $start) . ($notes !== '' ? "\n\n" . $notes : ''),
+        'location' => $v('location', 190) ?: null, 'source_page' => url('book'), 'ip' => client_ip(), 'user_agent' => mb_substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 500), 'consent' => 1]);
+    $id = db_insert('appointments', ['type_id' => (int) $type['id'], 'mode' => $type['mode'], 'starts_at' => date('Y-m-d H:i:s', $start), 'ends_at' => date('Y-m-d H:i:s', $end),
+        'name' => $v('fullName', 150), 'company' => $v('company') ?: null, 'email' => $email, 'phone' => $v('phone', 50), 'location' => $v('location', 255) ?: null, 'notes' => $notes ?: null,
+        'status' => $status, 'token' => bin2hex(random_bytes(16)), 'lead_id' => $leadId, 'ip' => client_ip()]);
+    $a = db_one('SELECT * FROM appointments WHERE id = ?', [$id]);
+    lead_note($leadId, 'system', 'Booked online: ' . appointment_ref($a) . ', ' . $type['name'] . ', ' . appointment_when($a) . ($status === 'pending' ? ' (waiting for confirmation).' : '.'));
+    appointment_email($a, 'booked');
+    appointment_notify_team($a, $status === 'pending' ? 'requested' : 'booked');
+    redirect('book/manage/' . $a['token'] . '?booked=1');
+}
+
+function site_book_manage(string $token): void
+{
+    $a = appointment_by_token($token);
+    if (!$a) abort(404);
+    if (is_post()) {
+        if (!in_array($a['status'], ['pending', 'confirmed'], true)) redirect('book/manage/' . $a['token']);
+        if (!rate_limit(ip_bucket('book-change'), 10, 3600)) abort(429);
+        $reason = mb_substr(trim((string) ($_POST['reason'] ?? '')), 0, 500);
+        db_update('appointments', ['status' => 'cancelled', 'cancelled_at' => now(), 'cancel_reason' => $reason ?: 'Cancelled by the customer', 'sequence' => (int) $a['sequence'] + 1], (int) $a['id']);
+        $a = db_one('SELECT * FROM appointments WHERE id = ?', [(int) $a['id']]);
+        if ($a['lead_id']) lead_note((int) $a['lead_id'], 'system', 'Customer cancelled ' . appointment_ref($a) . ($reason ? ': ' . $reason : '.'));
+        appointment_email($a, 'cancelled');
+        appointment_notify_team($a, 'cancelled');
+        redirect('book/manage/' . $a['token'] . '?cancelled=1');
+    }
+    $type = db_one('SELECT * FROM appointment_types WHERE id = ?', [(int) $a['type_id']]);
+    $meta = ['title' => 'Your appointment ' . appointment_ref($a), 'description' => '', 'noindex' => true, 'crumbs' => []];
+    header('Referrer-Policy: no-referrer');
+    site_render($meta, view('site/book_manage', compact('a', 'type')));
+}
+
+function site_book_ics(string $token): void
+{
+    $a = appointment_by_token($token);
+    if (!$a) abort(404);
+    $type = db_one('SELECT * FROM appointment_types WHERE id = ?', [(int) $a['type_id']]) ?: ['name' => 'Appointment', 'location_note' => ''];
+    header('Content-Type: text/calendar; charset=utf-8');
+    header('Content-Disposition: attachment; filename="' . appointment_ref($a) . '.ics"');
+    header('X-Robots-Tag: noindex');
+    echo appointment_ics($a, $type, $a['status'] === 'cancelled' ? 'CANCEL' : 'REQUEST');
+    exit;
+}

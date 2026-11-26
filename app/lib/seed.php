@@ -285,6 +285,14 @@ function run_migrations(): array
         db()->exec('ALTER TABLE `users` ADD UNIQUE KEY `uq_users_username` (`username`)');
         $changes[] = 'users.username unique index';
     }
+    if (!db_val('SELECT COUNT(*) FROM appointment_types')) {
+        foreach ([['Site inspection', 'site-inspection', 'onsite', 90, 30, 'An engineer visits your plant to inspect cranes or hydraulic equipment and measure parts.', 'Please arrange site access and a safety induction if needed.'],
+            ['Factory visit', 'factory-visit', 'factory', 60, 0, 'See our machining, welding and testing, and discuss your project with the engineering team.', 'Please bring photo ID.'],
+            ['Video call with an engineer', 'video-call', 'video', 30, 0, 'Discuss a part, a drawing or a breakdown on a video call.', 'We send the meeting link before the call.']] as $i => [$n, $s, $m, $d, $b, $desc, $note]) {
+            db_insert('appointment_types', ['name' => $n, 'slug' => $s, 'mode' => $m, 'duration_min' => $d, 'buffer_min' => $b, 'description' => $desc, 'location_note' => $note, 'sort_order' => $i]);
+        }
+        $changes[] = 'appointment types';
+    }
     setting_set('schema_version', SCHEMA_VERSION);
     return $changes;
 }

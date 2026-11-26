@@ -1825,6 +1825,99 @@ test('form protection: single-use form tokens, spam filed without alerts, newsle
   sql("DELETE FROM leads WHERE email IN ('e2e+once@example.com', 'e2e+spamlead@example.com')");
 });
 
+test('booking: free slots from working hours, book with calendar invite, no double booking, holidays, reschedule, cancel, admin confirm, reminders', async () => {
+  const keys = ['booking_enabled', 'booking_auto_confirm', 'booking_notice_hours', 'booking_days_ahead', 'booking_capacity', 'booking_holidays', 'booking_interval', ...[1, 2, 3, 4, 5, 6, 7].map((d) => 'booking_hours_' + d)];
+  const keep = keys.map((k) => [k, getSetting(k)]);
+  const clean = () => { sql("DELETE FROM appointments WHERE email LIKE 'e2e+%'"); sql("DELETE FROM leads WHERE email LIKE 'e2e+book%'"); };
+  clean();
+  setSetting('booking_enabled', true); setSetting('booking_auto_confirm', true); setSetting('booking_notice_hours', 2); setSetting('booking_days_ahead', 14);
+  setSetting('booking_capacity', 1); setSetting('booking_holidays', ''); setSetting('booking_interval', '60');
+  for (let d = 1; d <= 7; d++) setSetting('booking_hours_' + d, '09:00-17:00');
+  sql('DELETE FROM rate_limits');
+  try {
+    const c = new Client();
+    let r = await c.get('book');
+    assert.match(r.text, /data-booking-type="video-call"/);
+    r = await c.get('book?type=video-call');
+    const days = [...r.text.matchAll(/href="[^"]*date=(\d{4}-\d{2}-\d{2})" class="booking-day/g)].map((m) => m[1]);
+    assert.ok(days.length >= 10, 'every day of the next two weeks is bookable');
+    const day = days[1]; // tomorrow-ish: clear of the notice period
+    r = await c.get(`book?type=video-call&date=${day}`);
+    const times = [...r.text.matchAll(/class="booking-slot" href="[^"]*time=(\d{4})/g)].map((m) => m[1]);
+    assert.deepEqual(times.slice(0, 3), ['0900', '1000', '1100'], 'hourly slots from 09:00');
+    assert.equal(times.at(-1), '1600', 'last 30-min slot ends by 17:00');
+    r = await c.get(`book?type=video-call&date=${day}&time=1000`);
+    const start = r.text.match(/name="start" value="(\d+)"/)[1];
+    const typeId = r.text.match(/name="type_id" value="(\d+)"/)[1];
+    await sleep(3200);
+    const form = { _ft: formToken(r.text), form: 'booking', type_id: typeId, start, fullName: 'E2E Booker', company: 'E2E Mills', email: 'e2e+book@example.com', phone: '+91 90000 66666', notes: 'Hoist brake noise e2e-book', consent: '1', 'cf-turnstile-response': TS_TOKEN };
+    r = await c.post('book', form);
+    assert.equal(r.status, 302, r.text.slice(0, 300));
+    assert.match(r.location, /\/book\/manage\/[a-f0-9]{32}\?booked=1$/);
+    const a = sql("SELECT * FROM appointments WHERE email = 'e2e+book@example.com'")[0];
+    assert.equal(a.status, 'confirmed');
+    assert.ok(a.lead_id, 'a lead is created');
+    assert.equal(sql('SELECT type FROM leads WHERE id = ?', [a.lead_id])[0].type, 'appointment');
+    if (DEBUG) assert.ok(findMail(/to: e2e\+book@example\.com[^\n]*attachments: invite\.ics/), 'confirmation with calendar invite');
+    assert.ok(sql("SELECT id FROM notifications WHERE event = 'appointment_booked' AND link = ?", [`admin/appointments/${a.id}`]).length, 'team alerted');
+    const manage = await c.get(new URL(r.location, BASE).pathname.slice(1) + '?booked=1');
+    assert.match(manage.text, /data-booked/);
+    const ics = await c.get(`book/manage/${a.token}/invite.ics`);
+    assert.match(ics.type, /text\/calendar/);
+    assert.match(ics.text, /BEGIN:VEVENT[\s\S]*DTSTART:\d{8}T\d{6}Z/);
+    assert.match(ics.text, /\r\nSEQUENCE:0\r\n/);
+
+    // The same time can't be booked twice (capacity 1), and it disappears from the list
+    const other = new Client();
+    r = await other.get(`book?type=video-call&date=${day}`);
+    assert.doesNotMatch(r.text, /time=1000#details"/, 'taken slot hidden');
+    await sleep(3200);
+    r = await other.post('book', { ...form, _ft: formToken(r.text), email: 'e2e+book2@example.com' });
+    assert.equal(r.status, 409);
+
+    // Holidays have no slots
+    setSetting('booking_holidays', `${days[2]}`);
+    r = await c.get(`book?type=video-call&date=${days[2]}`);
+    assert.doesNotMatch(r.text, /class="booking-slot"/);
+    setSetting('booking_holidays', '');
+
+    // Reschedule with the private link → new time, updated invite (SEQUENCE 1)
+    r = await c.get(`book?reschedule=${a.token}&type=video-call&date=${day}&time=1400`);
+    assert.match(r.text, /name="reschedule" value="[a-f0-9]{32}"/);
+    r = await c.post('book', { type_id: typeId, start: r.text.match(/name="start" value="(\d+)"/)[1], reschedule: a.token });
+    assert.match(r.location, /\?changed=1$/);
+    const moved = sql('SELECT * FROM appointments WHERE id = ?', [a.id])[0];
+    assert.match(moved.starts_at, / 14:00:00$/);
+    assert.match((await c.get(`book/manage/${a.token}/invite.ics`)).text, /SEQUENCE:1/);
+
+    // Admin: list, internal notes; pending requests need confirming
+    assert.match((await admin.get('admin/appointments')).text, new RegExp(`data-appointment="${a.id}"`));
+    setSetting('booking_auto_confirm', false);
+    r = await other.get(`book?type=video-call&date=${day}&time=1100`);
+    await sleep(3200);
+    r = await other.post('book', { ...form, _ft: formToken(r.text), start: r.text.match(/name="start" value="(\d+)"/)[1], email: 'e2e+book3@example.com' });
+    const p = sql("SELECT * FROM appointments WHERE email = 'e2e+book3@example.com'")[0];
+    assert.equal(p.status, 'pending');
+    await admin.post(`admin/appointments/${p.id}/action`, { _token: csrf, action: 'confirm' });
+    assert.equal(sql('SELECT status FROM appointments WHERE id = ?', [p.id])[0].status, 'confirmed');
+
+    // Reminder the day before (once)
+    sql('UPDATE appointments SET starts_at = NOW() + INTERVAL 20 HOUR, ends_at = NOW() + INTERVAL 21 HOUR WHERE id = ?', [p.id]);
+    assert.match(php(['-r', "require 'app/bootstrap.php'; echo cron_booking_reminders(false) ?? 'none';"]), /booking reminders: \d+ sent/);
+    assert.ok(sql('SELECT reminded_at FROM appointments WHERE id = ?', [p.id])[0].reminded_at);
+
+    // The customer cancels → slot is free again
+    r = await c.post(`book/manage/${a.token}`, { reason: 'Fixed it ourselves' });
+    assert.match(r.location, /\?cancelled=1$/);
+    assert.equal(sql('SELECT status FROM appointments WHERE id = ?', [a.id])[0].status, 'cancelled');
+    r = await c.get(`book?type=video-call&date=${day}`);
+    assert.match(r.text, /time=1400#details"/, 'cancelled time is bookable again');
+  } finally {
+    clean();
+    for (const [k, v] of keep) setSetting(k, v);
+  }
+});
+
 test('keep me signed in: survives a browser restart, rotates, is device-bound, detects stolen tokens, ends on sign-out', async () => {
   setSetting('remember_enabled', true);
   setSetting('remember_days', 30);
